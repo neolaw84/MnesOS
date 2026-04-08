@@ -73,6 +73,19 @@ class YAREInterpreter:
             elif root == "inputs": data = context
             elif root == "macros": return self.evaluate(self.config.get("macros", {}).get(parts[1], ""))
             
+            # Prevent access to private state variables
+            if root == "state":
+                schema = self.config.get("state_schema", {})
+                current_schema = schema
+                for part in parts[1:]:
+                    if isinstance(current_schema, dict):
+                        current_schema = current_schema.get(part)
+                    else:
+                        current_schema = None
+                        break
+                if isinstance(current_schema, dict) and current_schema.get("visibility", "private") == "private":
+                    raise ValueError(f"Attempted to access private state variable: {'.'.join(parts)}")
+
             for part in parts[1:]:
                 data = data.get(part)
             return data
