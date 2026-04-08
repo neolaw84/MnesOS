@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the current turn architecture implemented in `src/graph.py`.
+This document describes the current turn architecture implemented in `src/MnesOS/graph.py`.
 
 ## Terms
 

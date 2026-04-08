@@ -6,7 +6,7 @@ Covers: lore chunking, vocabulary building, cosine similarity querying,
 """
 
 import pytest
-from context import VectorLoreStore
+from MnesOS.context import VectorLoreStore
 
 
 SAMPLE_LORE = """\

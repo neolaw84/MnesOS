@@ -8,9 +8,9 @@ from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage, Syst
 from langchain_core.tools import tool, InjectedToolCallId
 
 # Import our refined logic components
-from interpreter import YAREInterpreter
-from context import VectorLoreStore
-from prompts import DIRECTOR_SYSTEM_PROMPT, NARRATOR_SYSTEM_PROMPT, NPC_BRAIN_SYSTEM_PROMPT
+from .interpreter import YAREInterpreter
+from .context import VectorLoreStore
+from .prompts import DIRECTOR_SYSTEM_PROMPT, NARRATOR_SYSTEM_PROMPT, NPC_BRAIN_SYSTEM_PROMPT
 
 # ---------------------------------------------------------
 # 1. State Definition

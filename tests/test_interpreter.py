@@ -8,7 +8,7 @@ Covers: expression evaluation, all action types (set/mutate/branch/table_roll/
 
 import pytest
 from unittest.mock import patch
-from interpreter import YAREInterpreter
+from MnesOS.interpreter import YAREInterpreter
 
 
 # ---------------------------------------------------------------------------

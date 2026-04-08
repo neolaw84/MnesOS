@@ -12,7 +12,7 @@ import pytest
 import yaml
 from pathlib import Path
 
-from cartridge import (
+from MnesOS.cartridge import (
     CartridgeLoader,
     _validate_prompt_directives,
     _validate_yare,

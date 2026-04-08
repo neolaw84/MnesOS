@@ -2,7 +2,6 @@
 Unit tests for graph.py node functions and edge routers.
 """
 
-import sys
 import os
 import pytest
 from unittest.mock import patch, MagicMock
@@ -18,9 +17,7 @@ class _BindableFakeModel(FakeMessagesListChatModel):
     def bind_tools(self, tools, **kwargs):
         return self
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-
-from graph import (
+from MnesOS.graph import (
     context_retrieval_node,
     director_node,
     npc_brain_node,
