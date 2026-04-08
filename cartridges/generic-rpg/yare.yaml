@@ -1,0 +1,92 @@
+version: "1.0"
+bot_name: "generic-rpg"
+
+state_schema:
+  player:
+    hp: { type: int, default: 100, min: 0 }
+    mana: { type: int, default: 50, min: 0 }
+    level: { type: int, default: 1 }
+    gold: { type: int, default: 0, min: 0 }
+  npc:
+    name: { type: string, default: "Goblin" }
+    hp: { type: int, default: 20, min: 0 }
+    strength: { type: int, default: 5 }
+  current_location: { type: string, default: "Crossroads" }
+  inventory: { type: list, default: [] }
+
+events:
+  combat_strike:
+    inputs: ["attacker", "defender", "power"]
+    steps:
+      - action: set
+        var: temp.roll
+        value: "@ roll(1d20) + inputs.power"
+      - action: branch
+        conditions:
+          - if: "@ temp.roll >= 10"
+            steps:
+              - action: mutate
+                var: "@ 'state.' + inputs.defender + '.hp'"
+                op: sub
+                value: 8
+              - action: note
+                message: "{inputs.attacker} strikes {inputs.defender} successfully for 8 damage! (Rolled {temp.roll})"
+          - else:
+            steps:
+              - action: note
+                message: "{inputs.attacker} swung at {inputs.defender} and missed! (Rolled {temp.roll})"
+              
+  cast_spell:
+    inputs: ["spell_name", "mana_cost"]
+    steps:
+      - action: branch
+        conditions:
+          - if: "@ state.player.mana >= inputs.mana_cost"
+            steps:
+              - action: mutate
+                var: state.player.mana
+                op: sub
+                value: "@ inputs.mana_cost"
+              - action: mutate
+                var: state.npc.hp
+                op: sub
+                value: 15
+              - action: note
+                message: "Player casts {inputs.spell_name}! It consumes {inputs.mana_cost} mana and deals 15 damage."
+          - else:
+            steps:
+              - action: note
+                message: "Player attempted to cast {inputs.spell_name} but lacked the mana."
+
+  flee:
+    steps:
+      - action: branch
+        conditions:
+          - if: "@ roll(1d20) >= 15"
+            steps:
+              - action: note
+                message: "Player successfully fled the encounter!"
+              - action: set
+                var: state.current_location
+                value: "'Safe Haven'"
+          - else:
+            steps:
+              - action: note
+                message: "Player failed to escape. The enemy blocks the path."
+
+  generic_check:
+    inputs: ["stat", "difficulty"]
+    steps:
+      - action: set
+        var: temp.roll
+        value: "@ roll(1d20) + state.player.level"
+      - action: branch
+        conditions:
+          - if: "@ temp.roll >= inputs.difficulty"
+            steps:
+              - action: note
+                message: "Action Succeeded! (Rolled {temp.roll} vs {inputs.difficulty})"
+          - else:
+            steps:
+              - action: note
+                message: "Action Failed! (Rolled {temp.roll} vs {inputs.difficulty})"
