@@ -1,0 +1,30 @@
+# ── ci-main.yml ───────────────────────────────────────────────────────────────
+# Gate-keep every pull request targeting the `main` branch.
+#
+# Rule enforced:
+#   • The PR **must** originate from the `dev` branch; all other source branches
+#     are rejected immediately.
+# ──────────────────────────────────────────────────────────────────────────────
+name: CI – PR to main
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  enforce-dev-source:
+    name: Enforce source branch is dev
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check source branch
+        run: |
+          SOURCE="${{ github.head_ref }}"
+          echo "Source branch: ${SOURCE}"
+          if [ "${SOURCE}" != "dev" ]; then
+            echo "::error::Pull requests to main must come from the 'dev' branch. \
+          Got '${SOURCE}' instead."
+            exit 1
+          fi
+          echo "Source-branch check passed ✓"

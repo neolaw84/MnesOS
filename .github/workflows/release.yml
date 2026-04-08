@@ -1,0 +1,89 @@
+# ── release.yml ───────────────────────────────────────────────────────────────
+# Triggered when a PR from `dev` is **merged** into `main`.
+#
+# Steps performed:
+#   1. Build wheel (.whl) and source distribution (.tar.gz).
+#   2. Create a GitHub Release (tag = version from pyproject.toml) and attach
+#      both distribution files so users can download them directly.
+#   3. Publish the package to PyPI using the official pypa/gh-action-pypi-publish
+#      action (Trusted Publisher / OIDC — no API token required when configured).
+# ──────────────────────────────────────────────────────────────────────────────
+name: Release – merge to main
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+
+jobs:
+  build-and-release:
+    name: Build, release & publish
+    # Only run when the PR was actually merged (not just closed).
+    if: github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'dev'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # needed to create GitHub Releases
+      id-token: write   # needed for OIDC / Trusted Publisher on PyPI
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      # ── Read version from pyproject.toml ──────────────────────────────────
+      - name: Read project version
+        id: version
+        run: |
+          VERSION=$(python - <<'EOF'
+          import re, pathlib
+          content = pathlib.Path("pyproject.toml").read_text()
+          m = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
+          print(m.group(1))
+          EOF
+          )
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Project version: ${VERSION}"
+
+      # ── Build distributions ────────────────────────────────────────────────
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: List built artefacts
+        run: ls -lh dist/
+
+      # ── Create GitHub Release ──────────────────────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.version.outputs.version }}"
+          name: "v${{ steps.version.outputs.version }}"
+          generate_release_notes: true
+          files: dist/*
+
+      # ── Publish to PyPI (Trusted Publisher / OIDC) ────────────────────────
+      # Before using this step, configure a Trusted Publisher in your PyPI
+      # project settings:
+      #   Owner       : <your GitHub username / org>
+      #   Repository  : <your repo name>
+      #   Workflow    : release.yml
+      #   Environment : (leave blank, or set to "pypi" and create that env below)
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true

@@ -1,0 +1,88 @@
+# ── ci-dev.yml ────────────────────────────────────────────────────────────────
+# Gate-keep every pull request targeting the `dev` branch.
+#
+# Rules enforced:
+#   • All unit-tests must pass.
+#   • Coverage must be ≥ 80% when src contains > 1 000 lines of Python,
+#     otherwise ≥ 60%.
+# ──────────────────────────────────────────────────────────────────────────────
+name: CI – PR to dev
+
+on:
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  test-and-coverage:
+    name: Tests & Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install project + dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      # ── Count Python LOC in src/ ───────────────────────────────────────────
+      - name: Count lines of code in src/
+        id: loc
+        run: |
+          LOC=$(find src -name "*.py" -exec wc -l {} + 2>/dev/null \
+                | tail -1 | awk '{print $1}')
+          LOC=${LOC:-0}
+          echo "loc=${LOC}" >> "$GITHUB_OUTPUT"
+          echo "Lines of Python code in src/: ${LOC}"
+
+      # ── Derive coverage threshold ──────────────────────────────────────────
+      - name: Determine coverage threshold
+        id: threshold
+        run: |
+          if [ "${{ steps.loc.outputs.loc }}" -gt 1000 ]; then
+            echo "threshold=80" >> "$GITHUB_OUTPUT"
+            echo "Threshold: 80% (src LOC > 1 000)"
+          else
+            echo "threshold=60" >> "$GITHUB_OUTPUT"
+            echo "Threshold: 60% (src LOC ≤ 1 000)"
+          fi
+
+      # ── Run pytest with coverage ───────────────────────────────────────────
+      - name: Run tests
+        run: pytest --cov=src --cov-report=xml --cov-report=term-missing
+
+      # ── Enforce threshold ──────────────────────────────────────────────────
+      - name: Check coverage threshold
+        run: |
+          THRESHOLD=${{ steps.threshold.outputs.threshold }}
+          COVERAGE=$(python - <<'EOF'
+          import xml.etree.ElementTree as ET
+          tree = ET.parse("coverage.xml")
+          root = tree.getroot()
+          print(round(float(root.attrib["line-rate"]) * 100))
+          EOF
+          )
+          echo "Coverage : ${COVERAGE}%"
+          echo "Required : ${THRESHOLD}%"
+          if [ "${COVERAGE}" -lt "${THRESHOLD}" ]; then
+            echo "::error::Coverage ${COVERAGE}% is below the required ${THRESHOLD}%."
+            exit 1
+          fi
+          echo "Coverage check passed ✓"
+
+      # ── Upload coverage report as artefact ────────────────────────────────
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+          retention-days: 7

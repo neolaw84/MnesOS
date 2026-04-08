@@ -1,0 +1,60 @@
+# ── docs.yml ──────────────────────────────────────────────────────────────────
+# Build MkDocs documentation and deploy it to the `gh-pages` branch whenever a
+# PR from `dev` is **merged** into `main`.
+#
+# The published site will be available at:
+#   https://<github_username>.github.io/<repo_name>/
+#
+# Prerequisites
+# ─────────────
+# • In repository Settings → Pages, set Source to "Deploy from a branch" and
+#   select the `gh-pages` branch.
+# • The GitHub Actions bot is granted write access to `gh-pages` automatically
+#   via the `contents: write` permission below.
+# ──────────────────────────────────────────────────────────────────────────────
+name: Docs – deploy to gh-pages
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+
+jobs:
+  deploy-docs:
+    name: Build & deploy documentation
+    # Only run when the PR was actually merged (not just closed).
+    if: github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'dev'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # needed to push to gh-pages
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install docs dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[docs]"
+
+      # ── Configure git identity for mkdocs gh-deploy ───────────────────────
+      - name: Configure git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # ── Build and push to gh-pages ─────────────────────────────────────────
+      - name: Deploy docs to gh-pages
+        run: mkdocs gh-deploy --force --clean --verbose
