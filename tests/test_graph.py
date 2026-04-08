@@ -24,7 +24,6 @@ from graph import (
     context_retrieval_node,
     director_node,
     npc_brain_node,
-    rules_engine_node,
     narrator_node,
     get_public_state,
     route_director,
@@ -234,7 +233,7 @@ class TestNpcBrainNode:
 
 
 # ---------------------------------------------------------------------------
-# rules_engine_node
+# trigger_event tool (native LangGraph ToolNode pattern)
 # ---------------------------------------------------------------------------
 
 def _ai_msg_with_tool_call(event_name: str, call_id: str = "call_1") -> AIMessage:
@@ -250,72 +249,111 @@ def _ai_msg_with_tool_call(event_name: str, call_id: str = "call_1") -> AIMessag
     )
 
 
-class TestRulesEngineNode:
-    def test_executes_tool_call_and_emits_notes(self):
+def _make_tools_only_app():
+    """Compile a minimal graph containing only the ToolNode for integration tests."""
+    from langgraph.graph import StateGraph, END as _END
+    from langgraph.prebuilt import ToolNode
+    g = StateGraph(GameState)
+    g.add_node("T", ToolNode([trigger_event], messages_key="agent_messages"))
+    g.set_entry_point("T")
+    g.add_edge("T", _END)
+    return g.compile()
+
+
+def _invoke_trigger_event(event_name: str, state: dict, event_args: dict = None, call_id: str = "t1"):
+    """Invoke trigger_event using the required ToolCall dict format."""
+    tool_args = {"event_name": event_name, "state": state}
+    if event_args is not None:
+        tool_args["event_args"] = event_args
+    return trigger_event.invoke({
+        "args": tool_args,
+        "name": "trigger_event",
+        "type": "tool_call",
+        "id": call_id,
+    })
+
+
+class TestTriggerEventTool:
+    """Tests for trigger_event executing real YARE logic with InjectedState."""
+
+    def test_tool_executes_event_and_updates_bot_memory(self):
+        """trigger_event must run the event and return updated bot_memory via Command."""
+        from langgraph.types import Command
+        state = make_state(turn_phase="player")
+        result = _invoke_trigger_event("deal_damage", state)
+        assert isinstance(result, Command)
+        assert result.update["bot_memory"]["npc"]["hp"] == 10  # 20 - 10
+
+    def test_tool_emits_new_notes_in_system_notes(self):
+        """trigger_event must return new YARE notes (not full list) via Command.update."""
+        from langgraph.types import Command
+        state = make_state(turn_phase="player")
+        result = _invoke_trigger_event("deal_damage", state)
+        assert any("damage" in n for n in result.update["system_notes"])
+
+    def test_tool_npc_phase_adds_separator_note(self):
+        """trigger_event must prepend the NPC separator when turn_phase == 'npc'."""
+        from langgraph.types import Command
+        state = make_state(turn_phase="npc")
+        result = _invoke_trigger_event("deal_damage", state)
+        assert any("NPC Turn" in n for n in result.update["system_notes"])
+
+    def test_tool_npc_separator_not_duplicated(self):
+        """Separator must not be added if already present in state.system_notes."""
+        from langgraph.types import Command
+        state = make_state(turn_phase="npc", system_notes=["\n--- NPC Turn Resolution ---"])
+        result = _invoke_trigger_event("deal_damage", state)
+        combined = state["system_notes"] + result.update.get("system_notes", [])
+        assert combined.count("\n--- NPC Turn Resolution ---") == 1
+
+    def test_tool_unknown_event_produces_empty_notes(self):
+        """An unrecognised event name must produce no notes."""
+        from langgraph.types import Command
+        state = make_state(turn_phase="player")
+        result = _invoke_trigger_event("undefined_event", state)
+        assert result.update.get("system_notes", []) == []
+
+    def test_tool_passes_args_to_interpreter(self):
+        """LLM-supplied args (e.g. difficulty) must reach the YARE interpreter."""
+        from langgraph.types import Command
+        state = make_state(turn_phase="player")
+        result = _invoke_trigger_event(
+            "generic_check", state,
+            event_args={"stat": "strength", "difficulty": 1},  # difficulty=1 guarantees success
+        )
+        assert any("Succeeded" in n or "Failed" in n for n in result.update.get("system_notes", []))
+
+    def test_tool_creates_tool_message_with_correct_id(self):
+        """trigger_event must include a ToolMessage with the correct tool_call_id."""
+        from langgraph.types import Command
+        state = make_state(turn_phase="player")
+        result = _invoke_trigger_event("deal_damage", state, call_id="my_id")
+        tool_msgs = [m for m in result.update.get("agent_messages", []) if isinstance(m, ToolMessage)]
+        assert len(tool_msgs) == 1
+        assert tool_msgs[0].tool_call_id == "my_id"
+        assert "damage" in tool_msgs[0].content
+
+    def test_tool_node_propagates_bot_memory_update(self):
+        """ToolNode must merge bot_memory Command.update into graph state."""
+        app = _make_tools_only_app()
         state = make_state(
             agent_messages=[_ai_msg_with_tool_call("deal_damage")],
             turn_phase="player",
         )
-        result = rules_engine_node(state)
-        assert any("damage" in n for n in result["system_notes"])
+        result = app.invoke(state)
+        assert result["bot_memory"]["npc"]["hp"] == 10
 
-    def test_tool_results_are_added_to_agent_messages(self):
-        state = make_state(
-            agent_messages=[_ai_msg_with_tool_call("deal_damage", call_id="call_1")],
-        )
-        result = rules_engine_node(state)
-        assert len(result["agent_messages"]) == 1
-        assert isinstance(result["agent_messages"][0], ToolMessage)
-        assert "damage" in result["agent_messages"][0].content
-
-    def test_rules_engine_output_has_no_tool_calls_field(self):
-        """rules_engine_node must not emit a tool_calls key (it's gone from GameState)."""
+    def test_tool_node_appends_tool_message_to_agent_messages(self):
+        """ToolNode must add the ToolMessage from Command.update to agent_messages."""
+        app = _make_tools_only_app()
         state = make_state(
             agent_messages=[_ai_msg_with_tool_call("deal_damage")],
+            turn_phase="player",
         )
-        result = rules_engine_node(state)
-        assert "tool_calls" not in result
-
-    def test_bot_memory_mutated_correctly(self):
-        state = make_state(
-            agent_messages=[_ai_msg_with_tool_call("deal_damage")],
-        )
-        result = rules_engine_node(state)
-        assert result["bot_memory"]["npc"]["hp"] == 10  # 20 - 10
-
-    def test_npc_phase_appends_separator_note(self):
-        state = make_state(
-            turn_phase="npc",
-            agent_messages=[_ai_msg_with_tool_call("deal_damage")],
-        )
-        result = rules_engine_node(state)
-        assert any("NPC Turn" in n for n in result["system_notes"])
-
-    def test_no_ai_message_leaves_state_unchanged(self):
-        """No AIMessage in agent_messages means no events fire."""
-        state = make_state(agent_messages=[])
-        result = rules_engine_node(state)
-        assert result["system_notes"] == []
-        assert result["bot_memory"]["npc"]["hp"] == 20
-
-    def test_unknown_event_name_produces_no_notes(self):
-        state = make_state(
-            agent_messages=[_ai_msg_with_tool_call("undefined_event")],
-        )
-        result = rules_engine_node(state)
-        assert result["system_notes"] == []
-
-    def test_non_trigger_event_tool_calls_are_ignored(self):
-        state = make_state(
-            agent_messages=[AIMessage(content="", tool_calls=[{
-                "name": "some_other_call",
-                "args": {"event_name": "deal_damage"},
-                "id": "call_1",
-                "type": "tool_call",
-            }])],
-        )
-        result = rules_engine_node(state)
-        assert result["system_notes"] == []
+        result = app.invoke(state)
+        tool_msgs = [m for m in result["agent_messages"] if isinstance(m, ToolMessage)]
+        assert len(tool_msgs) == 1
+        assert "damage" in tool_msgs[0].content
 
 
 # ---------------------------------------------------------------------------
@@ -452,7 +490,7 @@ class TestDirectorNodeWithLLM:
             content="",
             tool_calls=[{
                 "name": "trigger_event",
-                "args": {"event_name": "generic_check", "args": {"stat": "charm", "difficulty": 12}},
+                "args": {"event_name": "generic_check", "event_args": {"stat": "charm", "difficulty": 12}},
                 "id": "call_1",
                 "type": "tool_call",
             }],
@@ -492,6 +530,25 @@ class TestDirectorNodeWithLLM:
         assert call_arg is not None
         prompt_text = str(call_arg)
         assert "Prefer skill checks over combat." in prompt_text
+
+    def test_event_signatures_with_inputs_in_director_prompt(self):
+        """Events with inputs must show their event_args schema in the director prompt."""
+        fake_llm = MagicMock()
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
+        state = make_state(client_messages=[{"role": "user", "content": "I attack."}])
+        director_node(state, llm=fake_llm)
+        prompt_text = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        assert "generic_check(event_args: {stat, difficulty})" in prompt_text
+
+    def test_event_without_inputs_shown_as_bare_name_in_director_prompt(self):
+        """Events with no inputs list must appear without an event_args suffix."""
+        fake_llm = MagicMock()
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
+        state = make_state(client_messages=[{"role": "user", "content": "I attack."}])
+        director_node(state, llm=fake_llm)
+        prompt_text = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        assert "deal_damage" in prompt_text
+        assert "deal_damage(event_args" not in prompt_text
 
 
 class TestNpcBrainNodeWithLLM:
@@ -547,6 +604,25 @@ class TestNpcBrainNodeWithLLM:
         state = make_state()
         result = npc_brain_node(state, llm=fake_llm)
         assert result["agent_messages"][0].tool_calls == []
+
+    def test_event_signatures_with_inputs_in_npc_brain_prompt(self):
+        """Events with inputs must show their event_args schema in the NPC Brain prompt."""
+        fake_llm = MagicMock()
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
+        state = make_state()
+        npc_brain_node(state, llm=fake_llm)
+        prompt_text = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        assert "generic_check(event_args: {stat, difficulty})" in prompt_text
+
+    def test_event_without_inputs_shown_as_bare_name_in_npc_brain_prompt(self):
+        """Events with no inputs list must appear without an event_args suffix in NPC Brain."""
+        fake_llm = MagicMock()
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
+        state = make_state()
+        npc_brain_node(state, llm=fake_llm)
+        prompt_text = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        assert "deal_damage" in prompt_text
+        assert "deal_damage(event_args" not in prompt_text
 
 
 class TestNarratorNodeWithLLM:

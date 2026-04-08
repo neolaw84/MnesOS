@@ -105,10 +105,26 @@ YARE events are exposed to the LLM through a single LangChain tool:
 
 ```python
 @tool
-def trigger_event(event_name: str, args: dict | None = None) -> str:
+def trigger_event(
+    event_name: str,
+    event_args: dict | None = None,
+    # tool_call_id and state are injected — not visible to the LLM
+) -> Command:
     """Trigger a named YARE rules event with optional input arguments."""
 ```
 
-The LLM names the event and optionally provides `args`. The graph's `rules_engine_node` calls `YAREInterpreter.run_event(event_name, args)` to execute deterministically. The tool itself is never called directly — it exists only so the LLM can produce structured tool calls.
+`ToolNode` calls this tool directly. It accesses the full `GameState` via `InjectedState`, runs `YAREInterpreter.run_event(event_name, event_args)`, and returns a `Command` that updates `bot_memory`, `system_notes`, and appends a `ToolMessage` with the event notes.
 
-New events are added in `yare.yaml`. No code changes are required to expose them — the graph is static.
+### Event Signature Injection
+
+The LLM needs to know which keys belong in `event_args` for each event. Both `director_node` and `npc_brain_node` read the `inputs` lists from `yare_config` and inject event signatures into the system prompt:
+
+```
+### Available Events:
+- combat_strike(event_args: {attacker, defender, power})
+- cast_spell(event_args: {spell_name, mana_cost})
+```
+
+This means the LLM receives enough information to populate `event_args` correctly without seeing the full `yare.yaml`.
+
+New events are added in `yare.yaml`. No code changes are required to expose them — the graph reads event signatures dynamically at each invocation.
