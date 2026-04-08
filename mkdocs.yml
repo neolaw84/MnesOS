@@ -30,6 +30,10 @@ theme:
 
 nav:
   - Home: index.md
+  - Architecture:
+      - Overview: architecture.md
+      - YARE Specification: yare-specification.md
+  - Cartridge Guide: cartridge-guide.md
   - API Reference: api.md
 
 plugins:

@@ -1,9 +1,38 @@
 # MnesOS
 
-> MnesOS is fully Agentic RPG Game Engine.
+MnesOS is an agentic RPG engine that separates deterministic game mechanics from LLM-driven narration.
 
 [![PyPI version](https://badge.fury.io/py/MnesOS.svg)](https://badge.fury.io/py/MnesOS)
 [![Documentation](https://img.shields.io/badge/docs-gh--pages-blue)](https://neolaw84.github.io/MnesOS/)
+
+## What It Does
+
+MnesOS combines four concerns into a single turn pipeline:
+
+- `VectorLoreStore` retrieves relevant lore from `bot_lore.md`
+- the Director LLM maps player intent to YARE events
+- `YAREInterpreter` applies deterministic state changes
+- the NPC Brain and Narrator LLMs react to the resolved turn
+
+The engine state is explicit. The caller passes a `GameState` into `app.invoke(...)` and receives the updated state back.
+
+## Turn Model
+
+The graph itself is stateless between invocations. The client is responsible for persisting and re-supplying the returned game state for the next turn.
+
+- `client_messages`: persistent story history owned by the caller
+- agent message lists: per-node, per-turn working prompts rebuilt on each invocation
+- `bot_memory`: persistent deterministic world state
+
+## Cartridge Layout
+
+Each cartridge lives under `cartridges/<name>/` and contains:
+
+- `yare.yaml`: procedural rules and state schema
+- `bot_lore.md`: markdown lore used for retrieval
+- `prompt_directives.yaml`: optional LLM directives for `director`, `npc_brain`, and `narrator`
+
+`prompt_directives` must not be embedded in `yare.yaml`; the loader rejects that configuration.
 
 ## Installation
 
@@ -11,68 +40,32 @@
 pip install MnesOS
 ```
 
-Or install the latest development build directly from GitHub Releases:
-
-```bash
-pip install https://github.com/neolaw84/MnesOS/releases/latest/download/MnesOS-latest-py3-none-any.whl
-```
-
-## Quick Start
-
-```python
-import MnesOS
-
-# Your code here
-```
-
 ## Development
 
-### Set up the environment
-
 ```bash
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python -m venv venv
+source venv/bin/activate
 pip install -e ".[dev,docs]"
 ```
 
-### Bootstrap GitHub branch rules and labels
-
-Use the script below once after creating a new repository from this template.
+### Run Tests
 
 ```bash
-python -m venv script-venv
-source script-venv/bin/activate   # Windows: script-venv\Scripts\activate
-pip install --upgrade pip
-pip install -r scripts/requirements-github-rules.txt
-
-export GITHUB_TOKEN="<your-admin-token>"
-python scripts/setup_github_rules.py --repo neolaw84/MnesOS
+python -m pytest
 ```
 
-The script configures:
-- branch protection for `main` and `dev`
-- required labels (`bump:major`, `bump:minor`, `bump:patch`)
-- Actions workflow permissions (`GITHUB_TOKEN` read/write)
-
-### Run tests
+### Build Docs
 
 ```bash
-pytest
+mkdocs build
 ```
 
-### Build documentation locally
+## Further Reading
 
-```bash
-mkdocs serve
-```
-
-## Contributing
-
-1. Fork the repository and create your feature branch from **dev**.
-2. Add tests for every new behaviour.
-3. Open a Pull Request targeting **dev** — CI will gate on tests + coverage.
-4. Label your PR with `bump:major`, `bump:minor` (default), or `bump:patch` to control the version bump.
+- `docs/architecture.md`: current graph architecture and turn flow
+- `docs/cartridge-guide.md`: cartridge authoring guidance
+- `docs/yare-specification.md`: supported YARE syntax and execution rules
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT.

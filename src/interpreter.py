@@ -28,17 +28,45 @@ class YAREInterpreter:
 
     def evaluate(self, expr: Any, context: Dict[str, Any] = None) -> Any:
         """Evaluates a YARE expression string starting with '@'."""
-        if not isinstance(expr, str) or not expr.startswith("@"):
+        if not isinstance(expr, str):
             return expr
-        
-        tree = ast.parse(expr[1:].strip(), mode='eval')
+        # Bare single-quoted string literals without @ prefix: 'Safe Haven' -> Safe Haven
+        if not expr.startswith("@"):
+            stripped = expr.strip()
+            if len(stripped) >= 2 and stripped[0] == "'" and stripped[-1] == "'":
+                return stripped[1:-1]
+            return expr
+
+        import re as _re
+        # Pre-process NdX dice notation so ast.parse accepts it: 1d20 -> '1d20'
+        processed = _re.sub(r'(\d+d\d+)', r"'\1'", expr[1:].strip())
+        tree = ast.parse(processed, mode='eval')
         return self._eval_node(tree.body, context or {})
 
     def _eval_node(self, node: ast.AST, context: Dict[str, Any]) -> Any:
         if isinstance(node, ast.Num): return node.n
         if isinstance(node, ast.Str): return node.s
         if isinstance(node, ast.Constant): return node.value
-        
+
+        if isinstance(node, ast.UnaryOp):
+            operand = self._eval_node(node.operand, context)
+            if isinstance(node.op, ast.USub): return -operand
+            if isinstance(node.op, ast.UAdd): return +operand
+            if isinstance(node.op, ast.Not): return not operand
+
+        if isinstance(node, ast.BoolOp):
+            values = [self._eval_node(v, context) for v in node.values]
+            if isinstance(node.op, ast.And):
+                result = True
+                for v in values:
+                    result = result and v
+                return result
+            if isinstance(node.op, ast.Or):
+                result = False
+                for v in values:
+                    result = result or v
+                return result
+
         if isinstance(node, ast.BinOp):
             return self.ALLOWED_OPERATORS[type(node.op)](
                 self._eval_node(node.left, context),
