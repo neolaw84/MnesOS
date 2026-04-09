@@ -113,7 +113,7 @@ def trigger_event(
     """Trigger a named YARE rules event with optional input arguments."""
 ```
 
-`ToolNode` calls this tool directly. It accesses the full `GameState` via `InjectedState`, runs `YAREInterpreter.run_event(event_name, event_args)`, and returns a `Command` that updates `bot_memory`, `system_notes`, and appends a `ToolMessage` with the event notes.
+`ToolNode` calls this tool directly. It accesses the full `GameState` via `InjectedState`, runs `YAREInterpreter.run_event(event_name, event_args)`, and returns a `Command` that updates `bot_memory_staging`, `system_notes`, and appends a `ToolMessage` with the event notes. The `post_tools_node` then commits the `bot_memory_staging` update.
 
 ### Event Signature Injection
 
