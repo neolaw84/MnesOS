@@ -36,6 +36,7 @@ dev = [
     "mkdocs-material>=9.0",
     "mkdocstrings[python]>=0.24",
     "pymdown-extensions>=10.0",
+    "ipywidgets>=8.0",
 ]
 docs = [
     "mkdocs>=1.5",

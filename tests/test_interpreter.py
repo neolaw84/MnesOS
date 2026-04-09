@@ -124,8 +124,8 @@ class TestEvaluateAccess:
         interp = make_interp(config=config)
         assert interp.evaluate("@ macros.power_bonus") == 4
 
-    def test_private_state_access_raises(self):
-        """Accessing a private variable via @ expression must be blocked."""
+    def test_private_state_access_allowed(self):
+        """Visibility is a Narrator-filter concern only; the interpreter must read private fields."""
         config = {
             "state_schema": {
                 "player": {
@@ -139,8 +139,7 @@ class TestEvaluateAccess:
             config=config,
             state={"player": {"is_poisoned_with_asymptomatic_poison": True}},
         )
-        with pytest.raises(ValueError, match="private state variable"):
-            interp.evaluate("@ state.player.is_poisoned_with_asymptomatic_poison")
+        assert interp.evaluate("@ state.player.is_poisoned_with_asymptomatic_poison") is True
 
     def test_public_state_access_allowed(self):
         """Accessing a public variable via @ expression must succeed."""
@@ -246,6 +245,25 @@ class TestActionMutate:
             {"action": "mutate", "var": "state.player.gold", "op": "mul", "value": 2}, {}
         )
         assert interp.state["player"]["gold"] == 10
+
+    def test_mutate_dynamic_var(self, minimal_yare_config, minimal_state):
+        """var may be an @-expression that resolves to a dotted state path."""
+        interp = YAREInterpreter(minimal_yare_config, minimal_state)
+        # "@ 'state.' + inputs.target + '.hp'" -> "state.npc.hp"
+        interp._execute_step(
+            {"action": "mutate", "var": "@ 'state.' + inputs.target + '.hp'", "op": "sub", "value": 8},
+            {"target": "npc"},
+        )
+        assert interp.state["npc"]["hp"] == 12  # 20 - 8
+
+    def test_set_dynamic_var(self, minimal_yare_config, minimal_state):
+        """var in set action may also be an @-expression."""
+        interp = YAREInterpreter(minimal_yare_config, minimal_state)
+        interp._execute_step(
+            {"action": "set", "var": "@ 'state.' + inputs.field", "value": "'Dungeon'"},
+            {"field": "current_location"},
+        )
+        assert interp.state["current_location"] == "Dungeon"
 
 
 # ---------------------------------------------------------------------------
@@ -410,3 +428,73 @@ class TestRunEvent:
         with patch("random.randint", return_value=1):  # always 1 on 1d20 → 1+1=2 < 10
             interp.run_event("generic_check", {"stat": "hp", "difficulty": 10})
         assert any("Failed" in n for n in interp.notes)
+
+
+# ---------------------------------------------------------------------------
+# run_event — enum enforcement
+# ---------------------------------------------------------------------------
+
+class TestRunEventEnumEnforcement:
+    _CONFIG = {
+        "events": {
+            "strike": {
+                "inputs": {
+                    "target": {"type": "string", "default": "npc", "enum": ["player", "npc"]},
+                },
+                "steps": [{"action": "note", "message": "target is {inputs.target}"}],
+            }
+        }
+    }
+
+    def test_exact_lowercase_passes_through(self):
+        interp = YAREInterpreter(self._CONFIG, {})
+        interp.run_event("strike", {"target": "npc"})
+        assert interp.notes[-1] == "target is npc"
+
+    def test_uppercase_normalized_to_lowercase(self):
+        interp = YAREInterpreter(self._CONFIG, {})
+        interp.run_event("strike", {"target": "NPC"})
+        assert interp.notes[-1] == "target is npc"
+
+    def test_mixed_case_normalized(self):
+        interp = YAREInterpreter(self._CONFIG, {})
+        interp.run_event("strike", {"target": "Player"})
+        assert interp.notes[-1] == "target is player"
+
+    def test_invalid_value_falls_back_to_default(self):
+        interp = YAREInterpreter(self._CONFIG, {})
+        interp.run_event("strike", {"target": "enemy"})
+        assert interp.notes[-1] == "target is npc"
+
+    def test_missing_input_uses_default(self):
+        interp = YAREInterpreter(self._CONFIG, {})
+        interp.run_event("strike", {})
+        assert interp.notes[-1] == "target is npc"
+
+
+# ---------------------------------------------------------------------------
+# _get_path / _set_path — case-insensitive key fallback
+# ---------------------------------------------------------------------------
+
+class TestPathCaseInsensitiveFallback:
+    def test_get_path_exact_case(self):
+        interp = make_interp(state={"npc": {"hp": 20}})
+        assert interp._get_path("state.npc.hp") == 20
+
+    def test_get_path_uppercase_falls_back(self):
+        interp = make_interp(state={"npc": {"hp": 20}})
+        assert interp._get_path("state.NPC.hp") == 20
+
+    def test_get_path_mixed_case_falls_back(self):
+        interp = make_interp(state={"player": {"hp": 100}})
+        assert interp._get_path("state.Player.hp") == 100
+
+    def test_set_path_uppercase_modifies_existing_key(self):
+        interp = make_interp(state={"npc": {"hp": 20}})
+        interp._set_path("state.NPC.hp", 5)
+        assert interp.state["npc"]["hp"] == 5
+
+    def test_set_path_does_not_create_new_cased_key(self):
+        interp = make_interp(state={"npc": {"hp": 20}})
+        interp._set_path("state.NPC.hp", 5)
+        assert "NPC" not in interp.state

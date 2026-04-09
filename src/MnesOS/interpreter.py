@@ -10,6 +10,13 @@ class YAREInterpreter:
     Handles deterministic state mutations and logic evaluation.
     """
     
+    _TYPE_COERCIONS: Dict[str, Any] = {
+        "int":    int,
+        "float":  float,
+        "bool":   bool,
+        "string": str,
+    }
+
     ALLOWED_OPERATORS = {
         ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
         ast.Div: operator.truediv, ast.FloorDiv: operator.floordiv, ast.Mod: operator.mod,
@@ -68,10 +75,18 @@ class YAREInterpreter:
                 return result
 
         if isinstance(node, ast.BinOp):
-            return self.ALLOWED_OPERATORS[type(node.op)](
-                self._eval_node(node.left, context),
-                self._eval_node(node.right, context)
-            )
+            left  = self._eval_node(node.left,  context)
+            right = self._eval_node(node.right, context)
+            # For arithmetic operators, coerce operands to numeric — but only
+            # when at least one side is already a number.  This handles LLM
+            # event_args coming in as strings ("0" -> 0) or missing/semantic
+            # values (None / "strength" -> 0) without breaking string
+            # concatenation that also uses ast.Add (e.g. 'state.' + var + '.hp').
+            if type(node.op) in (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod):
+                if isinstance(left, (int, float)) or isinstance(right, (int, float)):
+                    left  = self._to_numeric(left)
+                    right = self._to_numeric(right)
+            return self.ALLOWED_OPERATORS[type(node.op)](left, right)
         
         if isinstance(node, ast.Compare):
             left = self._eval_node(node.left, context)
@@ -101,19 +116,6 @@ class YAREInterpreter:
             elif root == "inputs": data = context
             elif root == "macros": return self.evaluate(self.config.get("macros", {}).get(parts[1], ""))
             
-            # Prevent access to private state variables
-            if root == "state":
-                schema = self.config.get("state_schema", {})
-                current_schema = schema
-                for part in parts[1:]:
-                    if isinstance(current_schema, dict):
-                        current_schema = current_schema.get(part)
-                    else:
-                        current_schema = None
-                        break
-                if isinstance(current_schema, dict) and current_schema.get("visibility", "private") == "private":
-                    raise ValueError(f"Attempted to access private state variable: {'.'.join(parts)}")
-
             for part in parts[1:]:
                 data = data.get(part)
             return data
@@ -142,34 +144,67 @@ class YAREInterpreter:
         if not event: return
 
         self.call_depth += 1
+
+        coerced = dict(inputs or {})
+        input_schema = event.get("inputs", {})
+        if isinstance(input_schema, dict):
+            for key, spec in input_schema.items():
+                if key in coerced:
+                    coerce_fn = self._TYPE_COERCIONS.get(spec.get("type", ""))
+                    if coerce_fn is not None:
+                        try:
+                            coerced[key] = coerce_fn(coerced[key])
+                        except (ValueError, TypeError):
+                            pass
+                    # Enum enforcement: normalize case then fall back to default if invalid.
+                    if "enum" in spec:
+                        allowed = [str(v).lower() for v in spec["enum"]]
+                        val = coerced[key]
+                        if isinstance(val, str):
+                            val = val.lower()
+                        if val in allowed:
+                            coerced[key] = val
+                        elif "default" in spec:
+                            coerced[key] = spec["default"]
+                elif "default" in spec:
+                    coerced[key] = spec["default"]
+
         for step in event.get("steps", []):
-            self._execute_step(step, inputs or {})
+            self._execute_step(step, coerced)
         self.call_depth -= 1
 
     def _execute_step(self, step: Dict[str, Any], context: Dict[str, Any]):
         action = step.get("action")
         
         if action == "set":
+            var = self.evaluate(step["var"], context)
+            if not isinstance(var, str):
+                raise TypeError(f"'var' must resolve to a string path, got {type(var).__name__}: {var!r}")
             val = self.evaluate(step["value"], context)
-            self._set_path(step["var"], val)
+            val = self._coerce(val, var)
+            self._set_path(var, val)
             
         elif action == "mutate":
+            var = self.evaluate(step["var"], context)
+            if not isinstance(var, str):
+                raise TypeError(f"'var' must resolve to a string path, got {type(var).__name__}: {var!r}")
             val = self.evaluate(step["value"], context)
-            curr = self._get_path(step["var"])
+            curr = self._get_path(var)
+            if curr is None:
+                raise ValueError(f"mutate: path {var!r} resolved to None — cannot perform arithmetic")
             op = step["op"]
-            
-            if op == "add": new_val = curr + val
-            elif op == "sub": new_val = curr - val
-            elif op == "mul": new_val = curr * val
-            elif op == "div": new_val = curr / val
+            _ops = {"add": operator.add, "sub": operator.sub, "mul": operator.mul, "div": operator.truediv}
+            if op not in _ops:
+                raise ValueError(f"mutate: unknown op {op!r}. Allowed: {list(_ops)}")
+            new_val = _ops[op](curr, val)
             
             # Enforce schema bounds
-            schema = self._get_schema(step["var"])
+            schema = self._get_schema(var)
             if schema:
                 if "min" in schema: new_val = max(schema["min"], new_val)
                 if "max" in schema: new_val = min(schema["max"], new_val)
-                
-            self._set_path(step["var"], new_val)
+            new_val = self._coerce(new_val, var)
+            self._set_path(var, new_val)
 
         elif action == "branch":
             for cond in step.get("conditions", []):
@@ -180,9 +215,12 @@ class YAREInterpreter:
 
         elif action == "table_roll":
             result_val = self.evaluate(step["roll"], context)
+            var = self.evaluate(step["var"], context)
+            if not isinstance(var, str):
+                raise TypeError(f"'var' must resolve to a string path, got {type(var).__name__}: {var!r}")
             for key, val in step["table"].items():
                 if self._match_range(key, result_val):
-                    self._set_path(step["var"], val)
+                    self._set_path(var, self._coerce(val, var))
                     break
 
         elif action == "call":
@@ -202,13 +240,22 @@ class YAREInterpreter:
         root = parts[0]
         curr = self.state if root == "state" else self.temp
         for part in parts[1:-1]:
+            if part not in curr and part.lower() in curr:
+                part = part.lower()
             curr = curr.setdefault(part, {})
-        curr[parts[-1]] = value
+        last = parts[-1]
+        if last not in curr and last.lower() in curr:
+            last = last.lower()
+        curr[last] = value
 
     def _get_path(self, path: str) -> Any:
         parts = path.split('.')
         curr = self.state if parts[0] == "state" else self.temp
         for part in parts[1:]:
+            if not isinstance(curr, dict):
+                return None
+            if part not in curr and part.lower() in curr:
+                part = part.lower()
             curr = curr.get(part)
         return curr
 
@@ -217,8 +264,53 @@ class YAREInterpreter:
         parts = path.split('.')[1:]
         curr = self.config.get("state_schema", {})
         for part in parts:
+            if not isinstance(curr, dict):
+                return None
             curr = curr.get(part)
         return curr if isinstance(curr, dict) and "type" in curr else None
+
+    def _to_numeric(self, value: Any) -> Any:
+        """Coerce a value to a number for arithmetic.
+
+        Called only when at least one sibling operand is already numeric,
+        so string concatenation (both sides are strings) is never affected.
+
+        Coercion rules:
+        - int / float: returned as-is
+        - None: returns 0  (missing LLM input treated as neutral modifier)
+        - string that parses as int/float ("0", "3.5"): parsed
+        - non-numeric string ("strength", "moderate"): returns 0
+          (safe neutral; avoids crashing on semantic LLM values)
+        """
+        if isinstance(value, (int, float)):
+            return value
+        if value is None:
+            return 0
+        if isinstance(value, str):
+            try:
+                return int(value)
+            except ValueError:
+                pass
+            try:
+                return float(value)
+            except ValueError:
+                return 0
+        return 0
+
+    def _coerce(self, value: Any, path: str) -> Any:
+        """Coerce value to the schema-declared type for path, if declared."""
+        schema = self._get_schema(path)
+        if schema is None:
+            return value
+        coerce_fn = self._TYPE_COERCIONS.get(schema.get("type", ""))
+        if coerce_fn is None:
+            return value
+        try:
+            return coerce_fn(value)
+        except (ValueError, TypeError) as exc:
+            raise TypeError(
+                f"Cannot coerce {value!r} to type {schema['type']!r} for path {path!r}: {exc}"
+            ) from exc
 
     def _match_range(self, range_str: Union[str, int], value: int) -> bool:
         if isinstance(range_str, int): return value == range_str

@@ -17,7 +17,7 @@ if SRC_DIR not in sys.path:
 CARTRIDGES_DIR = os.path.join(os.path.dirname(__file__), "..", "cartridges")
 
 # ---------------------------------------------------------------------------
-# Shared YARE fixtures (generic-rpg themed, no NSFW)
+# Shared YARE fixtures (generic-rpg themed)
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
@@ -56,7 +56,10 @@ def minimal_yare_config():
                 ]
             },
             "generic_check": {
-                "inputs": ["stat", "difficulty"],
+                "inputs": {
+                    "stat":       {"type": "string", "description": "Which stat is being tested"},
+                    "difficulty": {"type": "int",    "description": "Target number to meet or beat"},
+                },
                 "steps": [
                     {"action": "set",  "var": "temp.roll", "value": "@ roll(1d20) + state.player.level"},
                     {

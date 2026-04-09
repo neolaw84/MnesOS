@@ -26,6 +26,8 @@ from MnesOS.graph import (
     route_director,
     route_rules,
     route_npc_brain,
+    pre_tools_node,
+    post_tools_node,
     workflow,
     GameState,
     trigger_event,
@@ -74,7 +76,10 @@ def make_state(**overrides) -> dict:
                     ]
                 },
                 "generic_check": {
-                    "inputs": ["stat", "difficulty"],
+                    "inputs": {
+                        "stat":       {"type": "string", "description": "Which stat is being tested"},
+                        "difficulty": {"type": "int",    "description": "Target number to meet or beat"},
+                    },
                     "steps": [
                         {"action": "set",  "var": "temp.roll", "value": "@ roll(1d20) + state.player.level"},
                         {
@@ -97,6 +102,7 @@ def make_state(**overrides) -> dict:
         },
         "prompt_directives": {},
         "lore_path": GENERIC_RPG_LORE,
+        "bot_memory_staging": [],
         "system_notes": [],
         "retrieved_lore": "",
         "iteration_count": 0,
@@ -274,12 +280,12 @@ class TestTriggerEventTool:
     """Tests for trigger_event executing real YARE logic with InjectedState."""
 
     def test_tool_executes_event_and_updates_bot_memory(self):
-        """trigger_event must run the event and return updated bot_memory via Command."""
+        """trigger_event must run the event and stage updated bot_memory via Command."""
         from langgraph.types import Command
         state = make_state(turn_phase="player")
         result = _invoke_trigger_event("deal_damage", state)
         assert isinstance(result, Command)
-        assert result.update["bot_memory"]["npc"]["hp"] == 10  # 20 - 10
+        assert result.update["bot_memory_staging"][0]["npc"]["hp"] == 10  # 20 - 10
 
     def test_tool_emits_new_notes_in_system_notes(self):
         """trigger_event must return new YARE notes (not full list) via Command.update."""
@@ -330,15 +336,15 @@ class TestTriggerEventTool:
         assert tool_msgs[0].tool_call_id == "my_id"
         assert "damage" in tool_msgs[0].content
 
-    def test_tool_node_propagates_bot_memory_update(self):
-        """ToolNode must merge bot_memory Command.update into graph state."""
+    def test_tool_node_propagates_bot_memory_staging(self):
+        """ToolNode must push the state snapshot into bot_memory_staging."""
         app = _make_tools_only_app()
         state = make_state(
             agent_messages=[_ai_msg_with_tool_call("deal_damage")],
             turn_phase="player",
         )
         result = app.invoke(state)
-        assert result["bot_memory"]["npc"]["hp"] == 10
+        assert result["bot_memory_staging"][-1]["npc"]["hp"] == 10
 
     def test_tool_node_appends_tool_message_to_agent_messages(self):
         """ToolNode must add the ToolMessage from Command.update to agent_messages."""
@@ -386,6 +392,43 @@ class TestNarratorNode:
 
 
 # ---------------------------------------------------------------------------
+# pre_tools_node / post_tools_node
+# ---------------------------------------------------------------------------
+
+class TestPreToolsNode:
+    def test_clears_staging_by_returning_none(self):
+        state = make_state(bot_memory_staging=[{"npc": {"hp": 5}}])
+        result = pre_tools_node(state)
+        assert result["bot_memory_staging"] is None  # sentinel that triggers reducer clear
+
+    def test_does_not_touch_bot_memory(self):
+        state = make_state()
+        result = pre_tools_node(state)
+        assert "bot_memory" not in result
+
+
+class TestPostToolsNode:
+    def test_commits_last_staging_entry_to_bot_memory(self):
+        state = make_state(bot_memory_staging=[
+            {"npc": {"hp": 15}},
+            {"npc": {"hp": 10}},
+        ])
+        result = post_tools_node(state)
+        assert result["bot_memory"]["npc"]["hp"] == 10  # last entry wins
+
+    def test_clears_staging_after_commit(self):
+        state = make_state(bot_memory_staging=[{"npc": {"hp": 5}}])
+        result = post_tools_node(state)
+        assert result["bot_memory_staging"] is None
+
+    def test_no_staging_leaves_bot_memory_unchanged(self):
+        state = make_state(bot_memory_staging=[])
+        result = post_tools_node(state)
+        assert "bot_memory" not in result
+        assert result["bot_memory_staging"] is None
+
+
+# ---------------------------------------------------------------------------
 # Edge routers
 # ---------------------------------------------------------------------------
 
@@ -395,7 +438,7 @@ class TestRouteDirector:
             agent_messages=[_ai_msg_with_tool_call("attack")],
             iteration_count=1,
         )
-        assert route_director(state) == "Tools"
+        assert route_director(state) == "PreTools"
 
     def test_routes_to_npc_brain_when_no_calls(self):
         state = make_state(
@@ -436,7 +479,7 @@ class TestRouteNpcBrain:
             agent_messages=[_ai_msg_with_tool_call("attack")],
             iteration_count=1,
         )
-        assert route_npc_brain(state) == "Tools"
+        assert route_npc_brain(state) == "PreTools"
 
     def test_routes_to_narrator_when_no_calls(self):
         state = make_state(
@@ -534,8 +577,10 @@ class TestDirectorNodeWithLLM:
         fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
         state = make_state(client_messages=[{"role": "user", "content": "I attack."}])
         director_node(state, llm=fake_llm)
-        prompt_text = str(fake_llm.bind_tools.return_value.invoke.call_args)
-        assert "generic_check(event_args: {stat, difficulty})" in prompt_text
+        system_content = fake_llm.bind_tools.return_value.invoke.call_args[0][0][0].content
+        assert "generic_check(event_args: {" in system_content
+        assert "stat: string" in system_content
+        assert "difficulty: int" in system_content
 
     def test_event_without_inputs_shown_as_bare_name_in_director_prompt(self):
         """Events with no inputs list must appear without an event_args suffix."""
@@ -543,9 +588,9 @@ class TestDirectorNodeWithLLM:
         fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
         state = make_state(client_messages=[{"role": "user", "content": "I attack."}])
         director_node(state, llm=fake_llm)
-        prompt_text = str(fake_llm.bind_tools.return_value.invoke.call_args)
-        assert "deal_damage" in prompt_text
-        assert "deal_damage(event_args" not in prompt_text
+        system_content = fake_llm.bind_tools.return_value.invoke.call_args[0][0][0].content
+        assert "deal_damage" in system_content
+        assert "deal_damage(event_args" not in system_content
 
 
 class TestNpcBrainNodeWithLLM:
@@ -608,8 +653,10 @@ class TestNpcBrainNodeWithLLM:
         fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
         state = make_state()
         npc_brain_node(state, llm=fake_llm)
-        prompt_text = str(fake_llm.bind_tools.return_value.invoke.call_args)
-        assert "generic_check(event_args: {stat, difficulty})" in prompt_text
+        system_content = fake_llm.bind_tools.return_value.invoke.call_args[0][0][0].content
+        assert "generic_check(event_args: {" in system_content
+        assert "stat: string" in system_content
+        assert "difficulty: int" in system_content
 
     def test_event_without_inputs_shown_as_bare_name_in_npc_brain_prompt(self):
         """Events with no inputs list must appear without an event_args suffix in NPC Brain."""
@@ -617,9 +664,9 @@ class TestNpcBrainNodeWithLLM:
         fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
         state = make_state()
         npc_brain_node(state, llm=fake_llm)
-        prompt_text = str(fake_llm.bind_tools.return_value.invoke.call_args)
-        assert "deal_damage" in prompt_text
-        assert "deal_damage(event_args" not in prompt_text
+        system_content = fake_llm.bind_tools.return_value.invoke.call_args[0][0][0].content
+        assert "deal_damage" in system_content
+        assert "deal_damage(event_args" not in system_content
 
 
 class TestNarratorNodeWithLLM:

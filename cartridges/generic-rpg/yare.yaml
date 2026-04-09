@@ -16,7 +16,10 @@ state_schema:
 
 events:
   combat_strike:
-    inputs: ["attacker", "defender", "power"]
+    inputs:
+      attacker: { type: string, default: "player", enum: ["player", "npc"], description: "Who is attacking" }
+      defender: { type: string, default: "npc",    enum: ["player", "npc"], description: "Who is being attacked" }
+      power:    { type: int,    default: 0,         description: "Bonus added to the d20 roll" }
     steps:
       - action: set
         var: temp.roll
@@ -37,7 +40,9 @@ events:
                 message: "{inputs.attacker} swung at {inputs.defender} and missed! (Rolled {temp.roll})"
               
   cast_spell:
-    inputs: ["spell_name", "mana_cost"]
+    inputs:
+      spell_name: { type: string, description: "Name of the spell being cast" }
+      mana_cost:  { type: int,    default: 10, description: "Mana to deduct from player.mana" }
     steps:
       - action: branch
         conditions:
@@ -75,7 +80,9 @@ events:
                 message: "Player failed to escape. The enemy blocks the path."
 
   generic_check:
-    inputs: ["stat", "difficulty"]
+    inputs:
+      stat:       { type: string, description: "Which stat is being tested" }
+      difficulty: { type: int,    description: "Target number to meet or beat" }
     steps:
       - action: set
         var: temp.roll

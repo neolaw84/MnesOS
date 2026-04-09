@@ -16,10 +16,20 @@ from .prompts import DIRECTOR_SYSTEM_PROMPT, NARRATOR_SYSTEM_PROMPT, NPC_BRAIN_S
 # 1. State Definition
 # ---------------------------------------------------------
 
+def _staging_reducer(existing: Optional[List[Any]], update: Optional[List[Any]]) -> List[Any]:
+    """Reducer for bot_memory_staging. None signals a clear; a list is appended."""
+    if update is None:
+        return []
+    if isinstance(update, list):
+        return (existing or []) + update
+    return existing or []
+
+
 class GameState(TypedDict):
     client_messages: Annotated[list[dict], operator.add]  # game story history, managed by caller
     agent_messages: Annotated[list[Any], add_messages]  # per-turn tool-call and tool-return history
     bot_memory: Dict[str, Any]
+    bot_memory_staging: Annotated[List[Dict[str, Any]], _staging_reducer]  # tool write buffer
     yare_config: Dict[str, Any]
     prompt_directives: Dict[str, str]  # loaded from prompt_directives.yaml, NOT yare.yaml
     lore_path: str
@@ -65,7 +75,7 @@ def trigger_event(
     notes_text = "\n".join(interpreter.notes) if interpreter.notes else f"Event '{event_name}': no effect."
 
     return Command(update={
-        "bot_memory": interpreter.state,
+        "bot_memory_staging": [interpreter.state],  # list reducer — safe for concurrent writes
         "system_notes": new_notes,          # operator.add reducer appends to existing notes
         "agent_messages": [ToolMessage(content=notes_text, tool_call_id=tool_call_id)],
     })
@@ -103,6 +113,20 @@ def reset_agent_messages_node(state: GameState) -> dict:
 def cleanup_agent_messages_node(state: GameState) -> dict:
     """Remove agent-side messages before returning state to the client."""
     return {"agent_messages": [RemoveMessage(id=REMOVE_ALL_MESSAGES)]}
+
+
+def pre_tools_node(state: GameState) -> dict:
+    """Clear the YARE state staging buffer before tool execution."""
+    return {"bot_memory_staging": None}
+
+
+def post_tools_node(state: GameState) -> dict:
+    """Commit the last staged YARE state snapshot into bot_memory."""
+    staging = state.get("bot_memory_staging") or []
+    result: dict = {"bot_memory_staging": None}
+    if staging:
+        result["bot_memory"] = staging[-1]
+    return result
 
 # ---------------------------------------------------------
 # 2. Graph Nodes
@@ -159,9 +183,21 @@ def director_node(state: GameState, *, llm=None) -> dict:
         system_content = director_prompt
         if events_dict:
             def _event_sig(name, cfg):
-                inputs = cfg.get("inputs", [])
-                if inputs:
-                    return f"- {name}(event_args: {{{', '.join(inputs)}}})"
+                inputs = cfg.get("inputs", {})
+                if isinstance(inputs, dict) and inputs:
+                    parts = []
+                    for k, spec in inputs.items():
+                        t = spec.get("type", "any")
+                        entry = f"{k}: {t}"
+                        if "enum" in spec:
+                            entry += f" (one of: {', '.join(str(v) for v in spec['enum'])})"
+                        if "default" in spec:
+                            entry += f" = {spec['default']!r}"
+                        desc = spec.get("description", "")
+                        if desc:
+                            entry += f"  # {desc}"
+                        parts.append(entry)
+                    return f"- {name}(event_args: {{{', '.join(parts)}}})"
                 return f"- {name}"
             system_content += "\n\n### Available Events:\n" + "\n".join(
                 _event_sig(n, c) for n, c in events_dict.items()
@@ -173,7 +209,7 @@ def director_node(state: GameState, *, llm=None) -> dict:
         )
         prompt_messages.extend(state.get("agent_messages", []))
 
-        response = llm.bind_tools([trigger_event]).invoke(prompt_messages)
+        response = llm.bind_tools([trigger_event], parallel_tool_calls=False).invoke(prompt_messages)
         result["agent_messages"] = [response]
 
     return result
@@ -200,9 +236,21 @@ def npc_brain_node(state: GameState, *, llm=None) -> dict:
         system_content = npc_brain_prompt
         if events_dict:
             def _event_sig(name, cfg):
-                inputs = cfg.get("inputs", [])
-                if inputs:
-                    return f"- {name}(event_args: {{{', '.join(inputs)}}})"
+                inputs = cfg.get("inputs", {})
+                if isinstance(inputs, dict) and inputs:
+                    parts = []
+                    for k, spec in inputs.items():
+                        t = spec.get("type", "any")
+                        entry = f"{k}: {t}"
+                        if "enum" in spec:
+                            entry += f" (one of: {', '.join(str(v) for v in spec['enum'])})"
+                        if "default" in spec:
+                            entry += f" = {spec['default']!r}"
+                        desc = spec.get("description", "")
+                        if desc:
+                            entry += f"  # {desc}"
+                        parts.append(entry)
+                    return f"- {name}(event_args: {{{', '.join(parts)}}})"
                 return f"- {name}"
             system_content += "\n\n### Available Events:\n" + "\n".join(
                 _event_sig(n, c) for n, c in events_dict.items()
@@ -217,7 +265,7 @@ def npc_brain_node(state: GameState, *, llm=None) -> dict:
             f"System Notes: {state.get('system_notes', [])}\n"
             f"Retrieved Lore: {state.get('retrieved_lore', '')}"
         )))
-        response = llm.bind_tools([trigger_event]).invoke(prompt_messages)
+        response = llm.bind_tools([trigger_event], parallel_tool_calls=False).invoke(prompt_messages)
         result["agent_messages"] = [response]
 
     return result
@@ -279,10 +327,10 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
 # 3. Edge Routers
 # ---------------------------------------------------------
 
-def route_director(state: GameState) -> Literal["Tools", "NPC_Brain"]:
+def route_director(state: GameState) -> Literal["PreTools", "NPC_Brain"]:
     calls = _get_last_ai_tool_calls(state.get("agent_messages", []))
     if calls and state.get("iteration_count", 0) < MAX_ITERATIONS:
-        return "Tools"
+        return "PreTools"
     return "NPC_Brain"
 
 
@@ -294,10 +342,10 @@ def route_rules(state: GameState) -> Literal["Director", "NPC_Brain"]:
     return "NPC_Brain"
 
 
-def route_npc_brain(state: GameState) -> Literal["Tools", "Narrator"]:
+def route_npc_brain(state: GameState) -> Literal["PreTools", "Narrator"]:
     calls = _get_last_ai_tool_calls(state.get("agent_messages", []))
     if calls and state.get("iteration_count", 0) < MAX_ITERATIONS:
-        return "Tools"
+        return "PreTools"
     return "Narrator"
 
 # ---------------------------------------------------------
@@ -308,7 +356,9 @@ workflow = StateGraph(GameState)
 workflow.add_node("ResetAgentMessages", reset_agent_messages_node)
 workflow.add_node("Lore", context_retrieval_node)
 workflow.add_node("Director", director_node)
+workflow.add_node("PreTools", pre_tools_node)
 workflow.add_node("Tools", ToolNode([trigger_event], messages_key="agent_messages"))
+workflow.add_node("PostTools", post_tools_node)
 workflow.add_node("NPC_Brain", npc_brain_node)
 workflow.add_node("Narrator", narrator_node)
 workflow.add_node("CleanupAgentMessages", cleanup_agent_messages_node)
@@ -318,16 +368,19 @@ workflow.add_edge("ResetAgentMessages", "Lore")
 workflow.add_edge("Lore", "Director")
 
 workflow.add_conditional_edges("Director", route_director, {
-    "Tools": "Tools",
+    "PreTools": "PreTools",
     "NPC_Brain": "NPC_Brain",
 })
 
+workflow.add_edge("PreTools", "Tools")
+workflow.add_edge("Tools", "PostTools")
+
 workflow.add_conditional_edges("NPC_Brain", route_npc_brain, {
-    "Tools": "Tools",
+    "PreTools": "PreTools",
     "Narrator": "Narrator",
 })
 
-workflow.add_conditional_edges("Tools", route_rules, {
+workflow.add_conditional_edges("PostTools", route_rules, {
     "Director": "Director",
     "NPC_Brain": "NPC_Brain",
 })
