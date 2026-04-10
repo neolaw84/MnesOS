@@ -205,7 +205,6 @@ class TestErrorHandling:
         """If the graph raises, the orchestrator retries once with a system note."""
         orch = Orchestrator(CARTRIDGE_DIR)
         call_count = {"n": 0}
-
         original_invoke = orch._app.invoke
 
         def flaky_invoke(state):
@@ -214,11 +213,9 @@ class TestErrorHandling:
                 raise ValueError("Simulated transient graph error")
             return original_invoke(state)
 
-        orch._app.invoke = flaky_invoke  # type: ignore[method-assign]
-        result = orch.process_turn("Test input")
+        with patch.object(orch._app, "invoke", side_effect=flaky_invoke):
+            result = orch.process_turn("Test input")
         assert call_count["n"] == 2
-        # The retry system note should have been injected
-        # (it was added to state before the retry, then state was replaced by invoke)
         assert isinstance(result, str)
 
     def test_retry_system_note_injected(self):
@@ -235,20 +232,17 @@ class TestErrorHandling:
             captured_notes.extend(state.get("system_notes", []))
             return original_invoke(state)
 
-        orch._app.invoke = capturing_invoke  # type: ignore[method-assign]
-        orch.process_turn("test")
+        with patch.object(orch._app, "invoke", side_effect=capturing_invoke):
+            orch.process_turn("test")
         assert any(_RETRY_SYSTEM_NOTE in note for note in captured_notes)
 
     def test_persistent_error_is_reraised(self):
         """If both attempts fail, the exception is re-raised."""
         orch = Orchestrator(CARTRIDGE_DIR)
 
-        def always_fail(state):
-            raise RuntimeError("always fails")
-
-        orch._app.invoke = always_fail  # type: ignore[method-assign]
-        with pytest.raises(RuntimeError, match="always fails"):
-            orch.process_turn("test")
+        with patch.object(orch._app, "invoke", side_effect=RuntimeError("always fails")):
+            with pytest.raises(RuntimeError, match="always fails"):
+                orch.process_turn("test")
 
 
 # ---------------------------------------------------------------------------

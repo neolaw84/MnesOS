@@ -13,7 +13,7 @@ Responsibilities:
 import copy
 import functools
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
@@ -138,7 +138,6 @@ class Orchestrator:
         self._state["client_messages"].append({"role": "user", "content": user_input})
         logger.debug("Player: %s", user_input)
 
-        last_exc: Optional[Exception] = None
         for attempt in range(MAX_TURN_RETRIES + 1):
             try:
                 new_state = self._app.invoke(self._state)
@@ -147,20 +146,20 @@ class Orchestrator:
                 logger.debug("Narrator: %s", response[:120] if response else "(none)")
                 return response
             except Exception as exc:  # noqa: BLE001
-                last_exc = exc
                 logger.warning(
                     "Turn attempt %d/%d failed: %s — %s",
                     attempt + 1,
                     MAX_TURN_RETRIES + 1,
                     type(exc).__name__,
                     exc,
+                    exc_info=True,
                 )
                 if attempt < MAX_TURN_RETRIES:
                     self._state["system_notes"] = (
                         self._state.get("system_notes") or []
                     ) + [_RETRY_SYSTEM_NOTE]
-
-        raise last_exc  # type: ignore[misc]
+                else:
+                    raise
 
     # ------------------------------------------------------------------
     # Internal helpers
