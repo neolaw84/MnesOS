@@ -242,9 +242,16 @@ class YAREInterpreter:
             self.notes.append(msg)
         
         elif action == "foreach":
-            array_val = self.evaluate(step.get("array"), context)
-            if isinstance(array_val, str) and array_val.startswith(("state.", "temp.")):
-                array_val = self._get_path(array_val)
+            array_expr = step.get("array")
+            is_direct_state_path = (
+                isinstance(array_expr, str)
+                and array_expr.startswith(("state.", "temp."))
+                and not array_expr.startswith("@")
+            )
+            if is_direct_state_path:
+                array_val = self._get_path(array_expr)
+            else:
+                array_val = self.evaluate(array_expr, context)
             if array_val is None:
                 return
             if not isinstance(array_val, list):

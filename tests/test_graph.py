@@ -776,7 +776,7 @@ class TestNarratorNodeWithLLM:
         assert "state.game_time" in call_arg
         assert "2026-04-10T08:00:00+00:00" in call_arg
 
-    def test_narrator_time_advance_tag_updates_bot_memory(self):
+    def test_narrator_time_mutation_tags_update_bot_memory(self):
         fake_llm = MagicMock()
         fake_llm.invoke.return_value = AIMessage(content="A while passes. [[TIME_ADVANCE: PT15M]]")
         baseline = make_state()
@@ -787,6 +787,17 @@ class TestNarratorNodeWithLLM:
         result = narrator_node(state, llm=fake_llm)
         assert result["bot_memory"]["game_time"] == "2026-04-10T08:15:00+00:00"
         assert "[[TIME_ADVANCE" not in result["client_messages"][0]["content"]
+
+    def test_narrator_time_advance_without_parseable_game_time_adds_system_note(self):
+        fake_llm = MagicMock()
+        fake_llm.invoke.return_value = AIMessage(content="Time passes. [[TIME_ADVANCE: PT15M]]")
+        baseline = make_state()
+        state = make_state(
+            bot_memory={**baseline["bot_memory"], "game_time": "not-a-time"},
+            system_notes=["Test."],
+        )
+        result = narrator_node(state, llm=fake_llm)
+        assert any("TIME_ADVANCE skipped" in n for n in result.get("system_notes", []))
 
 
 class TestWorkflowAgentMessageCleanup:

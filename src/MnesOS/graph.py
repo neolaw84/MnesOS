@@ -1,4 +1,4 @@
-from typing import Annotated, TypedDict, Literal, List, Dict, Any, Optional
+from typing import Annotated, TypedDict, Literal, List, Dict, Any, Optional, Tuple
 import operator
 import re
 from datetime import datetime, timedelta
@@ -125,6 +125,11 @@ def _parse_duration_token(token: str) -> timedelta:
         h = int(iso.group(1) or 0)
         m = int(iso.group(2) or 0)
         s = int(iso.group(3) or 0)
+        if h == 0 and m == 0 and s == 0:
+            raise ValueError(
+                "TIME_ADVANCE duration cannot be empty "
+                "(e.g., 'PT' without hours, minutes, or seconds)"
+            )
         return timedelta(hours=h, minutes=m, seconds=s)
 
     simple = re.fullmatch(r"(\d+)\s*([dhms])", token.lower())
@@ -158,7 +163,7 @@ def _coerce_game_time_to_datetime(value: Any) -> Optional[datetime]:
     return None
 
 
-def _apply_narrator_time_mutations(bot_memory: Dict[str, Any], narrative: str) -> tuple[str, Optional[Dict[str, Any]]]:
+def _apply_narrator_time_mutations(bot_memory: Dict[str, Any], narrative: str) -> Tuple[str, Optional[Dict[str, Any]], List[str]]:
     """
     Parse narrator inline time-mutation tags and return cleaned narrative + updated bot_memory.
 
@@ -169,11 +174,12 @@ def _apply_narrator_time_mutations(bot_memory: Dict[str, Any], narrative: str) -
     pattern = r"\[\[\s*(TIME_ADVANCE|SET_GAME_TIME)\s*:\s*(.*?)\s*\]\]"
     matches = re.findall(pattern, narrative, flags=re.IGNORECASE | re.DOTALL)
     if not matches:
-        return narrative, None
+        return narrative, None, []
 
     cleaned = re.sub(pattern, "", narrative, flags=re.IGNORECASE | re.DOTALL).strip()
     updated = dict(bot_memory)
     current = updated.get("game_time")
+    warnings: List[str] = []
 
     for command, payload in matches:
         cmd = command.upper()
@@ -183,13 +189,14 @@ def _apply_narrator_time_mutations(bot_memory: Dict[str, Any], narrative: str) -
         elif cmd == "TIME_ADVANCE":
             base_dt = _coerce_game_time_to_datetime(current)
             if base_dt is None:
+                warnings.append("SYSTEM: TIME_ADVANCE skipped because state.game_time is missing or unparseable.")
                 continue
             delta = _parse_duration_token(data)
             new_dt = base_dt + delta
             updated["game_time"] = new_dt.isoformat()
             current = updated["game_time"]
 
-    return cleaned, updated
+    return cleaned, updated, warnings
 
 
 def reset_agent_messages_node(state: GameState) -> dict:
@@ -439,11 +446,13 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
         )))
         response = llm.invoke(prompt_messages)
         narrative = response.content
-        cleaned_narrative, updated_memory = _apply_narrator_time_mutations(state.get("bot_memory", {}), narrative)
+        cleaned_narrative, updated_memory, warnings = _apply_narrator_time_mutations(state.get("bot_memory", {}), narrative)
         result["narrative"] = cleaned_narrative
         result["client_messages"] = [{"role": "assistant", "content": cleaned_narrative}]
         if updated_memory is not None:
             result["bot_memory"] = updated_memory
+        if warnings:
+            result["system_notes"] = warnings
 
     return result
 
