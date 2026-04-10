@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=64", "setuptools-scm>=8", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "MnesOS"
-version = "0.3.0"
+dynamic = ["version"]
 description = "MnesOS is fully Agentic RPG Game Engine."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -58,3 +58,6 @@ omit = ["tests/*"]
 
 [tool.coverage.report]
 show_missing = true
+
+[tool.setuptools_scm]
+version_file = "src/MnesOS/_version.py"

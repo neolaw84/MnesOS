@@ -40,6 +40,7 @@ Supported built-ins in the current interpreter:
 - `roll(NdX)`
 - `abs(value)`
 - `timedelta(...)`
+- `time_delta(timestamp_a, timestamp_b)` (returns `timestamp_b - timestamp_a` as a `timedelta`)
 
 Not currently supported:
 
@@ -85,6 +86,22 @@ Evaluates `roll`, then maps the result through a table using exact values, range
 
 Invokes another event. Calls are allowed, but execution depth is capped at 10.
 
+### `foreach`
+
+Iterates a list and executes nested steps once per item.
+
+Example:
+
+```yaml
+- action: foreach
+  array: "@ state.player.inventory"
+  item: item
+  index: idx
+  steps:
+    - action: note
+      message: "Item {inputs.idx}: {inputs.item}"
+```
+
 ### `note`
 
 Appends a string to the interpreter note buffer. `{...}` interpolation is supported and each expression inside braces is evaluated as YARE.
@@ -96,6 +113,7 @@ Appends a string to the interpreter note buffer. `{...}` interpolation is suppor
 3. `temp` acts as event-local scratch state
 4. `mutate` respects schema bounds when defined
 5. `note` accumulates engine observations for later narration
+6. Events with `trigger_on: cycle_tick` are automatically executed once per turn cycle before Director logic
 
 YARE is deterministic except where the rules explicitly use `roll(...)`.
 
@@ -128,3 +146,11 @@ The LLM needs to know which keys belong in `event_args` for each event. Both `di
 This means the LLM receives enough information to populate `event_args` correctly without seeing the full `yare.yaml`.
 
 New events are added in `yare.yaml`. No code changes are required to expose them — the graph reads event signatures dynamically at each invocation.
+
+## Time Sync Extensions
+
+- `state.game_time` is automatically injected into Director, NPC Brain, and Narrator prompt context when present.
+- Narrator uses a structured tool call for end-of-turn engine actions:
+  - `end_of_narration(actions=[{"type":"advance_time","duration":"PT15M"}])`
+  - `end_of_narration(actions=[{"type":"set_game_time","value":"2026-04-10T10:00:00+00:00"}])`
+- This replaces inline tag parsing and leaves player-facing narration content unchanged.

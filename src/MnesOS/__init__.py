@@ -1,6 +1,10 @@
 """MnesOS - MnesOS is fully Agentic RPG Game Engine.."""
 
-__version__ = "0.1.0"
+from importlib.metadata import version, PackageNotFoundError
+try:
+    __version__ = version(__name__)
+except PackageNotFoundError:
+    __version__ = "unknown"
 __author__ = "neolaw84"
 __email__ = "neolaw@gmail.com"
 

@@ -4,8 +4,8 @@ import MnesOS
 
 
 def test_version():
-    """Verify package version is set."""
-    assert MnesOS.__version__ == "0.1.0"
+    """Verify package version is set (not empty/unknown)."""
+    assert MnesOS.__version__ and MnesOS.__version__ != "unknown"
 
 
 def test_placeholder():
