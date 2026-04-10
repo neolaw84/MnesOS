@@ -155,7 +155,7 @@ def _parse_duration_token(token: str) -> timedelta:
         s = int(iso.group(3) or 0)
         if h == 0 and m == 0 and s == 0:
             raise ValueError(
-                "TIME_ADVANCE duration cannot be empty "
+                "advance_time duration cannot be empty "
                 "(e.g., 'PT' without hours, minutes, or seconds)"
             )
         return timedelta(hours=h, minutes=m, seconds=s)
@@ -172,7 +172,7 @@ def _parse_duration_token(token: str) -> timedelta:
             return timedelta(minutes=val)
         return timedelta(seconds=val)
 
-    raise ValueError(f"Unsupported TIME_ADVANCE token: {token!r}")
+    raise ValueError(f"Unsupported advance_time duration format: {token!r}")
 
 
 def _coerce_game_time_to_datetime(value: Any) -> Optional[datetime]:
