@@ -82,6 +82,34 @@ def trigger_event(
         "agent_messages": [ToolMessage(content=notes_text, tool_call_id=tool_call_id)],
     })
 
+
+@tool
+def end_of_narration(
+    actions: Optional[list[dict]] = None,
+    tool_call_id: Annotated[str, InjectedToolCallId()] = "",
+    state: Annotated["GameState", InjectedState()] = None,
+) -> Command:
+    """
+    Apply end-of-narration engine actions from the narrator.
+
+    Supported actions:
+      - {"type": "advance_time", "duration": "PT15M"} (also 15m/2h/1d/30s)
+      - {"type": "set_game_time", "value": "2026-04-10T10:00:00+00:00"}
+    """
+    updated_memory, warnings = _apply_end_of_narration_actions(
+        state.get("bot_memory", {}),
+        actions or [],
+    )
+    notes_text = "\n".join(warnings) if warnings else "end_of_narration: no effect."
+    update: Dict[str, Any] = {
+        "agent_messages": [ToolMessage(content=notes_text, tool_call_id=tool_call_id)],
+    }
+    if updated_memory is not None:
+        update["bot_memory"] = updated_memory
+    if warnings:
+        update["system_notes"] = warnings
+    return Command(update=update)
+
 # ---------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------
@@ -163,40 +191,58 @@ def _coerce_game_time_to_datetime(value: Any) -> Optional[datetime]:
     return None
 
 
-def _apply_narrator_time_mutations(bot_memory: Dict[str, Any], narrative: str) -> Tuple[str, Optional[Dict[str, Any]], List[str]]:
-    """
-    Parse narrator inline time-mutation tags and return cleaned narrative + updated bot_memory.
+def _apply_end_of_narration_actions(
+    bot_memory: Dict[str, Any],
+    actions: List[Dict[str, Any]],
+) -> Tuple[Optional[Dict[str, Any]], List[str]]:
+    """Apply structured narrator end-of-narration actions to bot_memory."""
+    if not actions:
+        return None, []
 
-    Supported tags:
-      - [[TIME_ADVANCE: <duration>]] where duration is PT#H#M#S or one of 5m/2h/1d/30s.
-      - [[SET_GAME_TIME: <iso-datetime>]]
-    """
-    pattern = r"\[\[\s*(TIME_ADVANCE|SET_GAME_TIME)\s*:\s*(.*?)\s*\]\]"
-    matches = re.findall(pattern, narrative, flags=re.IGNORECASE | re.DOTALL)
-    if not matches:
-        return narrative, None, []
-
-    cleaned = re.sub(pattern, "", narrative, flags=re.IGNORECASE | re.DOTALL).strip()
     updated = dict(bot_memory)
     current = updated.get("game_time")
     warnings: List[str] = []
+    changed = False
 
-    for command, payload in matches:
-        cmd = command.upper()
-        data = payload.strip()
-        if cmd == "SET_GAME_TIME":
-            updated["game_time"] = data
-        elif cmd == "TIME_ADVANCE":
+    for action in actions:
+        if not isinstance(action, dict):
+            warnings.append("SYSTEM: end_of_narration skipped invalid action payload.")
+            continue
+
+        kind = str(action.get("type", "")).strip().lower()
+        if kind == "set_game_time":
+            value = str(action.get("value", "")).strip()
+            if not value:
+                warnings.append("SYSTEM: end_of_narration set_game_time skipped because value is empty.")
+                continue
+            updated["game_time"] = value
+            current = value
+            changed = True
+            continue
+
+        if kind == "advance_time":
+            duration = str(action.get("duration", "")).strip()
+            if not duration:
+                warnings.append("SYSTEM: end_of_narration advance_time skipped because duration is empty.")
+                continue
             base_dt = _coerce_game_time_to_datetime(current)
             if base_dt is None:
-                warnings.append("SYSTEM: TIME_ADVANCE skipped because state.game_time is missing or unparseable.")
+                warnings.append("SYSTEM: end_of_narration advance_time skipped because state.game_time is missing or unparseable.")
                 continue
-            delta = _parse_duration_token(data)
+            try:
+                delta = _parse_duration_token(duration)
+            except ValueError as exc:
+                warnings.append(f"SYSTEM: end_of_narration advance_time skipped ({exc}).")
+                continue
             new_dt = base_dt + delta
             updated["game_time"] = new_dt.isoformat()
             current = updated["game_time"]
+            changed = True
+            continue
 
-    return cleaned, updated, warnings
+        warnings.append(f"SYSTEM: end_of_narration skipped unknown action type '{kind}'.")
+
+    return (updated if changed else None), warnings
 
 
 def reset_agent_messages_node(state: GameState) -> dict:
@@ -427,14 +473,14 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
     result: dict = {"iteration_count": 0, "system_notes": [], "retrieved_lore": ""}
 
     if llm is not None:
-        time_sync_directive = (
-            "\n\n### Time Sync Contract:\n"
-            "If in-game time should change, append one or more machine-readable tags anywhere in your reply:\n"
-            "- [[TIME_ADVANCE: PT15M]] (also accepts 15m, 2h, 1d, 30s)\n"
-            "- [[SET_GAME_TIME: 2026-04-10T10:00:00+00:00]]\n"
-            "These tags are consumed by the engine and removed from player-facing output."
+        end_of_narration_contract = (
+            "\n\n### End of Narration Contract:\n"
+            "If engine-side end-of-narration actions are needed, call tool end_of_narration with:\n"
+            "- actions: [{type:'advance_time', duration:'PT15M'}]\n"
+            "- actions: [{type:'set_game_time', value:'2026-04-10T10:00:00+00:00'}]\n"
+            "You may include both actions and narrative text in the same response."
         )
-        prompt_messages = [SystemMessage(content=narrator_prompt + _format_game_time_context(state.get("bot_memory", {})) + time_sync_directive)]
+        prompt_messages = [SystemMessage(content=narrator_prompt + _format_game_time_context(state.get("bot_memory", {})) + end_of_narration_contract)]
         prompt_messages.extend(
             _client_messages_to_langchain_messages(state.get("client_messages", []))
         )
@@ -444,13 +490,31 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
             f"Retrieved Lore: {state.get('retrieved_lore', '')}\n"
             f"Public State: {public_state}"
         )))
-        response = llm.invoke(prompt_messages)
+        response = llm.bind_tools([end_of_narration], parallel_tool_calls=False).invoke(prompt_messages)
         narrative = response.content
-        cleaned_narrative, updated_memory, warnings = _apply_narrator_time_mutations(state.get("bot_memory", {}), narrative)
-        result["narrative"] = cleaned_narrative
-        result["client_messages"] = [{"role": "assistant", "content": cleaned_narrative}]
-        if updated_memory is not None:
-            result["bot_memory"] = updated_memory
+        result["narrative"] = narrative
+        result["client_messages"] = [{"role": "assistant", "content": narrative}]
+
+        current_memory = state.get("bot_memory", {})
+        warnings: List[str] = []
+        changed = False
+        for call in (getattr(response, "tool_calls", None) or []):
+            if call.get("name") != "end_of_narration":
+                continue
+            cmd = end_of_narration.invoke({
+                "args": {**(call.get("args") or {}), "state": {**state, "bot_memory": current_memory}},
+                "name": "end_of_narration",
+                "type": "tool_call",
+                "id": call.get("id", ""),
+            })
+            if isinstance(cmd, Command):
+                update = cmd.update or {}
+                if "bot_memory" in update:
+                    current_memory = update["bot_memory"]
+                    changed = True
+                warnings.extend(update.get("system_notes", []))
+        if changed:
+            result["bot_memory"] = current_memory
         if warnings:
             result["system_notes"] = warnings
 

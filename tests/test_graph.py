@@ -6,7 +6,6 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 from langchain_core.language_models.fake_chat_models import (
-    FakeListChatModel,
     FakeMessagesListChatModel,
 )
 from langchain_core.messages import AIMessage, ToolMessage
@@ -32,6 +31,7 @@ from MnesOS.graph import (
     workflow,
     GameState,
     trigger_event,
+    end_of_narration,
 )
 
 
@@ -728,14 +728,24 @@ class TestNarratorNodeWithLLM:
     def test_llm_is_invoked(self):
         """Narrator must call the LLM when one is provided."""
         fake_llm = MagicMock()
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="The goblin snarls.")
         fake_llm.invoke.return_value = AIMessage(content="The goblin snarls.")
         state = make_state(system_notes=["Player dealt 10 damage."])
         narrator_node(state, llm=fake_llm)
-        fake_llm.invoke.assert_called_once()
+        fake_llm.bind_tools.assert_called_once()
+        fake_llm.bind_tools.return_value.invoke.assert_called_once()
+
+    def test_end_of_narration_tool_is_bound(self):
+        fake_llm = MagicMock()
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story text.")
+        state = make_state(system_notes=["Player dealt 10 damage."])
+        narrator_node(state, llm=fake_llm)
+        bound_tools = fake_llm.bind_tools.call_args[0][0]
+        assert end_of_narration in bound_tools
 
     def test_llm_response_stored_as_narrative(self):
         """The LLM prose response must be stored under 'narrative' in the output state."""
-        fake_llm = FakeListChatModel(responses=["The goblin snarls and lunges at you."])
+        fake_llm = _BindableFakeModel(responses=[AIMessage(content="The goblin snarls and lunges at you.", tool_calls=[])])
         state = make_state(system_notes=["Player dealt 10 damage."])
         result = narrator_node(state, llm=fake_llm)
         assert "narrative" in result
@@ -744,41 +754,49 @@ class TestNarratorNodeWithLLM:
     def test_narrative_uses_public_state_not_private(self):
         """The LLM must only receive public state variables in its context."""
         fake_llm = MagicMock()
-        fake_llm.invoke.return_value = AIMessage(content="Story text.")
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story text.", tool_calls=[])
         state = make_state(system_notes=["Test."])
         state["bot_memory"]["player"]["is_poisoned_with_asymptomatic_poison"] = True
         narrator_node(state, llm=fake_llm)
-        fake_llm.invoke.assert_called_once()
-        call_arg = str(fake_llm.invoke.call_args)
+        fake_llm.bind_tools.return_value.invoke.assert_called_once()
+        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
         assert "is_poisoned_with_asymptomatic_poison" not in call_arg
 
     def test_agent_messages_are_included_in_narrator_prompt(self):
         fake_llm = MagicMock()
-        fake_llm.invoke.return_value = AIMessage(content="Story text.")
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story text.", tool_calls=[])
         state = make_state(
             system_notes=["Test."],
             agent_messages=[ToolMessage(content="Succeeded!", tool_call_id="call_1")],
         )
         narrator_node(state, llm=fake_llm)
-        call_arg = str(fake_llm.invoke.call_args)
+        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
         assert "Succeeded!" in call_arg
 
     def test_game_time_context_is_injected_into_narrator_prompt(self):
         fake_llm = MagicMock()
-        fake_llm.invoke.return_value = AIMessage(content="Story text.")
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story text.", tool_calls=[])
         baseline = make_state()
         state = make_state(
             bot_memory={**baseline["bot_memory"], "game_time": "2026-04-10T08:00:00+00:00"},
             system_notes=["Test."],
         )
         narrator_node(state, llm=fake_llm)
-        call_arg = str(fake_llm.invoke.call_args)
+        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
         assert "state.game_time" in call_arg
         assert "2026-04-10T08:00:00+00:00" in call_arg
 
-    def test_narrator_time_mutation_tags_update_bot_memory(self):
+    def test_narrator_end_of_narration_tool_advance_time_updates_bot_memory(self):
         fake_llm = MagicMock()
-        fake_llm.invoke.return_value = AIMessage(content="A while passes. [[TIME_ADVANCE: PT15M]]")
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(
+            content="A while passes.",
+            tool_calls=[{
+                "name": "end_of_narration",
+                "args": {"actions": [{"type": "advance_time", "duration": "PT15M"}]},
+                "id": "call_1",
+                "type": "tool_call",
+            }],
+        )
         baseline = make_state()
         state = make_state(
             bot_memory={**baseline["bot_memory"], "game_time": "2026-04-10T08:00:00+00:00"},
@@ -786,18 +804,41 @@ class TestNarratorNodeWithLLM:
         )
         result = narrator_node(state, llm=fake_llm)
         assert result["bot_memory"]["game_time"] == "2026-04-10T08:15:00+00:00"
-        assert "[[TIME_ADVANCE" not in result["client_messages"][0]["content"]
+        assert result["client_messages"][0]["content"] == "A while passes."
 
-    def test_narrator_time_advance_without_parseable_game_time_adds_system_note(self):
+    def test_narrator_end_of_narration_advance_without_parseable_game_time_adds_system_note(self):
         fake_llm = MagicMock()
-        fake_llm.invoke.return_value = AIMessage(content="Time passes. [[TIME_ADVANCE: PT15M]]")
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(
+            content="Time passes.",
+            tool_calls=[{
+                "name": "end_of_narration",
+                "args": {"actions": [{"type": "advance_time", "duration": "PT15M"}]},
+                "id": "call_1",
+                "type": "tool_call",
+            }],
+        )
         baseline = make_state()
         state = make_state(
             bot_memory={**baseline["bot_memory"], "game_time": "not-a-time"},
             system_notes=["Test."],
         )
         result = narrator_node(state, llm=fake_llm)
-        assert any("TIME_ADVANCE skipped" in n for n in result.get("system_notes", []))
+        assert any("advance_time skipped" in n.lower() for n in result.get("system_notes", []))
+
+    def test_narrator_inline_time_tags_do_not_mutate_state(self):
+        fake_llm = MagicMock()
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(
+            content="A while passes. [[TIME_ADVANCE: PT15M]]",
+            tool_calls=[],
+        )
+        baseline = make_state()
+        state = make_state(
+            bot_memory={**baseline["bot_memory"], "game_time": "2026-04-10T08:00:00+00:00"},
+            system_notes=["Test."],
+        )
+        result = narrator_node(state, llm=fake_llm)
+        assert result["bot_memory"]["game_time"] == "2026-04-10T08:00:00+00:00"
+        assert "[[TIME_ADVANCE: PT15M]]" in result["client_messages"][0]["content"]
 
 
 class TestWorkflowAgentMessageCleanup:
