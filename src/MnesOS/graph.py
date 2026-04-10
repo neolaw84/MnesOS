@@ -155,8 +155,8 @@ def _parse_duration_token(token: str) -> timedelta:
         s = int(iso.group(3) or 0)
         if h == 0 and m == 0 and s == 0:
             raise ValueError(
-                "advance_time duration cannot be empty "
-                "(e.g., 'PT' without hours, minutes, or seconds)"
+                f"advance_time duration cannot be empty (received: {token!r}; "
+                "expected 'PT' with hours/minutes/seconds such as 'PT15M')"
             )
         return timedelta(hours=h, minutes=m, seconds=s)
 
@@ -227,7 +227,9 @@ def _apply_end_of_narration_actions(
                 continue
             base_dt = _coerce_game_time_to_datetime(current)
             if base_dt is None:
-                warnings.append("SYSTEM: end_of_narration advance_time skipped because state.game_time is missing or unparseable.")
+                warnings.append(
+                    f"SYSTEM: end_of_narration advance_time skipped because state.game_time is missing or unparseable (current value: {current!r})."
+                )
                 continue
             try:
                 delta = _parse_duration_token(duration)
