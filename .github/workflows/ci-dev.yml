@@ -5,6 +5,18 @@
 #   • All unit-tests must pass.
 #   • Coverage must be ≥ 80% when src contains > 1 000 lines of Python,
 #     otherwise ≥ 60%.
+#
+# Ordering with version-bump.yml
+# ───────────────────────────────
+# When a PR is opened, version-bump.yml and this workflow both trigger.  If the
+# version-bump commits a new version to the feature branch, GitHub fires a
+# `synchronize` event on the PR, which re-triggers this workflow on the new
+# (post-bump) SHA.  The `concurrency` block below cancels any in-flight run
+# that was started against the pre-bump SHA, so required branch-protection
+# checks always complete against the final commit.
+#
+# Branch protection should require the job named "Tests & Coverage" (the
+# display name of the `test-and-coverage` job below).
 # ──────────────────────────────────────────────────────────────────────────────
 name: CI – PR to dev
 
@@ -12,6 +24,17 @@ on:
   pull_request:
     branches:
       - dev
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+# One run per PR at a time.  When the version-bump bot pushes a new commit the
+# resulting `synchronize` event starts a fresh run; this directive cancels any
+# older run that was still executing against the pre-bump SHA.
+concurrency:
+  group: ci-dev-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   test-and-coverage:
