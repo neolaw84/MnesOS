@@ -73,6 +73,16 @@ class TestEvaluateArithmetic:
     def test_abs_function(self):
         assert make_interp().evaluate("@ abs(-5)") == 5
 
+    def test_time_delta_days(self):
+        interp = make_interp()
+        result = interp.evaluate("@ time_delta('2026-04-01T00:00:00', '2026-04-03T00:00:00')")
+        assert result.days == 2
+
+    def test_time_delta_with_state_values(self):
+        interp = make_interp(state={"game_time": {"start": "2026-04-01T10:00:00", "now": "2026-04-01T10:45:00"}})
+        result = interp.evaluate("@ time_delta(state.game_time.start, state.game_time.now)")
+        assert int(result.total_seconds()) == 2700
+
 
 # ---------------------------------------------------------------------------
 # evaluate() — comparisons and boolean
@@ -389,6 +399,43 @@ class TestActionNote:
         interp = make_interp()
         interp._execute_step({"action": "note", "message": "Simple fixed message."}, {})
         assert interp.notes == ["Simple fixed message."]
+
+
+# ---------------------------------------------------------------------------
+# _execute_step — foreach
+# ---------------------------------------------------------------------------
+
+class TestActionForeach:
+    def test_foreach_iterates_list_and_branches_per_item(self):
+        interp = make_interp(
+            state={"player": {"inventory": [{"name": "Potion", "rare": False}, {"name": "Relic", "rare": True}]}}
+        )
+        interp._execute_step(
+            {
+                "action": "foreach",
+                "array": "@ state.player.inventory",
+                "item": "item",
+                "steps": [
+                    {
+                        "action": "branch",
+                        "conditions": [
+                            {"if": "@ inputs.item.rare == True", "steps": [{"action": "note", "message": "Rare: {inputs.item.name}"}]},
+                            {"else": True, "steps": [{"action": "note", "message": "Common: {inputs.item.name}"}]},
+                        ],
+                    }
+                ],
+            },
+            {},
+        )
+        assert interp.notes == ["Common: Potion", "Rare: Relic"]
+
+    def test_foreach_non_list_raises(self):
+        interp = make_interp(state={"player": {"inventory": "not-a-list"}})
+        with pytest.raises(TypeError, match="must resolve to a list"):
+            interp._execute_step(
+                {"action": "foreach", "array": "@ state.player.inventory", "steps": []},
+                {},
+            )
 
 
 # ---------------------------------------------------------------------------

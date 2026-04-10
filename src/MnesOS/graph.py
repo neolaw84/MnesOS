@@ -1,5 +1,7 @@
 from typing import Annotated, TypedDict, Literal, List, Dict, Any, Optional
 import operator
+import re
+from datetime import datetime, timedelta
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import REMOVE_ALL_MESSAGES, add_messages
 from langgraph.prebuilt import InjectedState, ToolNode
@@ -105,6 +107,91 @@ def _client_messages_to_langchain_messages(client_messages: List[dict]) -> List[
     return converted
 
 
+def _format_game_time_context(bot_memory: Dict[str, Any]) -> str:
+    """Return a small prompt snippet for in-game time context."""
+    if "game_time" not in bot_memory:
+        return ""
+    return (
+        "\n\n### In-Game Time Context:\n"
+        f"state.game_time = {bot_memory.get('game_time')!r}\n"
+        "Use this as canonical in-game time context."
+    )
+
+
+def _parse_duration_token(token: str) -> timedelta:
+    token = token.strip()
+    iso = re.fullmatch(r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", token)
+    if iso:
+        h = int(iso.group(1) or 0)
+        m = int(iso.group(2) or 0)
+        s = int(iso.group(3) or 0)
+        return timedelta(hours=h, minutes=m, seconds=s)
+
+    simple = re.fullmatch(r"(\d+)\s*([dhms])", token.lower())
+    if simple:
+        val = int(simple.group(1))
+        unit = simple.group(2)
+        if unit == "d":
+            return timedelta(days=val)
+        if unit == "h":
+            return timedelta(hours=val)
+        if unit == "m":
+            return timedelta(minutes=val)
+        return timedelta(seconds=val)
+
+    raise ValueError(f"Unsupported TIME_ADVANCE token: {token!r}")
+
+
+def _coerce_game_time_to_datetime(value: Any) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value)
+    if isinstance(value, str):
+        normalized = value.strip()
+        if normalized.endswith("Z"):
+            normalized = normalized[:-1] + "+00:00"
+        try:
+            return datetime.fromisoformat(normalized)
+        except ValueError:
+            return None
+    return None
+
+
+def _apply_narrator_time_mutations(bot_memory: Dict[str, Any], narrative: str) -> tuple[str, Optional[Dict[str, Any]]]:
+    """
+    Parse narrator inline time-mutation tags and return cleaned narrative + updated bot_memory.
+
+    Supported tags:
+      - [[TIME_ADVANCE: <duration>]] where duration is PT#H#M#S or one of 5m/2h/1d/30s.
+      - [[SET_GAME_TIME: <iso-datetime>]]
+    """
+    pattern = r"\[\[\s*(TIME_ADVANCE|SET_GAME_TIME)\s*:\s*(.*?)\s*\]\]"
+    matches = re.findall(pattern, narrative, flags=re.IGNORECASE | re.DOTALL)
+    if not matches:
+        return narrative, None
+
+    cleaned = re.sub(pattern, "", narrative, flags=re.IGNORECASE | re.DOTALL).strip()
+    updated = dict(bot_memory)
+    current = updated.get("game_time")
+
+    for command, payload in matches:
+        cmd = command.upper()
+        data = payload.strip()
+        if cmd == "SET_GAME_TIME":
+            updated["game_time"] = data
+        elif cmd == "TIME_ADVANCE":
+            base_dt = _coerce_game_time_to_datetime(current)
+            if base_dt is None:
+                continue
+            delta = _parse_duration_token(data)
+            new_dt = base_dt + delta
+            updated["game_time"] = new_dt.isoformat()
+            current = updated["game_time"]
+
+    return cleaned, updated
+
+
 def reset_agent_messages_node(state: GameState) -> dict:
     """Clear any stale agent-side messages at the start of a top-level invoke."""
     return {"agent_messages": [RemoveMessage(id=REMOVE_ALL_MESSAGES)]}
@@ -161,6 +248,31 @@ def context_retrieval_node(state: GameState) -> dict:
     return {"retrieved_lore": lore}
 
 
+def cycle_tick_node(state: GameState) -> dict:
+    """
+    Run any YARE event configured with trigger_on: cycle_tick once per graph cycle.
+    """
+    events = state.get("yare_config", {}).get("events", {}) or {}
+    tick_events = [
+        name for name, cfg in events.items()
+        if isinstance(cfg, dict) and cfg.get("trigger_on") == "cycle_tick"
+    ]
+    if not tick_events:
+        return {}
+
+    interpreter = YAREInterpreter(state["yare_config"], state["bot_memory"])
+    new_notes: List[str] = []
+    for event_name in tick_events:
+        start = len(interpreter.notes)
+        interpreter.run_event(event_name, {})
+        new_notes.extend(interpreter.notes[start:])
+
+    result: dict = {"bot_memory": interpreter.state}
+    if new_notes:
+        result["system_notes"] = new_notes
+    return result
+
+
 def director_node(state: GameState, *, llm=None) -> dict:
     """
     2. Player Director: Maps user intent to YARE event triggers.
@@ -202,6 +314,7 @@ def director_node(state: GameState, *, llm=None) -> dict:
             system_content += "\n\n### Available Events:\n" + "\n".join(
                 _event_sig(n, c) for n, c in events_dict.items()
             )
+        system_content += _format_game_time_context(state.get("bot_memory", {}))
 
         prompt_messages = [SystemMessage(content=system_content)]
         prompt_messages.extend(
@@ -255,6 +368,7 @@ def npc_brain_node(state: GameState, *, llm=None) -> dict:
             system_content += "\n\n### Available Events:\n" + "\n".join(
                 _event_sig(n, c) for n, c in events_dict.items()
             )
+        system_content += _format_game_time_context(state.get("bot_memory", {}))
         prompt_messages = [SystemMessage(content=system_content)]
         prompt_messages.extend(
             _client_messages_to_langchain_messages(state.get("client_messages", []))
@@ -306,7 +420,14 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
     result: dict = {"iteration_count": 0, "system_notes": [], "retrieved_lore": ""}
 
     if llm is not None:
-        prompt_messages = [SystemMessage(content=narrator_prompt)]
+        time_sync_directive = (
+            "\n\n### Time Sync Contract:\n"
+            "If in-game time should change, append one or more machine-readable tags anywhere in your reply:\n"
+            "- [[TIME_ADVANCE: PT15M]] (also accepts 15m, 2h, 1d, 30s)\n"
+            "- [[SET_GAME_TIME: 2026-04-10T10:00:00+00:00]]\n"
+            "These tags are consumed by the engine and removed from player-facing output."
+        )
+        prompt_messages = [SystemMessage(content=narrator_prompt + _format_game_time_context(state.get("bot_memory", {})) + time_sync_directive)]
         prompt_messages.extend(
             _client_messages_to_langchain_messages(state.get("client_messages", []))
         )
@@ -318,8 +439,11 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
         )))
         response = llm.invoke(prompt_messages)
         narrative = response.content
-        result["narrative"] = narrative
-        result["client_messages"] = [{"role": "assistant", "content": narrative}]
+        cleaned_narrative, updated_memory = _apply_narrator_time_mutations(state.get("bot_memory", {}), narrative)
+        result["narrative"] = cleaned_narrative
+        result["client_messages"] = [{"role": "assistant", "content": cleaned_narrative}]
+        if updated_memory is not None:
+            result["bot_memory"] = updated_memory
 
     return result
 
@@ -355,6 +479,7 @@ workflow = StateGraph(GameState)
 
 workflow.add_node("ResetAgentMessages", reset_agent_messages_node)
 workflow.add_node("Lore", context_retrieval_node)
+workflow.add_node("CycleTick", cycle_tick_node)
 workflow.add_node("Director", director_node)
 workflow.add_node("PreTools", pre_tools_node)
 workflow.add_node("Tools", ToolNode([trigger_event], messages_key="agent_messages"))
@@ -365,7 +490,8 @@ workflow.add_node("CleanupAgentMessages", cleanup_agent_messages_node)
 
 workflow.set_entry_point("ResetAgentMessages")
 workflow.add_edge("ResetAgentMessages", "Lore")
-workflow.add_edge("Lore", "Director")
+workflow.add_edge("Lore", "CycleTick")
+workflow.add_edge("CycleTick", "Director")
 
 workflow.add_conditional_edges("Director", route_director, {
     "PreTools": "PreTools",

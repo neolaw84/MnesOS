@@ -19,6 +19,7 @@ class _BindableFakeModel(FakeMessagesListChatModel):
 
 from MnesOS.graph import (
     context_retrieval_node,
+    cycle_tick_node,
     director_node,
     npc_brain_node,
     narrator_node,
@@ -181,6 +182,40 @@ class TestContextRetrievalNode:
         result = context_retrieval_node(state)
         # Must not raise; may be empty string
         assert isinstance(result["retrieved_lore"], str)
+
+
+# ---------------------------------------------------------------------------
+# cycle_tick_node
+# ---------------------------------------------------------------------------
+
+class TestCycleTickNode:
+    def test_cycle_tick_runs_triggered_event(self):
+        state = make_state(
+            yare_config={
+                "state_schema": {
+                    "game_time": {"type": "string", "default": "2026-04-10T00:00:00", "visibility": "public"},
+                },
+                "events": {
+                    "tick": {
+                        "trigger_on": "cycle_tick",
+                        "steps": [
+                            {"action": "set", "var": "state.game_time", "value": "'2026-04-10T00:10:00'"},
+                            {"action": "note", "message": "Cycle tick applied."},
+                        ],
+                    }
+                },
+                "macros": {},
+            },
+            bot_memory={"game_time": "2026-04-10T00:00:00"},
+        )
+        result = cycle_tick_node(state)
+        assert result["bot_memory"]["game_time"] == "2026-04-10T00:10:00"
+        assert any("Cycle tick" in n for n in result.get("system_notes", []))
+
+    def test_cycle_tick_no_registered_events_is_noop(self):
+        state = make_state()
+        result = cycle_tick_node(state)
+        assert result == {}
 
 
 # ---------------------------------------------------------------------------
@@ -592,6 +627,16 @@ class TestDirectorNodeWithLLM:
         assert "deal_damage" in system_content
         assert "deal_damage(event_args" not in system_content
 
+    def test_game_time_context_is_injected_into_director_prompt(self):
+        fake_llm = MagicMock()
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
+        baseline = make_state()
+        state = make_state(bot_memory={**baseline["bot_memory"], "game_time": "2026-04-10T08:00:00+00:00"})
+        director_node(state, llm=fake_llm)
+        system_content = fake_llm.bind_tools.return_value.invoke.call_args[0][0][0].content
+        assert "state.game_time" in system_content
+        assert "2026-04-10T08:00:00+00:00" in system_content
+
 
 class TestNpcBrainNodeWithLLM:
     def test_llm_is_invoked(self):
@@ -668,6 +713,16 @@ class TestNpcBrainNodeWithLLM:
         assert "deal_damage" in system_content
         assert "deal_damage(event_args" not in system_content
 
+    def test_game_time_context_is_injected_into_npc_prompt(self):
+        fake_llm = MagicMock()
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
+        baseline = make_state()
+        state = make_state(bot_memory={**baseline["bot_memory"], "game_time": "2026-04-10T08:00:00+00:00"})
+        npc_brain_node(state, llm=fake_llm)
+        system_content = fake_llm.bind_tools.return_value.invoke.call_args[0][0][0].content
+        assert "state.game_time" in system_content
+        assert "2026-04-10T08:00:00+00:00" in system_content
+
 
 class TestNarratorNodeWithLLM:
     def test_llm_is_invoked(self):
@@ -707,6 +762,31 @@ class TestNarratorNodeWithLLM:
         narrator_node(state, llm=fake_llm)
         call_arg = str(fake_llm.invoke.call_args)
         assert "Succeeded!" in call_arg
+
+    def test_game_time_context_is_injected_into_narrator_prompt(self):
+        fake_llm = MagicMock()
+        fake_llm.invoke.return_value = AIMessage(content="Story text.")
+        baseline = make_state()
+        state = make_state(
+            bot_memory={**baseline["bot_memory"], "game_time": "2026-04-10T08:00:00+00:00"},
+            system_notes=["Test."],
+        )
+        narrator_node(state, llm=fake_llm)
+        call_arg = str(fake_llm.invoke.call_args)
+        assert "state.game_time" in call_arg
+        assert "2026-04-10T08:00:00+00:00" in call_arg
+
+    def test_narrator_time_advance_tag_updates_bot_memory(self):
+        fake_llm = MagicMock()
+        fake_llm.invoke.return_value = AIMessage(content="A while passes. [[TIME_ADVANCE: PT15M]]")
+        baseline = make_state()
+        state = make_state(
+            bot_memory={**baseline["bot_memory"], "game_time": "2026-04-10T08:00:00+00:00"},
+            system_notes=["Test."],
+        )
+        result = narrator_node(state, llm=fake_llm)
+        assert result["bot_memory"]["game_time"] == "2026-04-10T08:15:00+00:00"
+        assert "[[TIME_ADVANCE" not in result["client_messages"][0]["content"]
 
 
 class TestWorkflowAgentMessageCleanup:

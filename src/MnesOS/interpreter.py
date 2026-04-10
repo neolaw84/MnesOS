@@ -130,6 +130,12 @@ class YAREInterpreter:
                 return sum(random.randint(1, dx) for _ in range(n))
             if func_name == "timedelta":
                 return timedelta(**{k.arg: self._eval_node(k.value, context) for k in node.keywords})
+            if func_name == "time_delta":
+                if len(args) != 2:
+                    raise ValueError("time_delta expects exactly 2 arguments: time_delta(timestamp_a, timestamp_b)")
+                t_a = self._parse_timestamp(args[0])
+                t_b = self._parse_timestamp(args[1])
+                return t_b - t_a
             if func_name == "abs": return abs(args[0])
             
         raise ValueError(f"Unsupported YARE expression node: {type(node)}")
@@ -234,6 +240,24 @@ class YAREInterpreter:
                 import re
                 msg = re.sub(r'\{(.*?)\}', lambda m: str(self.evaluate("@" + m.group(1), context)), msg)
             self.notes.append(msg)
+        
+        elif action == "foreach":
+            array_val = self.evaluate(step.get("array"), context)
+            if isinstance(array_val, str) and array_val.startswith(("state.", "temp.")):
+                array_val = self._get_path(array_val)
+            if array_val is None:
+                return
+            if not isinstance(array_val, list):
+                raise TypeError(f"foreach array must resolve to a list, got {type(array_val).__name__}")
+
+            item_key = step.get("item", "item")
+            index_key = step.get("index", "index")
+            for idx, item in enumerate(array_val):
+                iter_context = dict(context)
+                iter_context[item_key] = item
+                iter_context[index_key] = idx
+                for substep in step.get("steps", []):
+                    self._execute_step(substep, iter_context)
 
     def _set_path(self, path: str, value: Any):
         parts = path.split('.')
@@ -296,6 +320,21 @@ class YAREInterpreter:
             except ValueError:
                 return 0
         return 0
+
+    def _parse_timestamp(self, value: Any) -> datetime:
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, (int, float)):
+            return datetime.fromtimestamp(value)
+        if isinstance(value, str):
+            normalized = value.strip()
+            if normalized.endswith("Z"):
+                normalized = normalized[:-1] + "+00:00"
+            try:
+                return datetime.fromisoformat(normalized)
+            except ValueError as exc:
+                raise ValueError(f"Unsupported timestamp format for time_delta: {value!r}") from exc
+        raise TypeError(f"time_delta only supports datetime, ISO timestamp string, int, or float, got {type(value).__name__}")
 
     def _coerce(self, value: Any, path: str) -> Any:
         """Coerce value to the schema-declared type for path, if declared."""
