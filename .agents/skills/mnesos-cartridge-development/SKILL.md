@@ -1,6 +1,10 @@
 ---
 name: mnesos-cartridge-development
 description: Develop, template, and design new RPG cartridges for the MnesOS engine. Includes boilerplate templates, guidelines, and validation tools.
+license: MIT
+metadata:
+  version: "1.0"
+  author: mnesos-team
 ---
 
 # MnesOS Cartridge Development Skill
@@ -31,5 +35,7 @@ A MnesOS cartridge divides game responsibilities across explicitly named files:
 *   **Documentation**:
     *   [references/cartridge-guide.md](references/cartridge-guide.md)
     *   [references/yare-specification.md](references/yare-specification.md)
+    *   [references/architecture_analysis.md](references/architecture_analysis.md)
+    *   [references/combat_mechanics.md](references/combat_mechanics.md)
 *   **Scripts**:
     *   [scripts/setup_cartridge.py](scripts/setup_cartridge.py): Use this python script to automatically scaffold a new cartridge using the assets in this skill. Usage: `python scripts/setup_cartridge.py <cartridge-name>`

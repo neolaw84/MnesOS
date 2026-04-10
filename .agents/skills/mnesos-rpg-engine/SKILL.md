@@ -1,6 +1,10 @@
 ---
 name: mnesos-rpg-engine
 description: Create and manage Agentic Role Play Games using the MnesOS engine. Use when the user wants to work with MnesOS cartridges, game logic, or lore.
+license: MIT
+metadata:
+  version: "1.0"
+  author: mnesos-team
 ---
 
 # MnesOS Agentic RPG Engine
@@ -40,11 +44,13 @@ A game cartridge is a directory inside `cartridges/` with the following structur
 
 ## Documentation
 
-For more detailed information, refer to the documentation in the `references/` directory of this skill:
+For more detailed information, refer to the documentation:
 
 *   [references/architecture.md](references/architecture.md): For the overall architecture.
 *   [references/cartridge-guide.md](references/cartridge-guide.md): For creating and managing cartridges.
 *   [references/yare-specification.md](references/yare-specification.md): For the YARE language used in `yare.yaml`.
+*   [references/architecture_analysis.md](references/architecture_analysis.md): In-depth engine architectural analysis.
+*   [references/combat_mechanics.md](references/combat_mechanics.md): Deep dive into YARE combat mechanics and counter-play.
 
 ## Scripts
 

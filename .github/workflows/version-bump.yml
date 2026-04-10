@@ -8,6 +8,16 @@
 #   • bump:patch  → X.Y.Z+1
 #
 # The updated pyproject.toml is committed back to the PR's head branch.
+# The commit intentionally omits [skip ci] so that the push to the feature
+# branch fires a `synchronize` event on the PR, allowing ci-dev.yml to run
+# tests against the final post-bump SHA.
+#
+# Loop-prevention
+# ───────────────
+# • The job is skipped when github.actor == 'github-actions[bot]' so that
+#   the bot's own push to the feature branch cannot re-trigger this workflow.
+# • The workflow only listens to `opened`, `labeled`, and `unlabeled`; it does
+#   NOT listen to `synchronize`, so a bot push never matches a trigger.
 # ──────────────────────────────────────────────────────────────────────────────
 name: Version Bump – PR to dev
 
@@ -26,6 +36,8 @@ permissions:
 jobs:
   bump-version:
     name: Bump version on feature branch
+    # Skip entirely when triggered by the Actions bot (loop-prevention guard).
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
 
     steps:
@@ -65,11 +77,13 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add pyproject.toml
-          # Only commit if pyproject.toml actually changed
+          # Only commit if pyproject.toml actually changed.
+          # Note: [skip ci] is intentionally NOT used so that this push fires a
+          # `synchronize` event that triggers ci-dev.yml on the new post-bump SHA.
           if git diff --staged --quiet; then
             echo "No version change detected — skipping commit."
           else
             BUMP_TYPE=${{ steps.bump.outputs.type }}
-            git commit -m "chore: auto-bump version [${BUMP_TYPE}] [skip ci]"
+            git commit -m "chore: auto-bump version [${BUMP_TYPE}]"
             git push
           fi
