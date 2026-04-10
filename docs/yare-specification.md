@@ -150,7 +150,7 @@ New events are added in `yare.yaml`. No code changes are required to expose them
 ## Time Sync Extensions
 
 - `state.game_time` is automatically injected into Director, NPC Brain, and Narrator prompt context when present.
-- Narrator output may include engine-only tags to mutate in-game time:
-  - `[[TIME_ADVANCE: PT15M]]` (also supports `15m`, `2h`, `1d`, `30s`)
-  - `[[SET_GAME_TIME: 2026-04-10T10:00:00+00:00]]`
-- These tags are consumed by the engine and removed from player-facing output.
+- Narrator uses a structured tool call for end-of-turn engine actions:
+  - `end_of_narration(actions=[{"type":"advance_time","duration":"PT15M"}])`
+  - `end_of_narration(actions=[{"type":"set_game_time","value":"2026-04-10T10:00:00+00:00"}])`
+- This replaces inline tag parsing and leaves player-facing narration content unchanged.

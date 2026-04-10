@@ -837,7 +837,7 @@ class TestNarratorNodeWithLLM:
             system_notes=["Test."],
         )
         result = narrator_node(state, llm=fake_llm)
-        assert result["bot_memory"]["game_time"] == "2026-04-10T08:00:00+00:00"
+        assert "bot_memory" not in result
         assert "[[TIME_ADVANCE: PT15M]]" in result["client_messages"][0]["content"]
 
 
