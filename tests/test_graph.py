@@ -729,7 +729,6 @@ class TestNarratorNodeWithLLM:
         """Narrator must call the LLM when one is provided."""
         fake_llm = MagicMock()
         fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="The goblin snarls.")
-        fake_llm.invoke.return_value = AIMessage(content="The goblin snarls.")
         state = make_state(system_notes=["Player dealt 10 damage."])
         narrator_node(state, llm=fake_llm)
         fake_llm.bind_tools.assert_called_once()

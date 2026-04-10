@@ -156,7 +156,7 @@ def _parse_duration_token(token: str) -> timedelta:
         if h == 0 and m == 0 and s == 0:
             raise ValueError(
                 f"advance_time duration cannot be empty (received: {token!r}; "
-                "expected 'PT' with hours/minutes/seconds such as 'PT15M')"
+                "expected ISO duration like 'PT15M' or shorthand like '15m')"
             )
         return timedelta(hours=h, minutes=m, seconds=s)
 
@@ -503,12 +503,11 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
         for call in (getattr(response, "tool_calls", None) or []):
             if call.get("name") != "end_of_narration":
                 continue
-            cmd = end_of_narration.invoke({
-                "args": {**(call.get("args") or {}), "state": {**state, "bot_memory": current_memory}},
-                "name": "end_of_narration",
-                "type": "tool_call",
-                "id": call.get("id", ""),
-            })
+            cmd = end_of_narration.func(
+                actions=(call.get("args") or {}).get("actions"),
+                tool_call_id=call.get("id", ""),
+                state={**state, "bot_memory": current_memory},
+            )
             if isinstance(cmd, Command):
                 update = cmd.update or {}
                 if "bot_memory" in update:
