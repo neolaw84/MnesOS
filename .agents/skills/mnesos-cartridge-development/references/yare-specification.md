@@ -37,7 +37,7 @@ Supported operators in the current interpreter:
 
 Supported built-ins in the current interpreter:
 
-- `roll(NdX)`
+- `roll(NdX)` (Note: Do **not** put quotes around the dice notation. Write `roll(1d20)` instead of `roll('1d20')`)
 - `abs(value)`
 - `timedelta(...)`
 

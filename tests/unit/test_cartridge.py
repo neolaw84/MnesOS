@@ -71,8 +71,8 @@ class TestValidatePromptDirectives:
         assert len(result["narrator"]) == MAX_DIRECTIVE_LEN
 
     def test_combined_length_exceeds_total_cap_raises(self):
-        # Three directives each close to the per-directive max → total > 1000
-        chunk = "x" * 400
+        # Three directives each exactly at the per-directive max
+        chunk = "x" * MAX_DIRECTIVE_LEN
         with pytest.raises(ValueError, match="Combined directive text"):
             _validate_prompt_directives({
                 "director":  chunk,
@@ -391,3 +391,71 @@ class TestCartridgeLoader:
         )
         with pytest.raises(ValueError, match="injection"):
             CartridgeLoader().load(str(tmp_path))
+
+
+# ---------------------------------------------------------------------------
+# separate_npc_brain feature tests
+# ---------------------------------------------------------------------------
+
+class TestSeparateNpcBrainFeature:
+    """Tests for the optional separate_npc_brain architecture flag."""
+
+    def test_yare_without_separate_npc_brain_defaults_to_false(self, tmp_path):
+        """When separate_npc_brain is omitted, it should default to False."""
+        yare = {
+            "version": "1.0",
+            "state_schema": {},
+            "events": {},
+        }
+        (tmp_path / "yare.yaml").write_text(yaml.dump(yare))
+        (tmp_path / "bot_lore.md").write_text("# Test\nSome lore.")
+
+        cartridge = CartridgeLoader().load(str(tmp_path))
+        assert cartridge.yare_config.get("separate_npc_brain", False) is False
+
+    def test_yare_with_separate_npc_brain_false_is_valid(self, tmp_path):
+        """Explicitly setting separate_npc_brain: false should be valid."""
+        yare = {
+            "version": "1.0",
+            "state_schema": {},
+            "events": {},
+            "separate_npc_brain": False,
+        }
+        (tmp_path / "yare.yaml").write_text(yaml.dump(yare))
+        (tmp_path / "bot_lore.md").write_text("# Test\nSome lore.")
+
+        cartridge = CartridgeLoader().load(str(tmp_path))
+        assert cartridge.yare_config["separate_npc_brain"] is False
+
+    def test_yare_with_separate_npc_brain_true_is_valid(self, tmp_path):
+        """Setting separate_npc_brain: true should be valid (even if not yet implemented)."""
+        yare = {
+            "version": "1.0",
+            "state_schema": {},
+            "events": {},
+            "separate_npc_brain": True,
+        }
+        (tmp_path / "yare.yaml").write_text(yaml.dump(yare))
+        (tmp_path / "bot_lore.md").write_text("# Test\nSome lore.")
+
+        cartridge = CartridgeLoader().load(str(tmp_path))
+        assert cartridge.yare_config["separate_npc_brain"] is True
+
+    def test_yare_with_non_boolean_separate_npc_brain_raises(self, tmp_path):
+        """separate_npc_brain must be a boolean."""
+        yare = {
+            "version": "1.0",
+            "state_schema": {},
+            "events": {},
+            "separate_npc_brain": "yes",  # string instead of boolean
+        }
+        (tmp_path / "yare.yaml").write_text(yaml.dump(yare))
+        (tmp_path / "bot_lore.md").write_text("# Test\nSome lore.")
+
+        with pytest.raises(ValueError, match="separate_npc_brain.*boolean"):
+            CartridgeLoader().load(str(tmp_path))
+
+    def test_generic_rpg_cartridge_defaults_separate_npc_brain_false(self, generic_rpg_cartridge_dir):
+        """The generic-rpg cartridge should have separate_npc_brain=False (default)."""
+        cartridge = CartridgeLoader().load(generic_rpg_cartridge_dir)
+        assert cartridge.yare_config.get("separate_npc_brain", False) is False

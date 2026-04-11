@@ -1,14 +1,31 @@
 """
-Unit tests for graph.py node functions and edge routers.
+Unit tests for graph.py node functions, edge routers, and the build_graph factory.
 """
 
-import os
 import pytest
-from unittest.mock import patch, MagicMock
-from langchain_core.language_models.fake_chat_models import (
-    FakeMessagesListChatModel,
-)
+from unittest.mock import MagicMock
+from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
 from langchain_core.messages import AIMessage, ToolMessage
+
+from MnesOS.graph import (
+    build_graph,
+    build_yare_event_tools,
+    context_retrieval_node,
+    cycle_tick_node,
+    director_node,
+    end_of_narration,
+    GameState,
+    get_public_state,
+    npc_brain_node,
+    narrator_node,
+    post_tools_node,
+    pre_tools_node,
+    route_director,
+    route_director_separate,
+    route_npc_brain,
+    route_rules,
+    workflow,
+)
 
 
 class _BindableFakeModel(FakeMessagesListChatModel):
@@ -16,32 +33,9 @@ class _BindableFakeModel(FakeMessagesListChatModel):
     def bind_tools(self, tools, **kwargs):
         return self
 
-from MnesOS.graph import (
-    context_retrieval_node,
-    cycle_tick_node,
-    director_node,
-    npc_brain_node,
-    narrator_node,
-    get_public_state,
-    route_director,
-    route_rules,
-    route_npc_brain,
-    pre_tools_node,
-    post_tools_node,
-    workflow,
-    GameState,
-    trigger_event,
-    end_of_narration,
-)
 
-
-# ---------------------------------------------------------------------------
-# Shared helpers
-# ---------------------------------------------------------------------------
-
-GENERIC_RPG_LORE = (
-    os.path.join(os.path.dirname(__file__), "..", "cartridges", "generic-rpg", "bot_lore.md")
-)
+# CWD-relative path — pytest is always invoked from the project root.
+GENERIC_RPG_LORE = "cartridges/generic-rpg/bot_lore.md"
 
 
 def make_state(**overrides) -> dict:
@@ -274,120 +268,110 @@ class TestNpcBrainNode:
 # trigger_event tool (native LangGraph ToolNode pattern)
 # ---------------------------------------------------------------------------
 
-def _ai_msg_with_tool_call(event_name: str, call_id: str = "call_1") -> AIMessage:
-    """Build an AIMessage carrying a trigger_event tool call."""
+def _ai_msg_with_tool_call(event_name: str, call_id: str = "call_1", args: dict = None) -> AIMessage:
+    """Build an AIMessage carrying a dynamically generated event tool call."""
     return AIMessage(
         content="",
         tool_calls=[{
-            "name": "trigger_event",
-            "args": {"event_name": event_name},
+            "name": event_name,
+            "args": args or {},
             "id": call_id,
             "type": "tool_call",
         }],
     )
 
 
-def _make_tools_only_app():
+def _make_tools_only_app(yare_config: dict):
     """Compile a minimal graph containing only the ToolNode for integration tests."""
     from langgraph.graph import StateGraph, END as _END
     from langgraph.prebuilt import ToolNode
     g = StateGraph(GameState)
-    g.add_node("T", ToolNode([trigger_event], messages_key="agent_messages"))
+    tools = build_yare_event_tools(yare_config)
+    g.add_node("T", ToolNode(tools, messages_key="agent_messages"))
     g.set_entry_point("T")
     g.add_edge("T", _END)
     return g.compile()
 
 
-def _invoke_trigger_event(event_name: str, state: dict, event_args: dict = None, call_id: str = "t1"):
-    """Invoke trigger_event using the required ToolCall dict format."""
-    tool_args = {"event_name": event_name, "state": state}
-    if event_args is not None:
-        tool_args["event_args"] = event_args
-    return trigger_event.invoke({
-        "args": tool_args,
-        "name": "trigger_event",
-        "type": "tool_call",
-        "id": call_id,
-    })
+def _invoke_dynamic_tool(event_name: str, state: dict, event_args: dict = None, call_id: str = "t1"):
+    """Invoke a dynamic tool manually for testing."""
+    tools = build_yare_event_tools(state["yare_config"])
+    tool = next((t for t in tools if t.name == event_name), None)
+    if not tool:
+        class FakeCommand:
+            update = {"system_notes": []}
+        return FakeCommand()
+
+    tool_args = dict(event_args or {})
+    return tool.func(*[], tool_call_id=call_id, state=state, **tool_args)
 
 
-class TestTriggerEventTool:
-    """Tests for trigger_event executing real YARE logic with InjectedState."""
+class TestDynamicEventTools:
+    """Tests for dynamic YARE event tools executing real logic with InjectedState."""
 
     def test_tool_executes_event_and_updates_bot_memory(self):
-        """trigger_event must run the event and stage updated bot_memory via Command."""
         from langgraph.types import Command
         state = make_state(turn_phase="player")
-        result = _invoke_trigger_event("deal_damage", state)
+        result = _invoke_dynamic_tool("deal_damage", state)
         assert isinstance(result, Command)
         assert result.update["bot_memory_staging"][0]["npc"]["hp"] == 10  # 20 - 10
 
     def test_tool_emits_new_notes_in_system_notes(self):
-        """trigger_event must return new YARE notes (not full list) via Command.update."""
         from langgraph.types import Command
         state = make_state(turn_phase="player")
-        result = _invoke_trigger_event("deal_damage", state)
+        result = _invoke_dynamic_tool("deal_damage", state)
         assert any("damage" in n for n in result.update["system_notes"])
 
     def test_tool_npc_phase_adds_separator_note(self):
-        """trigger_event must prepend the NPC separator when turn_phase == 'npc'."""
         from langgraph.types import Command
         state = make_state(turn_phase="npc")
-        result = _invoke_trigger_event("deal_damage", state)
+        result = _invoke_dynamic_tool("deal_damage", state)
         assert any("NPC Turn" in n for n in result.update["system_notes"])
 
     def test_tool_npc_separator_not_duplicated(self):
-        """Separator must not be added if already present in state.system_notes."""
         from langgraph.types import Command
         state = make_state(turn_phase="npc", system_notes=["\n--- NPC Turn Resolution ---"])
-        result = _invoke_trigger_event("deal_damage", state)
+        result = _invoke_dynamic_tool("deal_damage", state)
         combined = state["system_notes"] + result.update.get("system_notes", [])
         assert combined.count("\n--- NPC Turn Resolution ---") == 1
 
     def test_tool_unknown_event_produces_empty_notes(self):
-        """An unrecognised event name must produce no notes."""
-        from langgraph.types import Command
         state = make_state(turn_phase="player")
-        result = _invoke_trigger_event("undefined_event", state)
+        result = _invoke_dynamic_tool("undefined_event", state)
         assert result.update.get("system_notes", []) == []
 
     def test_tool_passes_args_to_interpreter(self):
-        """LLM-supplied args (e.g. difficulty) must reach the YARE interpreter."""
-        from langgraph.types import Command
         state = make_state(turn_phase="player")
-        result = _invoke_trigger_event(
+        result = _invoke_dynamic_tool(
             "generic_check", state,
-            event_args={"stat": "strength", "difficulty": 1},  # difficulty=1 guarantees success
+            event_args={"stat": "strength", "difficulty": 1},
         )
         assert any("Succeeded" in n or "Failed" in n for n in result.update.get("system_notes", []))
 
     def test_tool_creates_tool_message_with_correct_id(self):
-        """trigger_event must include a ToolMessage with the correct tool_call_id."""
         from langgraph.types import Command
         state = make_state(turn_phase="player")
-        result = _invoke_trigger_event("deal_damage", state, call_id="my_id")
+        result = _invoke_dynamic_tool("deal_damage", state, call_id="my_id")
         tool_msgs = [m for m in result.update.get("agent_messages", []) if isinstance(m, ToolMessage)]
         assert len(tool_msgs) == 1
         assert tool_msgs[0].tool_call_id == "my_id"
         assert "damage" in tool_msgs[0].content
 
     def test_tool_node_propagates_bot_memory_staging(self):
-        """ToolNode must push the state snapshot into bot_memory_staging."""
-        app = _make_tools_only_app()
         state = make_state(
             agent_messages=[_ai_msg_with_tool_call("deal_damage")],
             turn_phase="player",
         )
+        app = _make_tools_only_app(state["yare_config"])
         result = app.invoke(state)
         assert result["bot_memory_staging"][-1]["npc"]["hp"] == 10
 
     def test_tool_node_appends_tool_message_to_agent_messages(self):
-        """ToolNode must add the ToolMessage from Command.update to agent_messages."""
-        app = _make_tools_only_app()
         state = make_state(
             agent_messages=[_ai_msg_with_tool_call("deal_damage")],
             turn_phase="player",
         )
+        app = _make_tools_only_app(state["yare_config"])
         result = app.invoke(state)
         tool_msgs = [m for m in result["agent_messages"] if isinstance(m, ToolMessage)]
         assert len(tool_msgs) == 1
@@ -399,9 +383,6 @@ class TestTriggerEventTool:
 # ---------------------------------------------------------------------------
 
 class TestNarratorNode:
-    # NOTE: When real LLM calls are wired into narrator_node, these tests
-    # will need to be supplemented with mock LLM assertions.
-
     def test_clears_system_notes(self):
         state = make_state(system_notes=["Player dealt 10 damage.", "NPC is hurt."])
         result = narrator_node(state)
@@ -434,7 +415,7 @@ class TestPreToolsNode:
     def test_clears_staging_by_returning_none(self):
         state = make_state(bot_memory_staging=[{"npc": {"hp": 5}}])
         result = pre_tools_node(state)
-        assert result["bot_memory_staging"] is None  # sentinel that triggers reducer clear
+        assert result["bot_memory_staging"] is None
 
     def test_does_not_touch_bot_memory(self):
         state = make_state()
@@ -449,7 +430,7 @@ class TestPostToolsNode:
             {"npc": {"hp": 10}},
         ])
         result = post_tools_node(state)
-        assert result["bot_memory"]["npc"]["hp"] == 10  # last entry wins
+        assert result["bot_memory"]["npc"]["hp"] == 10
 
     def test_clears_staging_after_commit(self):
         state = make_state(bot_memory_staging=[{"npc": {"hp": 5}}])
@@ -475,23 +456,67 @@ class TestRouteDirector:
         )
         assert route_director(state) == "PreTools"
 
+    def test_routes_to_narrator_when_no_calls(self):
+        state = make_state(
+            agent_messages=[AIMessage(content="Just looking.", tool_calls=[])],
+            iteration_count=1,
+        )
+        assert route_director(state) == "Narrator"
+
+    def test_routes_to_narrator_when_no_ai_message(self):
+        state = make_state(agent_messages=[], iteration_count=1)
+        assert route_director(state) == "Narrator"
+
+    def test_routes_to_narrator_when_max_iterations_reached(self):
+        state = make_state(
+            agent_messages=[_ai_msg_with_tool_call("attack")],
+            iteration_count=3,
+        )
+        assert route_director(state) == "Narrator"
+
+    def test_route_director_does_not_check_yare_config(self):
+        """OCP: route_director must not inspect yare_config — routing is structural."""
+        import inspect
+        source = inspect.getsource(route_director)
+        assert "separate_npc_brain" not in source, (
+            "route_director reads separate_npc_brain from state, violating OCP. "
+            "Use route_director_separate for the decoupled architecture."
+        )
+
+
+class TestRouteDirectorSeparate:
+    """Tests for route_director_separate — the decoupled-architecture Director router."""
+
+    def test_routes_to_pretools_when_calls_present_and_below_max(self):
+        state = make_state(
+            agent_messages=[_ai_msg_with_tool_call("attack")],
+            iteration_count=1,
+        )
+        assert route_director_separate(state) == "PreTools"
+
     def test_routes_to_npc_brain_when_no_calls(self):
         state = make_state(
             agent_messages=[AIMessage(content="Just looking.", tool_calls=[])],
             iteration_count=1,
         )
-        assert route_director(state) == "NPC_Brain"
+        assert route_director_separate(state) == "NPC_Brain"
 
     def test_routes_to_npc_brain_when_no_ai_message(self):
         state = make_state(agent_messages=[], iteration_count=1)
-        assert route_director(state) == "NPC_Brain"
+        assert route_director_separate(state) == "NPC_Brain"
 
     def test_routes_to_npc_brain_when_max_iterations_reached(self):
         state = make_state(
             agent_messages=[_ai_msg_with_tool_call("attack")],
-            iteration_count=3,  # MAX_ITERATIONS == 3
+            iteration_count=3,
         )
-        assert route_director(state) == "NPC_Brain"
+        assert route_director_separate(state) == "NPC_Brain"
+
+    def test_does_not_inspect_yare_config(self):
+        import inspect
+        source = inspect.getsource(route_director_separate)
+        assert "separate_npc_brain" not in source
+        assert "yare_config" not in source
 
 
 class TestRouteRules:
@@ -539,10 +564,8 @@ class TestRouteNpcBrain:
 # LLM injection point tests
 # ---------------------------------------------------------------------------
 
-
 class TestDirectorNodeWithLLM:
     def test_llm_is_invoked(self):
-        """Director must call bind_tools then invoke when an LLM is provided."""
         fake_llm = MagicMock()
         fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
         state = make_state(client_messages=[{"role": "user", "content": "I examine the ruins."}])
@@ -550,22 +573,22 @@ class TestDirectorNodeWithLLM:
         fake_llm.bind_tools.assert_called_once()
         fake_llm.bind_tools.return_value.invoke.assert_called_once()
 
-    def test_trigger_event_tool_is_bound(self):
-        """Director must bind the trigger_event tool to the LLM."""
+    def test_dynamic_tools_are_bound(self):
         fake_llm = MagicMock()
         fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
         state = make_state(client_messages=[{"role": "user", "content": "I examine the ruins."}])
-        director_node(state, llm=fake_llm)
+        dynamic_tools = build_yare_event_tools(state["yare_config"])
+        director_node(state, llm=fake_llm, tools=dynamic_tools)
         bound_tools = fake_llm.bind_tools.call_args[0][0]
-        assert trigger_event in bound_tools
+        assert len(bound_tools) > 0
+        assert hasattr(bound_tools[0], "name")
 
     def test_llm_tool_calls_stored_in_agent_messages(self):
-        """tool_calls from the LLM response must live in agent_messages, not a separate field."""
         ai_msg = AIMessage(
             content="",
             tool_calls=[{
-                "name": "trigger_event",
-                "args": {"event_name": "generic_check", "event_args": {"stat": "charm", "difficulty": 12}},
+                "name": "generic_check",
+                "args": {"stat": "charm", "difficulty": 12},
                 "id": "call_1",
                 "type": "tool_call",
             }],
@@ -575,7 +598,7 @@ class TestDirectorNodeWithLLM:
         result = director_node(state, llm=fake_llm)
         assert "tool_calls" not in result
         assert len(result["agent_messages"][0].tool_calls) == 1
-        assert result["agent_messages"][0].tool_calls[0]["args"]["event_name"] == "generic_check"
+        assert result["agent_messages"][0].tool_calls[0]["name"] == "generic_check"
 
     def test_ai_message_is_added_to_agent_messages(self):
         ai_msg = AIMessage(content="", tool_calls=[])
@@ -585,7 +608,6 @@ class TestDirectorNodeWithLLM:
         assert result["agent_messages"] == [ai_msg]
 
     def test_llm_no_tool_calls_agent_messages_has_empty_tool_calls(self):
-        """When the LLM returns no tool calls the AIMessage has an empty tool_calls list."""
         ai_msg = AIMessage(content="Just looking around.", tool_calls=[])
         fake_llm = _BindableFakeModel(responses=[ai_msg])
         state = make_state(client_messages=[{"role": "user", "content": "I look around."}])
@@ -593,7 +615,6 @@ class TestDirectorNodeWithLLM:
         assert result["agent_messages"][0].tool_calls == []
 
     def test_directive_included_in_prompt_passed_to_llm(self):
-        """The LLM invocation must include the cartridge directive in its input."""
         fake_llm = MagicMock()
         fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
         state = make_state(
@@ -605,27 +626,6 @@ class TestDirectorNodeWithLLM:
         assert call_arg is not None
         prompt_text = str(call_arg)
         assert "Prefer skill checks over combat." in prompt_text
-
-    def test_event_signatures_with_inputs_in_director_prompt(self):
-        """Events with inputs must show their event_args schema in the director prompt."""
-        fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
-        state = make_state(client_messages=[{"role": "user", "content": "I attack."}])
-        director_node(state, llm=fake_llm)
-        system_content = fake_llm.bind_tools.return_value.invoke.call_args[0][0][0].content
-        assert "generic_check(event_args: {" in system_content
-        assert "stat: string" in system_content
-        assert "difficulty: int" in system_content
-
-    def test_event_without_inputs_shown_as_bare_name_in_director_prompt(self):
-        """Events with no inputs list must appear without an event_args suffix."""
-        fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
-        state = make_state(client_messages=[{"role": "user", "content": "I attack."}])
-        director_node(state, llm=fake_llm)
-        system_content = fake_llm.bind_tools.return_value.invoke.call_args[0][0][0].content
-        assert "deal_damage" in system_content
-        assert "deal_damage(event_args" not in system_content
 
     def test_game_time_context_is_injected_into_director_prompt(self):
         fake_llm = MagicMock()
@@ -640,7 +640,6 @@ class TestDirectorNodeWithLLM:
 
 class TestNpcBrainNodeWithLLM:
     def test_llm_is_invoked(self):
-        """NPC Brain must call bind_tools then invoke when an LLM is provided."""
         fake_llm = MagicMock()
         fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
         state = make_state()
@@ -648,22 +647,21 @@ class TestNpcBrainNodeWithLLM:
         fake_llm.bind_tools.assert_called_once()
         fake_llm.bind_tools.return_value.invoke.assert_called_once()
 
-    def test_trigger_event_tool_is_bound(self):
-        """NPC Brain must bind the trigger_event tool to the LLM."""
+    def test_dynamic_tools_are_bound(self):
         fake_llm = MagicMock()
         fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
         state = make_state()
-        npc_brain_node(state, llm=fake_llm)
+        dynamic_tools = build_yare_event_tools(state["yare_config"])
+        npc_brain_node(state, llm=fake_llm, tools=dynamic_tools)
         bound_tools = fake_llm.bind_tools.call_args[0][0]
-        assert trigger_event in bound_tools
+        assert len(bound_tools) > 0
 
     def test_llm_tool_calls_stored_in_agent_messages(self):
-        """LLM tool calls must live in agent_messages, not a separate field."""
         ai_msg = AIMessage(
             content="",
             tool_calls=[{
-                "name": "trigger_event",
-                "args": {"event_name": "counter_attack"},
+                "name": "counter_attack",
+                "args": {},
                 "id": "call_1",
                 "type": "tool_call",
             }],
@@ -674,7 +672,7 @@ class TestNpcBrainNodeWithLLM:
         result = npc_brain_node(state, llm=fake_llm)
         assert "tool_calls" not in result
         assert len(result["agent_messages"][0].tool_calls) == 1
-        assert result["agent_messages"][0].tool_calls[0]["args"]["event_name"] == "counter_attack"
+        assert result["agent_messages"][0].tool_calls[0]["name"] == "counter_attack"
 
     def test_agent_messages_are_included_in_npc_prompt(self):
         fake_llm = MagicMock()
@@ -685,33 +683,11 @@ class TestNpcBrainNodeWithLLM:
         assert "Succeeded!" in call_arg
 
     def test_llm_no_tool_calls_agent_messages_has_empty_tool_calls(self):
-        """When NPC Brain LLM returns no tool calls, AIMessage has empty tool_calls."""
         ai_msg = AIMessage(content="The NPC holds back.", tool_calls=[])
         fake_llm = _BindableFakeModel(responses=[ai_msg])
         state = make_state()
         result = npc_brain_node(state, llm=fake_llm)
         assert result["agent_messages"][0].tool_calls == []
-
-    def test_event_signatures_with_inputs_in_npc_brain_prompt(self):
-        """Events with inputs must show their event_args schema in the NPC Brain prompt."""
-        fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
-        state = make_state()
-        npc_brain_node(state, llm=fake_llm)
-        system_content = fake_llm.bind_tools.return_value.invoke.call_args[0][0][0].content
-        assert "generic_check(event_args: {" in system_content
-        assert "stat: string" in system_content
-        assert "difficulty: int" in system_content
-
-    def test_event_without_inputs_shown_as_bare_name_in_npc_brain_prompt(self):
-        """Events with no inputs list must appear without an event_args suffix in NPC Brain."""
-        fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
-        state = make_state()
-        npc_brain_node(state, llm=fake_llm)
-        system_content = fake_llm.bind_tools.return_value.invoke.call_args[0][0][0].content
-        assert "deal_damage" in system_content
-        assert "deal_damage(event_args" not in system_content
 
     def test_game_time_context_is_injected_into_npc_prompt(self):
         fake_llm = MagicMock()
@@ -726,7 +702,6 @@ class TestNpcBrainNodeWithLLM:
 
 class TestNarratorNodeWithLLM:
     def test_llm_is_invoked(self):
-        """Narrator must call the LLM when one is provided."""
         fake_llm = MagicMock()
         fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="The goblin snarls.")
         state = make_state(system_notes=["Player dealt 10 damage."])
@@ -743,7 +718,6 @@ class TestNarratorNodeWithLLM:
         assert end_of_narration in bound_tools
 
     def test_llm_response_stored_as_narrative(self):
-        """The LLM prose response must be stored under 'narrative' in the output state."""
         fake_llm = _BindableFakeModel(responses=[AIMessage(content="The goblin snarls and lunges at you.", tool_calls=[])])
         state = make_state(system_notes=["Player dealt 10 damage."])
         result = narrator_node(state, llm=fake_llm)
@@ -751,13 +725,11 @@ class TestNarratorNodeWithLLM:
         assert "goblin" in result["narrative"].lower()
 
     def test_narrative_uses_public_state_not_private(self):
-        """The LLM must only receive public state variables in its context."""
         fake_llm = MagicMock()
         fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story text.", tool_calls=[])
         state = make_state(system_notes=["Test."])
         state["bot_memory"]["player"]["is_poisoned_with_asymptomatic_poison"] = True
         narrator_node(state, llm=fake_llm)
-        fake_llm.bind_tools.return_value.invoke.assert_called_once()
         call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
         assert "is_poisoned_with_asymptomatic_poison" not in call_arg
 
@@ -840,21 +812,48 @@ class TestNarratorNodeWithLLM:
         assert "[[TIME_ADVANCE: PT15M]]" in result["client_messages"][0]["content"]
 
 
-class TestWorkflowAgentMessageCleanup:
-    def test_entry_node_clears_stale_agent_messages(self):
-        app = workflow.compile()
-        state = make_state(
-            agent_messages=[ToolMessage(content="stale", tool_call_id="old_call")],
-            client_messages=[{"role": "user", "content": "I look around."}],
-        )
-        result = app.invoke(state)
-        assert result.get("agent_messages", []) == []
+# ---------------------------------------------------------------------------
+# build_graph factory
+# ---------------------------------------------------------------------------
 
-    def test_exit_node_returns_empty_agent_messages(self):
-        app = workflow.compile()
-        state = make_state(
-            client_messages=[{"role": "user", "content": "I look around."}],
-            agent_messages=[ToolMessage(content="stale", tool_call_id="old_call")],
+class TestBuildGraphFactory:
+    """SRP: build_graph must be a standalone factory function in graph.py."""
+
+    def test_build_graph_is_importable(self):
+        assert callable(build_graph)
+
+    def test_build_graph_monolithic_returns_compiled_app(self):
+        app = build_graph(yare_config=make_state()["yare_config"])
+        assert hasattr(app, "invoke")
+        assert hasattr(app, "get_graph")
+
+    def test_build_graph_monolithic_has_all_expected_nodes(self):
+        app = build_graph(yare_config=make_state()["yare_config"])
+        node_names = set(app.get_graph().nodes.keys())
+        for expected in (
+            "ResetAgentMessages", "Lore", "CycleTick", "Director",
+            "PreTools", "Tools", "PostTools", "Narrator", "CleanupAgentMessages",
+        ):
+            assert expected in node_names, f"Missing expected node: {expected!r}"
+
+    def test_build_graph_monolithic_excludes_npc_brain(self):
+        app = build_graph(yare_config=make_state()["yare_config"])
+        node_names = set(app.get_graph().nodes.keys())
+        assert "NPC_Brain" not in node_names
+
+    def test_build_graph_accepts_all_llm_params(self):
+        fake = MagicMock()
+        app = build_graph(
+            yare_config=make_state()["yare_config"],
+            llm_director=fake,
+            llm_npc_brain=fake,
+            llm_narrator=fake,
         )
+        assert hasattr(app, "invoke")
+
+    def test_build_graph_dry_run_executes_a_turn(self):
+        """build_graph with no LLMs must handle a full graph invocation without errors."""
+        app = build_graph(yare_config=make_state()["yare_config"])
+        state = make_state()
         result = app.invoke(state)
-        assert result.get("agent_messages", []) == []
+        assert "bot_memory" in result

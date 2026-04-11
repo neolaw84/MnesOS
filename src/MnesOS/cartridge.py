@@ -41,8 +41,8 @@ logger = logging.getLogger(__name__)
 
 ALLOWED_DIRECTIVE_KEYS: Set[str] = {"director", "narrator", "npc_brain"}
 
-MAX_DIRECTIVE_LEN = 500        # chars — single directive
-MAX_TOTAL_DIRECTIVE_LEN = 1000  # chars — all directives combined
+MAX_DIRECTIVE_LEN = 1024 * 1024        # chars — single directive (1MB)
+MAX_TOTAL_DIRECTIVE_LEN = 2 * 1024 * 1024  # chars — all directives combined (2MB)
 MAX_NOTE_MSG_LEN = 300          # chars — single note.message
 MAX_MACRO_LEN = 200             # chars — single macro expression
 
@@ -255,6 +255,16 @@ def _validate_yare(config: Dict[str, Any]) -> None:
             "'prompt_directives' must live in prompt_directives.yaml, "
             "not in yare.yaml. Keep yare.yaml purely procedural."
         )
+    
+    # Validate separate_npc_brain flag (optional, defaults to False)
+    if "separate_npc_brain" in config:
+        separate_npc_brain = config["separate_npc_brain"]
+        if not isinstance(separate_npc_brain, bool):
+            raise ValueError(
+                "separate_npc_brain must be a boolean (true or false), "
+                f"got {type(separate_npc_brain).__name__}."
+            )
+    
     _validate_state_schema(config.get("state_schema", {}))
     _validate_macros(config.get("macros", {}))
     _validate_events(config.get("events", {}))

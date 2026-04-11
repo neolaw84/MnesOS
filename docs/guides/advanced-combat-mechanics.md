@@ -33,9 +33,9 @@ By convention, enclosing `system_notes` in a tag bracket (like `[SYSTEM LOG: ...
 
 ---
 
-## 2. The Operational Domain of the 3-Node Graph
+## 2. The Operational Domain of the 3-Node Graph (Upcoming Feature)
 
-Because the execution graph flows **Strictly Serial in one direction:** 
+When `separate_npc_brain=True` (upcoming feature), the execution graph flows **Strictly Serial in one direction:** 
 `Director (Player Turn)` ➔ `NPC_Brain (NPC Turn)` ➔ `Narrator (Render)`
 
 The system natively supports **Asynchronous Turn-Based Games** (e.g., standard D&D, where actors fully resolve their action on their specific turn).
@@ -44,11 +44,11 @@ If an action is "immediate" (an attack calculates and subtracts HP instantly), t
 
 ---
 
-## 3. Scenario A: Player attacks, NPC Counters (Shield Block)
+## 3. Scenario A: Player attacks, NPC Counters (Shield Block, Requires NPC Brain)
 
-If the player's attack immediately reduces HP during the `Director` phase, the `NPC_Brain` cannot stop it. Instead, the `Director` must declare an *Intent*, and the `NPC_Brain` resolves it.
+If the player's attack immediately reduces HP during the `Director` phase, the `NPC_Brain` (when implemented) cannot stop it. Instead, the `Director` must declare an *Intent*, and the `NPC_Brain` resolves it.
 
-**How it works:**
+**How it works** (with Decoupled NPC Brain expected workflow):
 1. Player says *"I attack the Goblin"*.
 2. Director triggers `plan_player_attack`. This *does not* deal damage. It saves the attack value to a temporary state buffer.
 3. NPC_Brain analyzes the state, detects `state.combat.player_attack_pending` is true, and triggers `npc_react`.
@@ -78,7 +78,7 @@ events:
       - action: note
         message: "[SYSTEM LOG: Player is lunging to attack {inputs.target} with power {temp.roll_result}. Awaiting opponent reaction.]"
   
-  # Triggered by the NPC_Brain
+  # Triggered by the NPC_Brain (upcoming feature)
   npc_react:
     inputs:
       decision: { type: "string", enum: ["block", "take_hit"] }
@@ -117,7 +117,7 @@ events:
 Because the graph strictly hands control back to the player *after* the Narrator finishes, the Player cannot physically interrupt an active NPC turn. To allow a Player to counter an NPC, the NPC must **telegraph** an attack on Turn 1, so the Player can respond on Turn 2.
 
 **How it works:**
-1. **Turn N (NPC Phase)**: NPC_Brain triggers `telegraph_attack`.
+1. **Turn N (NPC Phase)**: Director or NPC_Brain (upcoming) triggers `telegraph_attack`.
 2. **Turn N (Narrator)**: Narrator writes *"The Goblin raises his heavy club, preparing to smash it down!"*
 3. **Turn N+1 (Player Phase)**: Player says *"I raise my shield to brace."* Director triggers `player_resolve_incoming`.
 
@@ -128,7 +128,7 @@ state_schema:
     incoming_attack_val: { type: "int", default: 0 }
 
 events:
-  # Triggered by NPC_Brain on Turn 1
+  # Triggered by Director (or NPC_Brain in future) on Turn 1
   npc_telegraph_attack:
     steps:
       - action: call

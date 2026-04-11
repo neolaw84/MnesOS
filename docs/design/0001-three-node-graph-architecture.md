@@ -18,13 +18,13 @@ A recurring flaw in many LLM-run games is exposing literal dice rolls and rule v
 
 ## 2. Agentic Graph Analysis
 
-The engine leverages a LangGraph state machine (`src/MnesOS/graph.py`) structured across three primary LLM decision nodes: `Director`, `NPC_Brain`, and `Narrator`. 
+The engine leverages a LangGraph state machine (`src/MnesOS/graph.py`) structured across three primary LLM decision nodes: `Director`, `NPC_Brain` (upcoming separate character module), and `Narrator`. 
 
 ### Fit For Purpose vs. Turn-Based RPGs
 The architecture brilliantly mimics the phases of a classic Turn-Based RPG. The traditional RPG lifecycle is: `Player Turn Input -> Resolution -> Enemy/World Turn -> Resolution -> Render Frame`. 
 MnesOS recreates this systematically:
 1. **Director Node**: Player Turn (Focuses on player intent mapping, resolves checks via tools).
-2. **NPC_Brain Node**: Enemy Turn (Takes the new state, proactively takes actions for all ambient non-player entities).
+2. **NPC_Brain Node** (Planned): Enemy Turn (Takes the new state, proactively takes actions for all ambient non-player entities. Currently processed via monolithic Director, but designed for separation).
 3. **Narrator Node**: Render Frame (Summarizes the outcomes of phases 1 and 2).
 
 ### Node Count: Three is "Goldilocks" Perfect
@@ -40,4 +40,4 @@ You raised the question of whether three nodes are necessary or if the graph req
   Segmenting the logic further (e.g., decoupling "Intent Analysis" from the "Director", or creating a distinct "Combat Manager") would balloon cost and latency through serial LLM calls without providing meaningful qualitative differences.
 
 ### Conclusion 
-The current graph structure implements an LLM-adapted **Model-View-Controller (MVC)** framework. The `Director` and `NPC_Brain` act as isolated **Controllers** that interact with the YARE **Model**. The `Narrator` acts purely as the **View**. Removing nodes breaks the pattern, while adding more risks over-engineering latency. The system is structurally robust and highly aligned with your design goals.
+The planned graph structure implements an LLM-adapted **Model-View-Controller (MVC)** framework. The `Director` and `NPC_Brain` act as isolated **Controllers** that interact with the YARE **Model**. The `Narrator` acts purely as the **View**. Removing nodes breaks the pattern, while adding more risks over-engineering latency. The system is structurally robust and highly aligned with your design goals.

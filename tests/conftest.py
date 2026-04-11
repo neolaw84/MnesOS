@@ -6,15 +6,12 @@ without an editable-install being required during development.
 """
 
 import sys
-import os
 import pytest
 
 # Ensure src/ is importable regardless of how pytest is invoked.
-SRC_DIR = os.path.join(os.path.dirname(__file__), "..", "src")
-if SRC_DIR not in sys.path:
-    sys.path.insert(0, SRC_DIR)
-
-CARTRIDGES_DIR = os.path.join(os.path.dirname(__file__), "..", "cartridges")
+# pytest is always run from the project root (testpaths=["tests"] in pyproject.toml).
+if "src" not in sys.path:
+    sys.path.insert(0, "src")
 
 # ---------------------------------------------------------------------------
 # Shared YARE fixtures (generic-rpg themed)
@@ -93,5 +90,5 @@ def minimal_state():
 
 @pytest.fixture
 def generic_rpg_cartridge_dir():
-    """Absolute path to the generic-rpg cartridge directory."""
-    return os.path.join(CARTRIDGES_DIR, "generic-rpg")
+    """Path to the generic-rpg cartridge directory (CWD-relative)."""
+    return "cartridges/generic-rpg"

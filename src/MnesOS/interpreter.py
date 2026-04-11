@@ -45,8 +45,9 @@ class YAREInterpreter:
             return expr
 
         import re as _re
-        # Pre-process NdX dice notation so ast.parse accepts it: 1d20 -> '1d20'
-        processed = _re.sub(r'(\d+d\d+)', r"'\1'", expr[1:].strip())
+        # Pre-process NdX dice notation so ast.parse accepts it (e.g. 1d20 -> '1d20')
+        # We use negative lookbehinds/lookaheads to skip notations already inside quotes.
+        processed = _re.sub(r'(?<![\'"])(\b\d+d\d+\b)(?![\'"])', r"'\1'", expr[1:].strip())
         tree = ast.parse(processed, mode='eval')
         return self._eval_node(tree.body, context or {})
 
@@ -358,7 +359,8 @@ class YAREInterpreter:
                 f"Cannot coerce {value!r} to type {schema['type']!r} for path {path!r}: {exc}"
             ) from exc
 
-    def _match_range(self, range_str: Union[str, int], value: int) -> bool:
+    def _match_range(self, range_str: Union[str, int], value: Any) -> bool:
+        value = self._to_numeric(value)
         if isinstance(range_str, int): return value == range_str
         if '-' in range_str:
             low, high = map(int, range_str.split('-'))

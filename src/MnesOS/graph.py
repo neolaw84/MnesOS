@@ -1,4 +1,5 @@
 from typing import Annotated, TypedDict, Literal, List, Dict, Any, Optional, Tuple
+import functools
 import operator
 import re
 from datetime import datetime, timedelta
@@ -13,6 +14,8 @@ from langchain_core.tools import tool, InjectedToolCallId
 from .interpreter import YAREInterpreter
 from .context import VectorLoreStore
 from .prompts import DIRECTOR_SYSTEM_PROMPT, NARRATOR_SYSTEM_PROMPT, NPC_BRAIN_SYSTEM_PROMPT
+from pydantic import create_model, Field
+from langchain_core.tools import StructuredTool
 
 # ---------------------------------------------------------
 # 1. State Definition
@@ -46,41 +49,82 @@ MAX_ITERATIONS = 3
 # 0. Tool definitions
 # ---------------------------------------------------------
 
-@tool
-def trigger_event(
-    event_name: str,
-    event_args: Optional[dict] = None,
-    tool_call_id: Annotated[str, InjectedToolCallId()] = "",
-    state: Annotated["GameState", InjectedState()] = None,
-) -> Command:
-    """
-    Trigger a named YARE rules event with optional input arguments.
+def build_yare_event_tools(yare_config: Dict[str, Any]) -> List[StructuredTool]:
+    """Dynamically generate a list of precise LangChain tools from YARE events."""
+    tools = []
+    events = yare_config.get("events", {})
+    if not isinstance(events, dict):
+        return []
 
-    Args:
-        event_name: The name of the YARE event as defined in the cartridge yare.yaml.
-        event_args: Input arguments for the event - stat values, hp amounts, difficulty
-              thresholds, target paths, etc. as decided by the LLM from game context.
-    """
-    interpreter = YAREInterpreter(state["yare_config"], state["bot_memory"])
+    for event_name, event_config in events.items():
+        if not isinstance(event_config, dict):
+            continue
 
-    # Prepend NPC turn separator on first NPC-phase tool call in this turn
-    new_notes = []
-    if (
-        state.get("turn_phase") == "npc"
-        and "\n--- NPC Turn Resolution ---" not in state.get("system_notes", [])
-    ):
-        new_notes.append("\n--- NPC Turn Resolution ---")
+        fields = {}
+        inputs_schema = event_config.get("inputs", {})
+        if isinstance(inputs_schema, list):
+            for k in inputs_schema:
+                fields[k] = (Any, Field(default=..., description=str(k)))
+        elif isinstance(inputs_schema, dict):
+            for k, spec in inputs_schema.items():
+                t_str = spec.get("type", "string")
+                py_type = str
+                if t_str == "int": py_type = int
+                elif t_str == "float": py_type = float
+                elif t_str == "bool": py_type = bool
+                
+                desc = spec.get("description", "")
+                if "enum" in spec:
+                    desc += f" (one of: {', '.join(str(v) for v in spec['enum'])})"
+                
+                default_val = spec.get("default", ...)
+                fields[k] = (py_type, Field(default=default_val, description=desc))
 
-    interpreter.run_event(event_name, event_args or {})
-    new_notes.extend(interpreter.notes)
+        def create_tool(ename, econfig, efields):
+            def _run_dynamic_event(
+                *args, 
+                tool_call_id: Annotated[str, InjectedToolCallId()] = "", 
+                state: Annotated[dict, InjectedState()] = None, 
+                **kwargs
+            ) -> Command:
+                interpreter = YAREInterpreter(state["yare_config"], state["bot_memory"])
+                new_notes = []
+                
+                if (
+                    state.get("turn_phase") == "npc"
+                    and "\n--- NPC Turn Resolution ---" not in state.get("system_notes", [])
+                ):
+                    new_notes.append("\n--- NPC Turn Resolution ---")
+                
+                interpreter.run_event(ename, kwargs)
+                new_notes.extend(interpreter.notes)
+                
+                notes_text = "\n".join(interpreter.notes) if interpreter.notes else f"Event '{ename}': no effect."
+                
+                return Command(update={
+                    "bot_memory_staging": [interpreter.state],
+                    "system_notes": new_notes,
+                    "agent_messages": [ToolMessage(content=notes_text, tool_call_id=tool_call_id)],
+                })
 
-    notes_text = "\n".join(interpreter.notes) if interpreter.notes else f"Event '{event_name}': no effect."
+            # Inject internal dependencies into schema so ToolNode knows to supply them,
+            # while the Injected... annotations tell the LLM to ignore them.
+            efields_with_injected = dict(efields)
+            efields_with_injected["tool_call_id"] = (Annotated[str, InjectedToolCallId()], Field(default=""))
+            efields_with_injected["state"] = (Annotated[dict, InjectedState()], Field(default=None))
 
-    return Command(update={
-        "bot_memory_staging": [interpreter.state],  # list reducer — safe for concurrent writes
-        "system_notes": new_notes,          # operator.add reducer appends to existing notes
-        "agent_messages": [ToolMessage(content=notes_text, tool_call_id=tool_call_id)],
-    })
+            ArgsSchema = create_model(f"{ename}_Schema", **efields_with_injected)
+            
+            # Override docstring specifically for the tool definition
+            desc = econfig.get("description", f"Trigger the {ename} event.")
+            _run_dynamic_event.__doc__ = desc
+            
+            return tool(ename, args_schema=ArgsSchema)(_run_dynamic_event)
+
+        t = create_tool(event_name, event_config, fields)
+        tools.append(t)
+
+    return tools
 
 
 @tool
@@ -328,14 +372,14 @@ def cycle_tick_node(state: GameState) -> dict:
     return result
 
 
-def director_node(state: GameState, *, llm=None) -> dict:
+def director_node(state: GameState, *, llm=None, tools=None) -> dict:
     """
     2. Player Director: Maps user intent to YARE event triggers.
 
     Args:
-        llm: Optional BaseChatModel. Bound to trigger_event and invoked with the
+        llm: Optional BaseChatModel. Bound to dynamic tools and invoked with the
              full director system prompt plus story history.
-             Wire via: functools.partial(director_node, llm=my_llm)
+        tools: List of dynamic StructuredTools for available events.
     """
     loops = state.get("iteration_count", 0) + 1
 
@@ -346,29 +390,7 @@ def director_node(state: GameState, *, llm=None) -> dict:
 
     result = {"iteration_count": loops, "turn_phase": "player"}
     if llm is not None:
-        events_dict = state.get("yare_config", {}).get("events", {})
         system_content = director_prompt
-        if events_dict:
-            def _event_sig(name, cfg):
-                inputs = cfg.get("inputs", {})
-                if isinstance(inputs, dict) and inputs:
-                    parts = []
-                    for k, spec in inputs.items():
-                        t = spec.get("type", "any")
-                        entry = f"{k}: {t}"
-                        if "enum" in spec:
-                            entry += f" (one of: {', '.join(str(v) for v in spec['enum'])})"
-                        if "default" in spec:
-                            entry += f" = {spec['default']!r}"
-                        desc = spec.get("description", "")
-                        if desc:
-                            entry += f"  # {desc}"
-                        parts.append(entry)
-                    return f"- {name}(event_args: {{{', '.join(parts)}}})"
-                return f"- {name}"
-            system_content += "\n\n### Available Events:\n" + "\n".join(
-                _event_sig(n, c) for n, c in events_dict.items()
-            )
         system_content += _format_game_time_context(state.get("bot_memory", {}))
 
         prompt_messages = [SystemMessage(content=system_content)]
@@ -377,21 +399,21 @@ def director_node(state: GameState, *, llm=None) -> dict:
         )
         prompt_messages.extend(state.get("agent_messages", []))
 
-        response = llm.bind_tools([trigger_event], parallel_tool_calls=False).invoke(prompt_messages)
+        response = llm.bind_tools(tools or [], parallel_tool_calls=False).invoke(prompt_messages)
         result["agent_messages"] = [response]
 
     return result
 
 
-def npc_brain_node(state: GameState, *, llm=None) -> dict:
+def npc_brain_node(state: GameState, *, llm=None, tools=None) -> dict:
     """
     3. NPC Brain: Reads outcomes of the player's tools AND retrieved lore.
     Governs ALL NPCs in the scene proactively.
 
     Args:
-        llm: Optional BaseChatModel. Bound to trigger_event and invoked with NPC
+        llm: Optional BaseChatModel. Bound to dynamic tools and invoked with NPC
              state and lore context to decide tactical actions.
-             Wire via: functools.partial(npc_brain_node, llm=my_llm)
+        tools: List of dynamic StructuredTools for available events.
     """
     npc_brain_prompt = NPC_BRAIN_SYSTEM_PROMPT
     directives = state.get("prompt_directives", {}).get("npc_brain", "")
@@ -400,29 +422,7 @@ def npc_brain_node(state: GameState, *, llm=None) -> dict:
 
     result = {"iteration_count": 0, "turn_phase": "npc"}
     if llm is not None:
-        events_dict = state.get("yare_config", {}).get("events", {})
         system_content = npc_brain_prompt
-        if events_dict:
-            def _event_sig(name, cfg):
-                inputs = cfg.get("inputs", {})
-                if isinstance(inputs, dict) and inputs:
-                    parts = []
-                    for k, spec in inputs.items():
-                        t = spec.get("type", "any")
-                        entry = f"{k}: {t}"
-                        if "enum" in spec:
-                            entry += f" (one of: {', '.join(str(v) for v in spec['enum'])})"
-                        if "default" in spec:
-                            entry += f" = {spec['default']!r}"
-                        desc = spec.get("description", "")
-                        if desc:
-                            entry += f"  # {desc}"
-                        parts.append(entry)
-                    return f"- {name}(event_args: {{{', '.join(parts)}}})"
-                return f"- {name}"
-            system_content += "\n\n### Available Events:\n" + "\n".join(
-                _event_sig(n, c) for n, c in events_dict.items()
-            )
         system_content += _format_game_time_context(state.get("bot_memory", {}))
         prompt_messages = [SystemMessage(content=system_content)]
         prompt_messages.extend(
@@ -434,7 +434,7 @@ def npc_brain_node(state: GameState, *, llm=None) -> dict:
             f"System Notes: {state.get('system_notes', [])}\n"
             f"Retrieved Lore: {state.get('retrieved_lore', '')}"
         )))
-        response = llm.bind_tools([trigger_event], parallel_tool_calls=False).invoke(prompt_messages)
+        response = llm.bind_tools(tools or [], parallel_tool_calls=False).invoke(prompt_messages)
         result["agent_messages"] = [response]
 
     return result
@@ -525,7 +525,16 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
 # 3. Edge Routers
 # ---------------------------------------------------------
 
-def route_director(state: GameState) -> Literal["PreTools", "NPC_Brain"]:
+def route_director(state: GameState) -> Literal["PreTools", "Narrator"]:
+    """Route from Director in monolithic mode based on tool calls."""
+    calls = _get_last_ai_tool_calls(state.get("agent_messages", []))
+    if calls and state.get("iteration_count", 0) < MAX_ITERATIONS:
+        return "PreTools"
+    return "Narrator"
+
+
+def route_director_separate(state: GameState) -> Literal["PreTools", "NPC_Brain"]:
+    """Route from Director in decoupled (separate NPC brain) mode based on tool calls."""
     calls = _get_last_ai_tool_calls(state.get("agent_messages", []))
     if calls and state.get("iteration_count", 0) < MAX_ITERATIONS:
         return "PreTools"
@@ -547,8 +556,94 @@ def route_npc_brain(state: GameState) -> Literal["PreTools", "Narrator"]:
     return "Narrator"
 
 # ---------------------------------------------------------
-# 4. Compilation
+# 4. Graph Factory
 # ---------------------------------------------------------
+
+def build_graph(
+    yare_config: Dict[str, Any],
+    llm_director=None,
+    llm_npc_brain=None,
+    llm_narrator=None,
+):
+    """
+    Build and compile a LangGraph for the given YARE config and LLM instances.
+
+    This is the single authoritative factory for constructing the MnesOS graph.
+    The Orchestrator (and any other runner) should call this rather than
+    assembling the graph inline.
+
+    Args:
+        yare_config:   Parsed YARE configuration dict (from yare.yaml).
+        llm_director:  LangChain BaseChatModel for the Director node (optional).
+        llm_npc_brain: LangChain BaseChatModel for the NPC Brain node (optional).
+        llm_narrator:  LangChain BaseChatModel for the Narrator node (optional).
+
+    Returns:
+        A compiled LangGraph application ready for invoke().
+    """
+    dynamic_tools = build_yare_event_tools(yare_config)
+    separate_npc_brain = yare_config.get("separate_npc_brain", False)
+
+    graph = StateGraph(GameState)
+
+    graph.add_node("ResetAgentMessages", reset_agent_messages_node)
+    graph.add_node("Lore", context_retrieval_node)
+    graph.add_node("CycleTick", cycle_tick_node)
+    graph.add_node("Director", functools.partial(director_node, llm=llm_director, tools=dynamic_tools))
+    graph.add_node("PreTools", pre_tools_node)
+
+    if dynamic_tools:
+        graph.add_node("Tools", ToolNode(dynamic_tools, messages_key="agent_messages"))
+    else:
+        graph.add_node("Tools", lambda state: state)
+
+    graph.add_node("PostTools", post_tools_node)
+    graph.add_node("Narrator", functools.partial(narrator_node, llm=llm_narrator))
+    graph.add_node("CleanupAgentMessages", cleanup_agent_messages_node)
+
+    graph.set_entry_point("ResetAgentMessages")
+    graph.add_edge("ResetAgentMessages", "Lore")
+    graph.add_edge("Lore", "CycleTick")
+    graph.add_edge("CycleTick", "Director")
+
+    if separate_npc_brain:
+        graph.add_node("NPC_Brain", functools.partial(npc_brain_node, llm=llm_npc_brain, tools=dynamic_tools))
+        graph.add_conditional_edges(
+            "Director", route_director_separate, {"PreTools": "PreTools", "NPC_Brain": "NPC_Brain"}
+        )
+        graph.add_edge("PreTools", "Tools")
+        graph.add_edge("Tools", "PostTools")
+        graph.add_conditional_edges(
+            "PostTools", route_rules, {"Director": "Director", "NPC_Brain": "NPC_Brain"}
+        )
+        graph.add_conditional_edges(
+            "NPC_Brain", route_npc_brain, {"PreTools": "PreTools", "Narrator": "Narrator"}
+        )
+    else:
+        graph.add_conditional_edges(
+            "Director", route_director, {"PreTools": "PreTools", "Narrator": "Narrator"}
+        )
+        graph.add_edge("PreTools", "Tools")
+        graph.add_edge("Tools", "PostTools")
+        graph.add_conditional_edges(
+            "PostTools", route_rules, {"Director": "Director"}
+        )
+
+    graph.add_edge("Narrator", "CleanupAgentMessages")
+    graph.add_edge("CleanupAgentMessages", END)
+
+    return graph.compile()
+
+
+# ---------------------------------------------------------
+# 5. Default workflow (for visualization / testing)
+# ---------------------------------------------------------
+@tool
+def _dummy_tool() -> str:
+    """Dummy tool for graph visualization fallback."""
+    return "Dummy"
+
+# Default workflow for visualization and testing (uses monolithic architecture)
 workflow = StateGraph(GameState)
 
 workflow.add_node("ResetAgentMessages", reset_agent_messages_node)
@@ -556,9 +651,8 @@ workflow.add_node("Lore", context_retrieval_node)
 workflow.add_node("CycleTick", cycle_tick_node)
 workflow.add_node("Director", director_node)
 workflow.add_node("PreTools", pre_tools_node)
-workflow.add_node("Tools", ToolNode([trigger_event], messages_key="agent_messages"))
+workflow.add_node("Tools", ToolNode([_dummy_tool], messages_key="agent_messages"))
 workflow.add_node("PostTools", post_tools_node)
-workflow.add_node("NPC_Brain", npc_brain_node)
 workflow.add_node("Narrator", narrator_node)
 workflow.add_node("CleanupAgentMessages", cleanup_agent_messages_node)
 
@@ -567,22 +661,17 @@ workflow.add_edge("ResetAgentMessages", "Lore")
 workflow.add_edge("Lore", "CycleTick")
 workflow.add_edge("CycleTick", "Director")
 
+# Monolithic architecture: Director routes to Narrator (no separate NPC_Brain)
 workflow.add_conditional_edges("Director", route_director, {
     "PreTools": "PreTools",
-    "NPC_Brain": "NPC_Brain",
+    "Narrator": "Narrator",
 })
 
 workflow.add_edge("PreTools", "Tools")
 workflow.add_edge("Tools", "PostTools")
 
-workflow.add_conditional_edges("NPC_Brain", route_npc_brain, {
-    "PreTools": "PreTools",
-    "Narrator": "Narrator",
-})
-
 workflow.add_conditional_edges("PostTools", route_rules, {
     "Director": "Director",
-    "NPC_Brain": "NPC_Brain",
 })
 
 workflow.add_edge("Narrator", "CleanupAgentMessages")
