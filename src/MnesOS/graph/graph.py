@@ -1,3 +1,24 @@
+"""
+graph.graph — LangGraph state definition, nodes, edge routers, and factory.
+
+This module is the single source of truth for the MnesOS turn graph.  It is
+intentionally kept in a sub-package (``MnesOS/graph/``) so that graph-related
+helpers can be split into additional sibling modules in the future without
+changing import paths for callers that use ``from MnesOS.graph import ...``.
+
+Refactoring note
+~~~~~~~~~~~~~~~~
+If graph complexity grows, consider extracting:
+* ``nodes.py``   — the individual node functions (director_node, narrator_node,
+                   npc_brain_node, context_retrieval_node, …)
+* ``routers.py`` — the edge-routing functions (route_director, route_rules, …)
+* ``tools.py``   — build_yare_event_tools and related helpers
+
+The ``graph.graph`` module would then import and re-assemble them.  The
+``MnesOS/graph/__init__.py`` re-export layer means that callers do *not* need
+to be updated when this internal split happens.
+"""
+
 from typing import Annotated, TypedDict, Literal, List, Dict, Any, Optional, Tuple
 import functools
 import operator
@@ -10,10 +31,12 @@ from langgraph.types import Command
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool, InjectedToolCallId
 
-# Import our refined logic components
-from .interpreter import YAREInterpreter
-from .context import VectorLoreStore
-from .prompts import DIRECTOR_SYSTEM_PROMPT, NARRATOR_SYSTEM_PROMPT, NPC_BRAIN_SYSTEM_PROMPT
+# Import our refined logic components from the parent package.
+# The graph sub-package lives at MnesOS/graph/, so sibling modules such as
+# interpreter, context, and prompts are one level up (``..``).
+from ..interpreter import YAREInterpreter
+from ..context import VectorLoreStore
+from ..prompts import DIRECTOR_SYSTEM_PROMPT, NARRATOR_SYSTEM_PROMPT, NPC_BRAIN_SYSTEM_PROMPT
 from pydantic import create_model, Field
 from langchain_core.tools import StructuredTool
 
