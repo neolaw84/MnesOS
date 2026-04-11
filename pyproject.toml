@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=64", "setuptools-scm>=8", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "MnesOS"
-version = "0.1.0"
+dynamic = ["version"]
 description = "MnesOS is fully Agentic RPG Game Engine."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -18,7 +18,10 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dependencies = []
+dependencies = [
+    "langgraph>=1.1.0,<1.3",
+    "pyyaml>=6.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/neolaw84/MnesOS"
@@ -29,6 +32,11 @@ Issues = "https://github.com/neolaw84/MnesOS/issues"
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "mkdocs>=1.5",
+    "mkdocs-material>=9.0",
+    "mkdocstrings[python]>=0.24",
+    "pymdown-extensions>=10.0",
+    "ipywidgets>=8.0",
 ]
 docs = [
     "mkdocs>=1.5",
@@ -50,3 +58,6 @@ omit = ["tests/*"]
 
 [tool.coverage.report]
 show_missing = true
+
+[tool.setuptools_scm]
+version_file = "src/MnesOS/_version.py"

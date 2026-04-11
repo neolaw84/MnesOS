@@ -1,0 +1,102 @@
+version: "1.0"
+
+state_schema:
+  player:
+    hp: { type: int, default: 100, min: 0, max: 100, visibility: public }
+    mana: { type: int, default: 50, min: 0, max: 50, visibility: public }
+    gold: { type: int, default: 20, min: 0, visibility: public }
+    status: { type: string, default: "healthy", visibility: public }
+  npc:
+    type: { type: string, default: "villager", visibility: private }
+    hp: { type: int, default: 30, min: 0, max: 100, visibility: public }
+    attack_power: { type: int, default: 5, min: 0, visibility: private }
+
+macros:
+  player_attack_roll: "roll(1d20) + 5"
+  npc_attack_roll: "roll(1d20) + @state.npc.attack_power"
+  damage_roll: "roll(1d8) + 2"
+
+events:
+  combat_strike:
+    inputs: [attacker]
+    steps:
+      - action: branch
+        if: "@ inputs.attacker == 'player'"
+        steps:
+          - action: set
+            var: temp.hit_roll
+            value: "@ macros.player_attack_roll"
+          - action: branch
+            if: "@ temp.hit_roll >= 12"
+            steps:
+              - action: set
+                var: temp.damage
+                value: "@ macros.damage_roll"
+              - action: mutate
+                var: state.npc.hp
+                op: sub
+                value: "@ temp.damage"
+              - action: note
+                message: "Player attacks! Roll: {temp.hit_roll}. HIT! Player deals {temp.damage} damage to the NPC. NPC HP is now {state.npc.hp}."
+            else:
+              - action: note
+                message: "Player attacks! Roll: {temp.hit_roll}. MISS! The attack fails to connect."
+        else:
+          - action: set
+            var: temp.hit_roll
+            value: "@ macros.npc_attack_roll"
+          - action: branch
+            if: "@ temp.hit_roll >= 10"
+            steps:
+              - action: set
+                var: temp.damage
+                value: "@ roll(1d6) + 1"
+              - action: mutate
+                var: state.player.hp
+                op: sub
+                value: "@ temp.damage"
+              - action: note
+                message: "NPC attacks! Roll: {temp.hit_roll}. HIT! Player takes {temp.damage} damage. Player HP is now {state.player.hp}."
+            else:
+              - action: note
+                message: "NPC attacks! Roll: {temp.hit_roll}. MISS! The player dodges the attack."
+
+  cast_heal:
+    steps:
+      - action: branch
+        if: "@ state.player.mana >= 10"
+        steps:
+          - action: mutate
+            var: state.player.mana
+            op: sub
+            value: 10
+          - action: mutate
+            var: state.player.hp
+            op: add
+            value: 20
+          - action: note
+            message: "Player casts Heal! Consumed 10 mana. Restored 20 HP. Player HP: {state.player.hp} | Mana: {state.player.mana}."
+        else:
+          - action: note
+            message: "Player tries to cast Heal but does not have enough mana! Requires 10 mana, has {state.player.mana}."
+
+  rest_at_inn:
+    steps:
+      - action: branch
+        if: "@ state.player.gold >= 5"
+        steps:
+          - action: mutate
+            var: state.player.gold
+            op: sub
+            value: 5
+          - action: set
+            var: state.player.hp
+            value: 100
+          - action: set
+            var: state.player.mana
+            value: 50
+          - action: note
+            message: "Player rents a room for 5 gold. Fully restored HP and Mana. Gold remaining: {state.player.gold}."
+        else:
+          - action: note
+            message: "Player tries to rest at the inn but doesn't have 5 gold."

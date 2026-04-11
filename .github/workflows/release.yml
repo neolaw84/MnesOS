@@ -2,11 +2,13 @@
 # Triggered when a PR from `dev` is **merged** into `main`.
 #
 # Steps performed:
-#   1. Build wheel (.whl) and source distribution (.tar.gz).
-#   2. Create a GitHub Release (tag = version from pyproject.toml) and attach
-#      both distribution files so users can download them directly.
-#   3. Publish the package to PyPI using the official pypa/gh-action-pypi-publish
-#      action (Trusted Publisher / OIDC — no API token required when configured).
+#   1. Determine bump type from PR labels (bump:major / bump:minor / bump:patch).
+#   2. Calculate the next semver tag from the most recent git tag.
+#   3. Create and push the new version tag (before building so setuptools-scm
+#      embeds the correct version).
+#   4. Build wheel (.whl) and source distribution (.tar.gz).
+#   5. Create a GitHub Release and attach both distribution files.
+#   6. Publish the package to PyPI via Trusted Publisher / OIDC.
 # ──────────────────────────────────────────────────────────────────────────────
 name: Release – merge to main
 
@@ -25,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write   # needed to create GitHub Releases
+      contents: write   # needed to push the version tag and create GitHub Releases
       id-token: write   # needed for OIDC / Trusted Publisher on PyPI
 
     steps:
@@ -34,11 +36,12 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: "pip"
 
       - name: Install build tools
@@ -46,19 +49,51 @@ jobs:
           python -m pip install --upgrade pip
           pip install build
 
-      # ── Read version from pyproject.toml ──────────────────────────────────
-      - name: Read project version
+      # ── Determine bump type from PR labels ────────────────────────────────
+      - name: Determine bump type
+        id: bump
+        run: |
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          if echo "$LABELS" | grep -q '"bump:major"'; then
+            echo "type=major" >> "$GITHUB_OUTPUT"
+          elif echo "$LABELS" | grep -q '"bump:patch"'; then
+            echo "type=patch" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=minor" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Bump type: $(grep type= "$GITHUB_OUTPUT" | cut -d= -f2)"
+
+      # ── Calculate next version from latest git tag ────────────────────────
+      - name: Calculate next version
         id: version
         run: |
-          VERSION=$(python - <<'EOF'
-          import re, pathlib
-          content = pathlib.Path("pyproject.toml").read_text()
-          m = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
-          print(m.group(1))
-          EOF
-          )
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Project version: ${VERSION}"
+          CURRENT=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          # Strip leading 'v'
+          CURRENT="${CURRENT#v}"
+          MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+          MINOR=$(echo "$CURRENT" | cut -d. -f2)
+          PATCH=$(echo "$CURRENT" | cut -d. -f3)
+          BUMP_TYPE=${{ steps.bump.outputs.type }}
+          if [ "$BUMP_TYPE" = "major" ]; then
+            MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+          elif [ "$BUMP_TYPE" = "patch" ]; then
+            PATCH=$((PATCH + 1))
+          else
+            MINOR=$((MINOR + 1)); PATCH=0
+          fi
+          TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Next version: ${TAG}"
+
+      # ── Create and push the version tag ───────────────────────────────────
+      # This must happen BEFORE `python -m build` so setuptools-scm picks it up.
+      - name: Create version tag
+        run: |
+          TAG=${{ steps.version.outputs.tag }}
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
 
       # ── Build distributions ────────────────────────────────────────────────
       - name: Build wheel and sdist
@@ -71,8 +106,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v${{ steps.version.outputs.version }}"
-          name: "v${{ steps.version.outputs.version }}"
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
           generate_release_notes: true
           files: dist/*
 
