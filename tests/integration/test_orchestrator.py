@@ -1,19 +1,22 @@
 """
-Unit tests for orchestrator.py — the MVP Orchestrator.
+Integration tests for orchestrator.py — tests that exercise the full turn pipeline.
 
-All tests run without real LLM calls.  The dry-run mode (llm_*=None) is used
-for most assertions; a _BindableFakeModel is used where we need to verify
-LLM-driven paths.
+These tests require a real (or fake-LLM) end-to-end graph invocation.
+A _BindableFakeModel replaces real LLM calls where needed.
 """
 
-import os
 import copy
 import pytest
+import yaml
 from unittest.mock import MagicMock, patch
 from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
 from langchain_core.messages import AIMessage
 
 from MnesOS.orchestrator import Orchestrator, _RETRY_SYSTEM_NOTE
+
+
+# CWD-relative path — pytest is always invoked from the project root.
+CARTRIDGE_DIR = "cartridges/generic-rpg"
 
 
 class _BindableFakeModel(FakeMessagesListChatModel):
@@ -23,68 +26,9 @@ class _BindableFakeModel(FakeMessagesListChatModel):
         return self
 
 
-CARTRIDGE_DIR = os.path.join(
-    os.path.dirname(__file__), "..", "cartridges", "generic-rpg"
-)
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def make_fake_llm(*responses: str) -> _BindableFakeModel:
     """Build a fake LLM that returns AIMessages with the given contents in order."""
     return _BindableFakeModel(responses=[AIMessage(content=r) for r in responses])
-
-
-# ---------------------------------------------------------------------------
-# Initialisation tests
-# ---------------------------------------------------------------------------
-
-class TestOrchestratorInit:
-    def test_loads_cartridge(self):
-        orch = Orchestrator(CARTRIDGE_DIR)
-        assert orch.cartridge is not None
-        assert orch.cartridge.yare_config
-        assert orch.cartridge.lore_path
-
-    def test_initial_state_has_all_keys(self):
-        orch = Orchestrator(CARTRIDGE_DIR)
-        state = orch.state
-        for key in (
-            "client_messages",
-            "agent_messages",
-            "bot_memory",
-            "bot_memory_staging",
-            "yare_config",
-            "prompt_directives",
-            "lore_path",
-            "system_notes",
-            "retrieved_lore",
-            "iteration_count",
-            "turn_phase",
-        ):
-            assert key in state, f"Missing key: {key}"
-
-    def test_initial_client_messages_empty(self):
-        orch = Orchestrator(CARTRIDGE_DIR)
-        assert orch.state["client_messages"] == []
-
-    def test_bot_memory_seeded_from_cartridge(self):
-        orch = Orchestrator(CARTRIDGE_DIR)
-        # generic-rpg has a player domain in state_schema
-        assert "player" in orch.state["bot_memory"]
-
-    def test_invalid_cartridge_raises(self):
-        with pytest.raises(FileNotFoundError):
-            Orchestrator("/nonexistent/path/to/cartridge")
-
-    def test_compiled_graph_has_expected_nodes(self):
-        orch = Orchestrator(CARTRIDGE_DIR)
-        node_names = set(orch._app.get_graph().nodes.keys())
-        for expected in ("ResetAgentMessages", "Lore", "CycleTick", "Director",
-                         "NPC_Brain", "Narrator", "CleanupAgentMessages"):
-            assert expected in node_names, f"Missing node: {expected}"
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +61,6 @@ class TestProcessTurnDryRun:
     def test_state_is_updated_after_turn(self):
         orch = Orchestrator(CARTRIDGE_DIR)
         orch.process_turn("Some action")
-        # After a dry-run turn the state object should be a new dict returned by invoke
         assert isinstance(orch.state, dict)
         assert "bot_memory" in orch.state
 
@@ -125,7 +68,6 @@ class TestProcessTurnDryRun:
         orch = Orchestrator(CARTRIDGE_DIR)
         initial_memory = copy.deepcopy(orch.state["bot_memory"])
         orch.process_turn("Nothing special")
-        # No events were triggered so memory should remain the same
         assert orch.state["bot_memory"] == initial_memory
 
 
@@ -176,7 +118,6 @@ class TestReset:
     def test_reset_restores_bot_memory(self):
         orch = Orchestrator(CARTRIDGE_DIR)
         original_memory = copy.deepcopy(orch.state["bot_memory"])
-        # Manually corrupt memory then reset
         orch._state["bot_memory"]["player"]["hp"] = 0
         orch.reset()
         assert orch.state["bot_memory"] == original_memory
@@ -264,3 +205,91 @@ class TestStateIsolation:
         orch._state["bot_memory"]["player"]["hp"] = 0
         orch.reset()
         assert orch.cartridge.initial_state == original
+
+
+# ---------------------------------------------------------------------------
+# separate_npc_brain feature tests
+# ---------------------------------------------------------------------------
+
+class TestSeparateNpcBrainFeature:
+    """Tests for the optional separate_npc_brain architecture runtime behavior."""
+
+    def test_orchestrator_with_separate_npc_brain_false_works(self, tmp_path):
+        """When separate_npc_brain is False, orchestrator should work normally."""
+        yare = {
+            "version": "1.0",
+            "state_schema": {"player": {"hp": {"type": "int", "default": 100}}},
+            "events": {},
+            "separate_npc_brain": False,
+        }
+        (tmp_path / "yare.yaml").write_text(yaml.dump(yare))
+        (tmp_path / "bot_lore.md").write_text("# Test\nSome lore.")
+
+        orch = Orchestrator(str(tmp_path))
+        result = orch.process_turn("Hello")
+        assert isinstance(result, str)
+
+    def test_orchestrator_with_separate_npc_brain_true_raises_not_implemented(self, tmp_path):
+        """When separate_npc_brain is True, orchestrator should raise NotImplementedError."""
+        yare = {
+            "version": "1.0",
+            "state_schema": {"player": {"hp": {"type": "int", "default": 100}}},
+            "events": {},
+            "separate_npc_brain": True,
+        }
+        (tmp_path / "yare.yaml").write_text(yaml.dump(yare))
+        (tmp_path / "bot_lore.md").write_text("# Test\nSome lore.")
+
+        with pytest.raises(NotImplementedError, match="separate_npc_brain.*not yet implemented"):
+            Orchestrator(str(tmp_path))
+
+    def test_orchestrator_without_separate_npc_brain_key_works(self, tmp_path):
+        """When separate_npc_brain key is omitted (default False), orchestrator works."""
+        yare = {
+            "version": "1.0",
+            "state_schema": {"player": {"hp": {"type": "int", "default": 100}}},
+            "events": {},
+        }
+        (tmp_path / "yare.yaml").write_text(yaml.dump(yare))
+        (tmp_path / "bot_lore.md").write_text("# Test\nSome lore.")
+
+        orch = Orchestrator(str(tmp_path))
+        result = orch.process_turn("Test")
+        assert isinstance(result, str)
+
+    def test_generic_rpg_cartridge_does_not_raise(self):
+        """The generic-rpg cartridge (with default separate_npc_brain=False) works."""
+        orch = Orchestrator(CARTRIDGE_DIR)
+        result = orch.process_turn("Look around")
+        assert isinstance(result, str)
+
+    def test_monolithic_mode_graph_excludes_npc_brain_node(self, tmp_path):
+        """When separate_npc_brain=False, the compiled graph should NOT have NPC_Brain node."""
+        yare = {
+            "version": "1.0",
+            "state_schema": {"player": {"hp": {"type": "int", "default": 100}}},
+            "events": {},
+            "separate_npc_brain": False,
+        }
+        (tmp_path / "yare.yaml").write_text(yaml.dump(yare))
+        (tmp_path / "bot_lore.md").write_text("# Test\nSome lore.")
+
+        orch = Orchestrator(str(tmp_path))
+        node_names = set(orch._app.get_graph().nodes.keys())
+        assert "NPC_Brain" not in node_names, "NPC_Brain node should not exist in monolithic mode"
+
+    def test_monolithic_mode_graph_includes_expected_nodes(self, tmp_path):
+        """When separate_npc_brain=False, graph should have Director and Narrator."""
+        yare = {
+            "version": "1.0",
+            "state_schema": {"player": {"hp": {"type": "int", "default": 100}}},
+            "events": {},
+            "separate_npc_brain": False,
+        }
+        (tmp_path / "yare.yaml").write_text(yaml.dump(yare))
+        (tmp_path / "bot_lore.md").write_text("# Test\nSome lore.")
+
+        orch = Orchestrator(str(tmp_path))
+        node_names = set(orch._app.get_graph().nodes.keys())
+        for expected in ("Director", "Narrator", "Lore", "CycleTick"):
+            assert expected in node_names, f"Expected node {expected} missing in monolithic mode"

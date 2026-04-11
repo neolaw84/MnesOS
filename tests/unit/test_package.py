@@ -1,4 +1,4 @@
-"""Sample test for MnesOS."""
+"""Unit tests for the MnesOS package itself."""
 
 import MnesOS
 

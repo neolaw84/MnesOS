@@ -1,6 +1,6 @@
-# Architecture
+# Architecture: State and Turn Flow
 
-This document describes the current turn architecture implemented in `src/MnesOS/graph.py`.
+This document describes the internal turn architecture implemented in `src/MnesOS/graph.py`.
 
 ## Terms
 
@@ -16,13 +16,14 @@ graph TD
     Reset --> Lore[Lore Node]
     Lore --> Director[Director Node]
     Director -->|AIMessage has tool_calls| PreTools[PreTools Node]
-    Director -->|no tool_calls| NPC[NPC Brain Node]
+    Director -->|no tool_calls & decoupled| NPC["NPC Brain Node (upcoming)"]
+    Director -->|no tool_calls & monolithic| Narrator[Narrator Node]
     PreTools --> Tools[ToolNode]
     Tools --> PostTools[PostTools Node]
     PostTools -->|turn_phase=player| Director
     PostTools -->|turn_phase=npc| NPC
     NPC -->|AIMessage has tool_calls| PreTools
-    NPC -->|no tool_calls| Narrator[Narrator Node]
+    NPC -->|no tool_calls| Narrator
     Narrator --> Cleanup[Cleanup Agent Messages]
     Cleanup --> Client
 ```
@@ -68,7 +69,7 @@ The client never sees or manages `agent_messages`.
 4. `pre_tools_node` clears `bot_memory_staging` (the YARE write buffer) to ensure a clean slate
 5. `ToolNode` calls `trigger_event`; the tool runs `YAREInterpreter` and returns `Command(update={bot_memory_staging, system_notes, agent_messages})` — all three fields have reducers so concurrent writes are safe
 6. `post_tools_node` reads the last entry from `bot_memory_staging` and writes it to `bot_memory`, then clears the staging buffer — this is the single authoritative write point for world state
-7. `npc_brain_node` does the same as step 3 for NPC decision-making; steps 4–6 repeat for NPC tool calls
+7. `npc_brain_node` (when enabled, upcoming feature) does the same as step 3 for NPC decision-making; steps 4–6 repeat for NPC tool calls
 8. `narrator_node` receives the full `agent_messages` history and `client_messages` and produces the assistant response
 9. `cleanup_agent_messages_node` clears `agent_messages` before returning state to the client
 
@@ -87,13 +88,3 @@ Routing decisions (`route_director`, `route_npc_brain`) inspect the `tool_calls`
 `ToolNode` dispatches to `trigger_event`, which receives the full `GameState` via `InjectedState`. The tool runs `YAREInterpreter` and returns a `Command` that appends `[interpreter.state]` to `bot_memory_staging`, appends notes to `system_notes`, and pushes a `ToolMessage`. Because all three keys have reducers, concurrent writes can never cause `InvalidUpdateError`. `post_tools_node` then commits `bot_memory_staging[-1]` to `bot_memory` — a single plain-assignment update from a regular node, not a tool.
 
 The LLM supplies `event_name` and `event_args`. Both Director and NPC Brain inject the available event signatures — name plus `inputs` field list — into the system prompt so the LLM knows the expected keys for `event_args`. The YARE engine is the sole executor of game logic.
-
-## Cartridge Inputs
-
-A cartridge contributes:
-
-- `yare.yaml`
-- `bot_lore.md`
-- optional `prompt_directives.yaml`
-
-The agent does not contain cartridge-specific behavior. Cartridges should express game-specific logic as data.

@@ -12,9 +12,9 @@ state_schema:
     attack_power: { type: int, default: 5, min: 0, visibility: private }
 
 macros:
-  player_attack_roll: "roll('1d20') + 5"
-  npc_attack_roll: "roll('1d20') + @state.npc.attack_power"
-  damage_roll: "roll('1d8') + 2"
+  player_attack_roll: "roll(1d20) + 5"
+  npc_attack_roll: "roll(1d20) + @state.npc.attack_power"
+  damage_roll: "roll(1d8) + 2"
 
 events:
   combat_strike:
@@ -50,7 +50,7 @@ events:
             steps:
               - action: set
                 var: temp.damage
-                value: "@ roll('1d6') + 1"
+                value: "@ roll(1d6) + 1"
               - action: mutate
                 var: state.player.hp
                 op: sub

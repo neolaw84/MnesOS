@@ -184,6 +184,13 @@ class TestRoll:
             result = interp.evaluate("@ roll(3d6)")
         assert result == 12
 
+    def test_roll_explicit_quotes(self):
+        """Test that expressions using explicitly quoted notations don't trigger double quotes."""
+        interp = make_interp()
+        with patch("random.randint", side_effect=[2, 4, 6]):
+            result = interp.evaluate("@ roll('3d6')")
+        assert result == 12
+
     def test_roll_plus_modifier(self):
         interp = make_interp(state={"player": {"level": 3}})
         config = {"state_schema": {"player": {"level": {"type": "int", "visibility": "public"}}}}

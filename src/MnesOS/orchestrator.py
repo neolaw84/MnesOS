@@ -11,29 +11,13 @@ Responsibilities:
 """
 
 import copy
-import functools
 import logging
 from typing import Any, Dict
-
-from langgraph.graph import StateGraph, END
-from langgraph.prebuilt import ToolNode
 
 from .cartridge import CartridgeLoader, LoadedCartridge
 from .graph import (
     GameState,
-    trigger_event,
-    reset_agent_messages_node,
-    cleanup_agent_messages_node,
-    context_retrieval_node,
-    cycle_tick_node,
-    director_node,
-    npc_brain_node,
-    narrator_node,
-    pre_tools_node,
-    post_tools_node,
-    route_director,
-    route_npc_brain,
-    route_rules,
+    build_graph,
 )
 
 logger = logging.getLogger(__name__)
@@ -92,6 +76,15 @@ class Orchestrator:
         loader = CartridgeLoader()
         self._cartridge: LoadedCartridge = loader.load(cartridge_dir)
         logger.info("Cartridge loaded from %r", cartridge_dir)
+
+        # Check for separate_npc_brain feature flag
+        if self._cartridge.yare_config.get("separate_npc_brain", False):
+            raise NotImplementedError(
+                "separate_npc_brain=True is not yet implemented. "
+                "This feature is planned for a future release. "
+                "See docs/feature_roadmap.md for details. "
+                "To use the orchestrator, set separate_npc_brain=False or omit it."
+            )
 
         self._app = self._compile_graph(llm_director, llm_npc_brain, llm_narrator)
         logger.info("Graph compiled. Nodes: %s", list(self._app.get_graph().nodes.keys()))
@@ -182,40 +175,13 @@ class Orchestrator:
         }
 
     def _compile_graph(self, llm_director, llm_npc_brain, llm_narrator):
-        """Build and compile a fresh LangGraph, injecting LLM instances."""
-        graph = StateGraph(GameState)
-
-        graph.add_node("ResetAgentMessages", reset_agent_messages_node)
-        graph.add_node("Lore", context_retrieval_node)
-        graph.add_node("CycleTick", cycle_tick_node)
-        graph.add_node("Director", functools.partial(director_node, llm=llm_director))
-        graph.add_node("PreTools", pre_tools_node)
-        graph.add_node("Tools", ToolNode([trigger_event], messages_key="agent_messages"))
-        graph.add_node("PostTools", post_tools_node)
-        graph.add_node("NPC_Brain", functools.partial(npc_brain_node, llm=llm_npc_brain))
-        graph.add_node("Narrator", functools.partial(narrator_node, llm=llm_narrator))
-        graph.add_node("CleanupAgentMessages", cleanup_agent_messages_node)
-
-        graph.set_entry_point("ResetAgentMessages")
-        graph.add_edge("ResetAgentMessages", "Lore")
-        graph.add_edge("Lore", "CycleTick")
-        graph.add_edge("CycleTick", "Director")
-
-        graph.add_conditional_edges(
-            "Director", route_director, {"PreTools": "PreTools", "NPC_Brain": "NPC_Brain"}
+        """Delegate graph compilation to the build_graph factory in graph.py."""
+        return build_graph(
+            yare_config=self._cartridge.yare_config,
+            llm_director=llm_director,
+            llm_npc_brain=llm_npc_brain,
+            llm_narrator=llm_narrator,
         )
-        graph.add_edge("PreTools", "Tools")
-        graph.add_edge("Tools", "PostTools")
-        graph.add_conditional_edges(
-            "PostTools", route_rules, {"Director": "Director", "NPC_Brain": "NPC_Brain"}
-        )
-        graph.add_conditional_edges(
-            "NPC_Brain", route_npc_brain, {"PreTools": "PreTools", "Narrator": "Narrator"}
-        )
-        graph.add_edge("Narrator", "CleanupAgentMessages")
-        graph.add_edge("CleanupAgentMessages", END)
-
-        return graph.compile()
 
     def _extract_narrator_response(self) -> str:
         """Return the most recent assistant message from client_messages."""

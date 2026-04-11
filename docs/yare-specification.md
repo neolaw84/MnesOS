@@ -37,7 +37,7 @@ Supported operators in the current interpreter:
 
 Supported built-ins in the current interpreter:
 
-- `roll(NdX)`
+- `roll(NdX)` (Note: Do **not** put quotes around the dice notation. Write `roll(1d20)` instead of `roll('1d20')`)
 - `abs(value)`
 - `timedelta(...)`
 - `time_delta(timestamp_a, timestamp_b)` (returns `timestamp_b - timestamp_a` as a `timedelta`)
@@ -135,7 +135,7 @@ def trigger_event(
 
 ### Event Signature Injection
 
-The LLM needs to know which keys belong in `event_args` for each event. Both `director_node` and `npc_brain_node` read the `inputs` lists from `yare_config` and inject event signatures into the system prompt:
+The LLM needs to know which keys belong in `event_args` for each event. Both `director_node` and `npc_brain_node` (when enabled) read the `inputs` lists from `yare_config` and inject event signatures into the system prompt:
 
 ```
 ### Available Events:
@@ -149,7 +149,7 @@ New events are added in `yare.yaml`. No code changes are required to expose them
 
 ## Time Sync Extensions
 
-- `state.game_time` is automatically injected into Director, NPC Brain, and Narrator prompt context when present.
+- `state.game_time` is automatically injected into Director, NPC Brain (when enabled), and Narrator prompt context when present.
 - Narrator uses a structured tool call for end-of-turn engine actions:
   - `end_of_narration(actions=[{"type":"advance_time","duration":"PT15M"}])`
   - `end_of_narration(actions=[{"type":"set_game_time","value":"2026-04-10T10:00:00+00:00"}])`

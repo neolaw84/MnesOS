@@ -24,6 +24,7 @@ A MnesOS cartridge divides game responsibilities across explicitly named files:
 *   **Logic goes in YARE**: Do not ask the LLM to calculate health drops or item prices. Make events in `yare.yaml` (e.g. `buy_item`, `take_damage`, `cast_spell`).
 *   **Keep Directives Lean**: Directives should focus on psychological behavior ("NPCs run away when health is critically low", or "The Director should spawn encounters in the wilderness").
 *   **Use the Macros**: Common mathematical calculations (e.g. combat rolls) should be offloaded to YARE macros for clean event structures.
+*   **Dice Notation**: When using `roll(...)` in YARE expressions, do **not** add quotes around the dice notation. Write `@ roll(1d20)` instead of `@ roll('1d20')`. The engine pre-processes this automatically.
 *   **Design for `MAX_ITERATIONS = 3`**: The engine allows at most 3 `trigger_event` calls per phase per turn. Each event should be self-contained — use `call` steps to chain sub-events internally rather than relying on the LLM to issue multiple tool calls. Keep complex flows inside a single event's `steps`.
 
 ## Available Resources
