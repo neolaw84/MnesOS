@@ -80,23 +80,24 @@ def create_app(cartridge_dir: str, saves_dir: str) -> Flask:
     # Helpers
     # ------------------------------------------------------------------
 
-    def _safe_filename(name: str) -> str:
-        """Sanitise user-supplied save-file name."""
-        name = name.strip()
-        name = re.sub(r"[^\w\- ]", "_", name)
-        name = name.replace(" ", "-")
-        if not name:
-            name = "save"
-        return name[:64]
+    _VALID_SAVE_NAME = re.compile(r"^[\w][\w\-]{0,62}$")
 
     def _save_path(filename: str) -> Path:
-        """Return a sanitised, saves-dir-confined path for a save file."""
-        safe = _safe_filename(filename) + ".json"
-        # Resolve to an absolute path and confirm it stays inside saves_path.
-        candidate = (saves_path / safe).resolve()
-        if saves_path.resolve() not in candidate.parents:
+        """Return a saves-dir-confined path for a save file.
+
+        Raises ``ValueError`` if *filename* contains disallowed characters.
+        """
+        name = filename.strip()
+        if not _VALID_SAVE_NAME.match(name):
+            raise ValueError(
+                "Save-file name must contain only letters, digits, underscores, "
+                "or hyphens and be 1–63 characters long."
+            )
+        # Construct path solely from the validated (whitelist-matched) name.
+        path = saves_path.resolve() / (name + ".json")
+        if not path.is_relative_to(saves_path.resolve()):
             raise ValueError("Invalid save-file name.")
-        return candidate
+        return path
 
     def _serialisable_state(state: dict) -> dict:
         """Return a JSON-serialisable copy of the game state."""
@@ -148,12 +149,15 @@ def create_app(cartridge_dir: str, saves_dir: str) -> Flask:
     def api_save():
         body = request.get_json(silent=True) or {}
         filename = (body.get("filename") or "save").strip()
-        path = _save_path(filename)
+        try:
+            path = _save_path(filename)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
         try:
             data = _serialisable_state(dict(_orch.state))
             path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
             logger.info("Game saved to %s", path)
-            return jsonify({"ok": True, "path": str(path)})
+            return jsonify({"ok": True, "path": path.name})
         except Exception as exc:  # noqa: BLE001
             logger.exception("Save failed: %s", exc)
             return jsonify({"error": "Could not save the game. Check server logs for details."}), 500
@@ -162,9 +166,12 @@ def create_app(cartridge_dir: str, saves_dir: str) -> Flask:
     def api_load():
         body = request.get_json(silent=True) or {}
         filename = (body.get("filename") or "save").strip()
-        path = _save_path(filename)
+        try:
+            path = _save_path(filename)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
         if not path.exists():
-            return jsonify({"error": f"Save file not found: {path}"}), 404
+            return jsonify({"error": "Save file not found."}), 404
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             # Restore mutable state fields.
@@ -174,7 +181,7 @@ def create_app(cartridge_dir: str, saves_dir: str) -> Flask:
             logger.info("Game loaded from %s", path)
             return jsonify({
                 "ok": True,
-                "path": str(path),
+                "path": path.name,
                 "client_messages": _orch.state.get("client_messages", []),
             })
         except Exception as exc:  # noqa: BLE001
