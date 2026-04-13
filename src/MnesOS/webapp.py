@@ -90,7 +90,13 @@ def create_app(cartridge_dir: str, saves_dir: str) -> Flask:
         return name[:64]
 
     def _save_path(filename: str) -> Path:
-        return saves_path / (_safe_filename(filename) + ".json")
+        """Return a sanitised, saves-dir-confined path for a save file."""
+        safe = _safe_filename(filename) + ".json"
+        # Resolve to an absolute path and confirm it stays inside saves_path.
+        candidate = (saves_path / safe).resolve()
+        if saves_path.resolve() not in candidate.parents:
+            raise ValueError("Invalid save-file name.")
+        return candidate
 
     def _serialisable_state(state: dict) -> dict:
         """Return a JSON-serialisable copy of the game state."""
@@ -123,8 +129,8 @@ def create_app(cartridge_dir: str, saves_dir: str) -> Flask:
             _middle_out_truncate(_orch)
             return jsonify({"response": response})
         except Exception as exc:  # noqa: BLE001
-            logger.exception("process_turn failed")
-            return jsonify({"error": str(exc)}), 500
+            logger.exception("process_turn failed: %s", exc)
+            return jsonify({"error": "The narrator encountered an error. Please try again."}), 500
 
     @app.post("/api/reset")
     def api_reset():
@@ -149,8 +155,8 @@ def create_app(cartridge_dir: str, saves_dir: str) -> Flask:
             logger.info("Game saved to %s", path)
             return jsonify({"ok": True, "path": str(path)})
         except Exception as exc:  # noqa: BLE001
-            logger.exception("Save failed")
-            return jsonify({"error": str(exc)}), 500
+            logger.exception("Save failed: %s", exc)
+            return jsonify({"error": "Could not save the game. Check server logs for details."}), 500
 
     @app.post("/api/load")
     def api_load():
@@ -172,8 +178,8 @@ def create_app(cartridge_dir: str, saves_dir: str) -> Flask:
                 "client_messages": _orch.state.get("client_messages", []),
             })
         except Exception as exc:  # noqa: BLE001
-            logger.exception("Load failed")
-            return jsonify({"error": str(exc)}), 500
+            logger.exception("Load failed: %s", exc)
+            return jsonify({"error": "Could not load the save file. Check server logs for details."}), 500
 
     return app
 
