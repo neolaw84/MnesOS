@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MnesOS — {{ cartridge_name }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Georgia", serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #16213e;
+      border-bottom: 1px solid #0f3460;
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #e94560;
+      flex: 1;
+    }
+
+    header .btn-sm {
+      font-size: 0.78rem;
+      padding: 0.3rem 0.7rem;
+    }
+
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      scroll-behavior: smooth;
+    }
+
+    .msg {
+      max-width: 78%;
+      padding: 0.65rem 0.9rem;
+      border-radius: 8px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .msg.assistant {
+      background: #16213e;
+      border: 1px solid #0f3460;
+      align-self: flex-start;
+      color: #c9d1d9;
+    }
+
+    .msg.user {
+      background: #0f3460;
+      align-self: flex-end;
+      color: #e0e0e0;
+    }
+
+    .msg .role-label {
+      font-size: 0.7rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.3rem;
+      opacity: 0.65;
+    }
+
+    #thinking {
+      display: none;
+      align-self: flex-start;
+      padding: 0.5rem 0.9rem;
+      color: #888;
+      font-style: italic;
+      font-size: 0.88rem;
+    }
+
+    #input-area {
+      background: #16213e;
+      border-top: 1px solid #0f3460;
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      gap: 0.6rem;
+      flex-shrink: 0;
+    }
+
+    #user-input {
+      flex: 1;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e0e0e0;
+      font-family: inherit;
+      font-size: 0.95rem;
+      padding: 0.55rem 0.8rem;
+      resize: none;
+      height: 2.8rem;
+      max-height: 10rem;
+      overflow-y: auto;
+      line-height: 1.4;
+    }
+
+    #user-input:focus { outline: none; border-color: #e94560; }
+
+    button {
+      background: #e94560;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 0.55rem 1rem;
+      transition: background 0.2s;
+    }
+
+    button:hover { background: #c73652; }
+    button:disabled { background: #555; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: #30363d;
+      color: #e0e0e0;
+    }
+
+    .btn-secondary:hover { background: #444c56; }
+
+    /* Save/Load modal */
+    #modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #modal-overlay.open { display: flex; }
+
+    #modal {
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 10px;
+      padding: 1.5rem;
+      width: min(420px, 92vw);
+    }
+
+    #modal h2 { font-size: 1rem; margin-bottom: 1rem; color: #e94560; }
+
+    #modal input[type="text"] {
+      width: 100%;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e0e0e0;
+      font-size: 0.9rem;
+      padding: 0.5rem 0.7rem;
+      margin-bottom: 0.75rem;
+    }
+
+    #modal input[type="text"]:focus { outline: none; border-color: #e94560; }
+
+    #modal .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+    }
+
+    #toast {
+      position: fixed;
+      bottom: 5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: #eee;
+      padding: 0.5rem 1.2rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 200;
+    }
+
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⚔ MnesOS — {{ cartridge_name }}</h1>
+  <button class="btn-sm btn-secondary" onclick="openModal('save')">💾 Save</button>
+  <button class="btn-sm btn-secondary" onclick="openModal('load')">📂 Load</button>
+  <button class="btn-sm btn-secondary" onclick="resetGame()">🔄 Reset</button>
+</header>
+
+<div id="messages"></div>
+<div id="thinking">Narrator is thinking…</div>
+
+<div id="input-area">
+  <textarea id="user-input" placeholder="What do you do?" rows="1"></textarea>
+  <button id="send-btn" onclick="sendTurn()">Send</button>
+</div>
+
+<!-- Save / Load modal -->
+<div id="modal-overlay">
+  <div id="modal">
+    <h2 id="modal-title">Save Game</h2>
+    <input type="text" id="save-filename" placeholder="save-name (e.g. my-save)" />
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button id="modal-confirm-btn" onclick="confirmModal()">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  let modalMode = 'save';
+
+  // ── Helpers ─────────────────────────────────────────────────────────────
+  function scrollToBottom() {
+    const el = document.getElementById('messages');
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function toast(msg, ms = 2500) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), ms);
+  }
+
+  function appendMessage(role, content) {
+    const messages = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'msg ' + role;
+    const label = document.createElement('div');
+    label.className = 'role-label';
+    label.textContent = role === 'assistant' ? 'Narrator' : 'You';
+    div.appendChild(label);
+    const text = document.createElement('span');
+    text.textContent = content;
+    div.appendChild(text);
+    messages.appendChild(div);
+    scrollToBottom();
+  }
+
+  function setLoading(on) {
+    document.getElementById('send-btn').disabled = on;
+    document.getElementById('user-input').disabled = on;
+    document.getElementById('thinking').style.display = on ? 'block' : 'none';
+    if (on) scrollToBottom();
+  }
+
+  // ── Core Actions ─────────────────────────────────────────────────────────
+  async function sendTurn() {
+    const input = document.getElementById('user-input');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    autoResize(input);
+    appendMessage('user', text);
+    setLoading(true);
+    try {
+      const resp = await fetch('/api/turn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_input: text })
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Unknown error');
+      appendMessage('assistant', data.response);
+    } catch (err) {
+      appendMessage('assistant', '⚠ Error: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function resetGame() {
+    if (!confirm('Reset the game to the beginning?')) return;
+    setLoading(true);
+    try {
+      await fetch('/api/reset', { method: 'POST' });
+      document.getElementById('messages').innerHTML = '';
+      await loadState();
+      toast('Game reset.');
+    } catch (err) {
+      toast('Reset failed: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadState() {
+    const resp = await fetch('/api/state');
+    const data = await resp.json();
+    const messages = document.getElementById('messages');
+    messages.innerHTML = '';
+    for (const msg of (data.client_messages || [])) {
+      if (msg.role === 'user' || msg.role === 'assistant') {
+        appendMessage(msg.role, msg.content);
+      }
+    }
+    scrollToBottom();
+  }
+
+  // ── Save / Load Modal ────────────────────────────────────────────────────
+  function openModal(mode) {
+    modalMode = mode;
+    document.getElementById('modal-title').textContent =
+      mode === 'save' ? '💾 Save Game' : '📂 Load Game';
+    document.getElementById('modal-confirm-btn').textContent =
+      mode === 'save' ? 'Save' : 'Load';
+    document.getElementById('save-filename').value = '';
+    document.getElementById('modal-overlay').classList.add('open');
+    document.getElementById('save-filename').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+
+  async function confirmModal() {
+    const filename = document.getElementById('save-filename').value.trim();
+    if (!filename) { toast('Please enter a file name.'); return; }
+    closeModal();
+    if (modalMode === 'save') {
+      try {
+        const resp = await fetch('/api/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Save failed');
+        toast('Saved to ' + data.path);
+      } catch (err) { toast('Save error: ' + err.message); }
+    } else {
+      try {
+        const resp = await fetch('/api/load', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Load failed');
+        document.getElementById('messages').innerHTML = '';
+        for (const msg of (data.client_messages || [])) {
+          if (msg.role === 'user' || msg.role === 'assistant') {
+            appendMessage(msg.role, msg.content);
+          }
+        }
+        toast('Loaded from ' + data.path);
+      } catch (err) { toast('Load error: ' + err.message); }
+    }
+  }
+
+  // ── Textarea auto-resize ─────────────────────────────────────────────────
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+  }
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  document.getElementById('user-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendTurn();
+    }
+  });
+
+  document.getElementById('user-input').addEventListener('input', function () {
+    autoResize(this);
+  });
+
+  document.getElementById('modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  });
+
+  document.getElementById('save-filename').addEventListener('keydown', e => {
+    if (e.key === 'Enter') confirmModal();
+    if (e.key === 'Escape') closeModal();
+  });
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  loadState();
+</script>
+</body>
+</html>

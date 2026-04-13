@@ -23,12 +23,19 @@ dependencies = [
     "pyyaml>=6.0",
 ]
 
+[project.scripts]
+mnesos-webapp = "MnesOS.webapp:main"
+
 [project.urls]
 Homepage = "https://github.com/neolaw84/MnesOS"
 Documentation = "https://neolaw84.github.io/MnesOS/"
 Issues = "https://github.com/neolaw84/MnesOS/issues"
 
 [project.optional-dependencies]
+webapp = [
+    "flask>=3.0",
+    "python-dotenv>=1.0",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
@@ -37,6 +44,8 @@ dev = [
     "mkdocstrings[python]>=0.24",
     "pymdown-extensions>=10.0",
     "ipywidgets>=8.0",
+    "flask>=3.0",
+    "python-dotenv>=1.0",
 ]
 docs = [
     "mkdocs>=1.5",
