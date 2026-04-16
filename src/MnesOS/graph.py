@@ -42,6 +42,7 @@ class GameState(TypedDict):
     retrieved_lore: str
     iteration_count: int
     turn_phase: str
+    npc_intent_called: bool  # tracks whether query_npc_intent was already called this turn
 
 MAX_ITERATIONS = 3
 
@@ -293,7 +294,7 @@ def _apply_end_of_narration_actions(
 
 def reset_agent_messages_node(state: GameState) -> dict:
     """Clear any stale agent-side messages at the start of a top-level invoke."""
-    return {"agent_messages": [RemoveMessage(id=REMOVE_ALL_MESSAGES)]}
+    return {"agent_messages": [RemoveMessage(id=REMOVE_ALL_MESSAGES)], "npc_intent_called": False}
 
 
 def cleanup_agent_messages_node(state: GameState) -> dict:
@@ -448,9 +449,14 @@ def get_npc_visible_state(bot_memory: Dict[str, Any], yare_config: Dict[str, Any
 # ---------------------------------------------------------
 
 class NPCIntentOutput(BaseModel):
+    npc_id: str = Field(description="The ID of the NPC this intent belongs to.")
     dialogue: str = Field(description="Exactly what the NPC says out loud. Can be empty.")
     action_intent: str = Field(description="What the NPC is trying to do physically or mechanically.")
     internal_monologue: str = Field(description="The NPC's hidden thoughts and emotions.")
+
+
+class BatchedNPCIntent(BaseModel):
+    intents: List[NPCIntentOutput] = Field(description="List of intents for the requested NPCs.")
 
 
 def build_npc_intent_tool(npc_llm) -> StructuredTool:
@@ -458,15 +464,42 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
 
     @tool
     def query_npc_intent(
-        npc_id: str,
+        npc_ids: List[str],
         immediate_stimulus: str,
         history_turns: int,
         dm_directives: str = "",
+        tool_call_id: Annotated[str, InjectedToolCallId()] = "",
         state: Annotated[dict, InjectedState()] = None,
-    ) -> str:
-        """Call this to see how an NPC wants to react before you calculate the rules."""
+    ) -> Command:
+        """Call this to see how a list of NPCs want to react before you calculate the rules."""
         state = state or {}
         yare_config: Dict[str, Any] = state.get("yare_config", {})
+        bot_memory: Dict[str, Any] = state.get("bot_memory", {})
+        npc_templates: Dict[str, Any] = yare_config.get("npc_templates", {})
+
+        # Get attention budget settings with defaults
+        settings = yare_config.get("engine_settings", {})
+        min_credit = settings.get("npc_min_credit_threshold", 5)
+        max_npcs = settings.get("max_batched_npcs", 3)
+
+        # Score each NPC and filter below threshold
+        scored_npcs = []
+        for nid in npc_ids:
+            score = 0
+            npc_data = bot_memory.get("npcs", {}).get(nid, {})
+            # Credit from Name template
+            if tmpl := npc_templates.get(npc_data.get("template")):
+                score += tmpl.get("credit", 0)
+            # Credit from Tags
+            for tag in npc_data.get("tags", []):
+                if tmpl := npc_templates.get(tag):
+                    score += tmpl.get("credit", 0)
+            if score >= min_credit:
+                scored_npcs.append({"id": nid, "score": score})
+
+        # Sort by score descending, then slice to max_npcs
+        scored_npcs.sort(key=lambda x: x["score"], reverse=True)
+        top_npcs = [npc["id"] for npc in scored_npcs[:max_npcs]]
 
         # 1. Assemble history (most recent N turns, capped at 10)
         client_messages = state.get("client_messages", [])
@@ -480,32 +513,42 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
         lore_text: str = state.get("retrieved_lore", "")
 
         # 3. Assemble NPC-visible state
-        bot_memory: Dict[str, Any] = state.get("bot_memory", {})
         visible_state = get_npc_visible_state(bot_memory, yare_config)
 
-        # 4. Assemble NPC profile
-        npc_registry: Dict[str, Any] = bot_memory.get("npcs", {})
-        npc_entry: Dict[str, Any] = npc_registry.get(npc_id, {})
-        npc_templates: Dict[str, Any] = yare_config.get("npc_templates", {})
-
+        # 4. Build batched profile text for top NPCs
         profile_parts: list[str] = []
+        for nid in top_npcs:
+            npc_entry: Dict[str, Any] = bot_memory.get("npcs", {}).get(nid, {})
+            npc_desc_parts: list[str] = []
 
-        # Name-mode: single template reference
-        template_key = npc_entry.get("template")
-        if template_key and template_key in npc_templates:
-            tmpl = npc_templates[template_key]
-            profile_parts.append(tmpl.get("description", ""))
+            # Name-mode: single template reference
+            template_key = npc_entry.get("template")
+            if template_key and template_key in npc_templates:
+                tmpl = npc_templates[template_key]
+                npc_desc_parts.append(tmpl.get("description", ""))
 
-        # Tag-mode: concatenate multiple tag descriptions
-        for tag in npc_entry.get("tags", []):
-            if tag in npc_templates:
-                profile_parts.append(npc_templates[tag].get("description", ""))
+            # Tag-mode: concatenate multiple tag descriptions
+            for tag in npc_entry.get("tags", []):
+                if tag in npc_templates:
+                    npc_desc_parts.append(npc_templates[tag].get("description", ""))
 
-        profile_text = " ".join(filter(None, profile_parts)) or f"NPC id={npc_id}"
+            npc_desc = " ".join(filter(None, npc_desc_parts)) or f"NPC id={nid}"
+            profile_parts.append(f"NPC: {nid} | Profile: {npc_desc}")
 
-        # 5. Build prompt and invoke the LLM with structured output
+        profile_text = "\n".join(profile_parts) if profile_parts else "No qualifying NPCs."
+        npc_ids_str = ", ".join(top_npcs) if top_npcs else "none"
+
+        # 5. When no NPCs qualify, return early without querying the LLM
+        if not top_npcs:
+            return Command(
+                update={
+                    "agent_messages": [ToolMessage(content=profile_text, tool_call_id=tool_call_id)],
+                }
+            )
+
+        # 6. Build prompt and invoke the LLM with structured output
         formatted_prompt = NPC_SYSTEM_PROMPT.format(
-            npc_id=npc_id,
+            npc_id=npc_ids_str,
             profile_text=profile_text,
             lore_text=lore_text,
             visible_state=visible_state,
@@ -515,11 +558,15 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
         )
         prompt_messages = [SystemMessage(content=formatted_prompt)]
 
-        structured_llm = npc_llm.with_structured_output(NPCIntentOutput)
-        result: NPCIntentOutput = structured_llm.invoke(
-            prompt_messages
+        structured_llm = npc_llm.with_structured_output(BatchedNPCIntent)
+        result: BatchedNPCIntent = structured_llm.invoke(prompt_messages)
+
+        return Command(
+            update={
+                "npc_intent_called": True,
+                "agent_messages": [ToolMessage(content=result.model_dump_json(), tool_call_id=tool_call_id)],
+            }
         )
-        return result.model_dump_json()
 
     return query_npc_intent
 
