@@ -1,5 +1,6 @@
 from typing import Annotated, TypedDict, Literal, List, Dict, Any, Optional, Tuple
 import functools
+import json
 import operator
 import re
 from datetime import datetime, timedelta
@@ -391,16 +392,18 @@ def director_node(state: GameState, *, llm=None, tools=None) -> dict:
     """
     loops = state.get("iteration_count", 0) + 1
 
-    director_prompt = DIRECTOR_SYSTEM_PROMPT
-    directives = state.get("prompt_directives", {}).get("director", "")
-    if directives:
-        director_prompt += "\n\n### Cartridge Directives:\n" + directives
+    c_directives = state.get("prompt_directives", {}).get("director", "") or ""
+    formatted_prompt = DIRECTOR_SYSTEM_PROMPT.format(
+        retrieved_lore=state.get("retrieved_lore", ""),
+        bot_memory=json.dumps(state.get("bot_memory", {})),
+        system_notes="\n".join(state.get("system_notes", [])),
+        npc_intent_called=state.get("npc_intent_called", False),
+        cartridge_directives=c_directives,
+    )
+    system_content = formatted_prompt + _format_game_time_context(state.get("bot_memory", {}))
 
     result = {"iteration_count": loops, "turn_phase": "player"}
     if llm is not None:
-        system_content = director_prompt
-        system_content += _format_game_time_context(state.get("bot_memory", {}))
-
         prompt_messages = [SystemMessage(content=system_content)]
         prompt_messages.extend(
             _client_messages_to_langchain_messages(state.get("client_messages", []))
@@ -547,14 +550,15 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
             )
 
         # 6. Build prompt and invoke the LLM with structured output
+        c_directives = state.get("prompt_directives", {}).get("npc", "") or ""
         formatted_prompt = NPC_SYSTEM_PROMPT.format(
-            npc_id=npc_ids_str,
-            profile_text=profile_text,
+            visible_state=json.dumps(visible_state),
             lore_text=lore_text,
-            visible_state=visible_state,
             history_text=history_text,
             immediate_stimulus=immediate_stimulus,
             dm_directives=dm_directives,
+            batched_profiles=profile_text,
+            cartridge_directives=c_directives,
         )
         prompt_messages = [SystemMessage(content=formatted_prompt)]
 
@@ -582,11 +586,6 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
     """
     public_state = get_public_state(state["bot_memory"], state["yare_config"])
 
-    narrator_prompt = NARRATOR_SYSTEM_PROMPT
-    directives = state.get("prompt_directives", {}).get("narrator", "")
-    if directives:
-        narrator_prompt += "\n\n### Cartridge Directives:\n" + directives
-
     result: dict = {"iteration_count": 0, "system_notes": [], "retrieved_lore": ""}
 
     if llm is not None:
@@ -597,10 +596,6 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
             "- actions: [{type:'set_game_time', value:'2026-04-10T10:00:00+00:00'}]\n"
             "You may include both actions and narrative text in the same response."
         )
-        prompt_messages = [SystemMessage(content=narrator_prompt + _format_game_time_context(state.get("bot_memory", {})) + end_of_narration_contract)]
-        prompt_messages.extend(
-            _client_messages_to_langchain_messages(state.get("client_messages", []))
-        )
 
         # Find the Director's final Scene Directive (last AIMessage without tool calls)
         scene_directives = ""
@@ -609,10 +604,17 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
                 scene_directives = msg.content
                 break
 
-        prompt_messages.append(HumanMessage(content=(
-            f"Director's Scene Directives:\n{scene_directives}\n\n"
-            f"Public State:\n{public_state}"
-        )))
+        c_directives = state.get("prompt_directives", {}).get("narrator", "") or ""
+        formatted_prompt = NARRATOR_SYSTEM_PROMPT.format(
+            public_state=json.dumps(public_state),
+            scene_directives=scene_directives,
+            cartridge_directives=c_directives,
+        )
+        system_content = formatted_prompt + _format_game_time_context(state.get("bot_memory", {})) + end_of_narration_contract
+        prompt_messages = [SystemMessage(content=system_content)]
+        prompt_messages.extend(
+            _client_messages_to_langchain_messages(state.get("client_messages", []))
+        )
         response = llm.bind_tools([end_of_narration], parallel_tool_calls=False).invoke(prompt_messages)
         narrative = response.content
         result["narrative"] = narrative

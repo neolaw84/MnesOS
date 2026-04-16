@@ -820,7 +820,7 @@ class TestNarratorNodeSceneDirectiveFilter:
         state = make_state(system_notes=[], agent_messages=[])
         narrator_node(state, llm=fake_llm)
         call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
-        assert "Director's Scene Directives:" in call_arg
+        assert "SCENE DIRECTIVES" in call_arg
 
 
 # ---------------------------------------------------------------------------
