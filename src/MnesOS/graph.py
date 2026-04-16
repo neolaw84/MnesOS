@@ -13,7 +13,7 @@ from langchain_core.tools import tool, InjectedToolCallId
 # Import our refined logic components
 from .interpreter import YAREInterpreter
 from .context import VectorLoreStore
-from .prompts import DIRECTOR_SYSTEM_PROMPT, NARRATOR_SYSTEM_PROMPT
+from .prompts import DIRECTOR_SYSTEM_PROMPT, NARRATOR_SYSTEM_PROMPT, NPC_SYSTEM_PROMPT
 from pydantic import BaseModel, create_model, Field
 from langchain_core.tools import StructuredTool
 
@@ -504,25 +504,20 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
         profile_text = " ".join(filter(None, profile_parts)) or f"NPC id={npc_id}"
 
         # 5. Build prompt and invoke the LLM with structured output
-        prompt_parts = [
-            f"You are playing the NPC: {npc_id}",
-            f"Profile: {profile_text}",
-            f"Visible game state: {visible_state}",
-        ]
-        if lore_text:
-            prompt_parts.append(f"Relevant lore: {lore_text}")
-        if history_text:
-            prompt_parts.append(f"Recent conversation:\n{history_text}")
-        prompt_parts.append(f"Immediate stimulus: {immediate_stimulus}")
-        if dm_directives:
-            prompt_parts.append(f"DM directives: {dm_directives}")
-        prompt_parts.append(
-            "Respond with your dialogue, action intent, and internal monologue."
+        formatted_prompt = NPC_SYSTEM_PROMPT.format(
+            npc_id=npc_id,
+            profile_text=profile_text,
+            lore_text=lore_text,
+            visible_state=visible_state,
+            history_text=history_text,
+            immediate_stimulus=immediate_stimulus,
+            dm_directives=dm_directives,
         )
+        prompt_messages = [SystemMessage(content=formatted_prompt)]
 
         structured_llm = npc_llm.with_structured_output(NPCIntentOutput)
         result: NPCIntentOutput = structured_llm.invoke(
-            [HumanMessage(content="\n\n".join(prompt_parts))]
+            prompt_messages
         )
         return result.model_dump_json()
 
@@ -559,11 +554,17 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
         prompt_messages.extend(
             _client_messages_to_langchain_messages(state.get("client_messages", []))
         )
-        prompt_messages.extend(state.get("agent_messages", []))
+
+        # Find the Director's final Scene Directive (last AIMessage without tool calls)
+        scene_directives = ""
+        for msg in reversed(state.get("agent_messages", [])):
+            if isinstance(msg, AIMessage) and msg.content and not getattr(msg, "tool_calls", None):
+                scene_directives = msg.content
+                break
+
         prompt_messages.append(HumanMessage(content=(
-            f"System Notes: {state.get('system_notes', [])}\n"
-            f"Retrieved Lore: {state.get('retrieved_lore', '')}\n"
-            f"Public State: {public_state}"
+            f"Director's Scene Directives:\n{scene_directives}\n\n"
+            f"Public State:\n{public_state}"
         )))
         response = llm.bind_tools([end_of_narration], parallel_tool_calls=False).invoke(prompt_messages)
         narrative = response.content
