@@ -19,6 +19,7 @@ from MnesOS.cartridge import (
     _validate_state_schema,
     _validate_macros,
     _validate_events,
+    _validate_npc_templates,
     _build_initial_state,
     MAX_DIRECTIVE_LEN,
     MAX_TOTAL_DIRECTIVE_LEN,
@@ -459,3 +460,92 @@ class TestSeparateNpcBrainFeature:
         """The generic-rpg cartridge should have separate_npc_brain=False (default)."""
         cartridge = CartridgeLoader().load(generic_rpg_cartridge_dir)
         assert cartridge.yare_config.get("separate_npc_brain", False) is False
+
+
+# ---------------------------------------------------------------------------
+# _validate_npc_templates
+# ---------------------------------------------------------------------------
+
+class TestValidateNpcTemplates:
+    def test_valid_name_and_tag_entries_pass(self):
+        templates = {
+            "Mr_XYZ": {"type": "name", "description": "CEO of Evil Corp."},
+            "goblin": {"type": "tag",  "description": "Small, green, cowardly creature."},
+        }
+        _validate_npc_templates(templates)  # must not raise
+
+    def test_empty_templates_pass(self):
+        _validate_npc_templates({})  # must not raise
+
+    def test_non_dict_input_raises(self):
+        with pytest.raises(ValueError, match="YAML mapping"):
+            _validate_npc_templates("not a dict")
+
+    def test_entry_missing_type_raises(self):
+        with pytest.raises(ValueError, match="invalid type"):
+            _validate_npc_templates({"goblin": {"description": "Small creature."}})
+
+    def test_entry_invalid_type_raises(self):
+        with pytest.raises(ValueError, match="invalid type"):
+            _validate_npc_templates({"goblin": {"type": "class", "description": "Something."}})
+
+    def test_entry_missing_description_raises(self):
+        with pytest.raises(ValueError, match="'description' string"):
+            _validate_npc_templates({"goblin": {"type": "tag"}})
+
+    def test_entry_non_string_description_raises(self):
+        with pytest.raises(ValueError, match="'description' string"):
+            _validate_npc_templates({"goblin": {"type": "tag", "description": 42}})
+
+    def test_entry_not_a_mapping_raises(self):
+        with pytest.raises(ValueError, match="must be a mapping"):
+            _validate_npc_templates({"goblin": "just a string"})
+
+
+class TestNpcTemplatesInYare:
+    def test_yare_with_valid_npc_templates_passes(self):
+        config = {
+            "state_schema": {},
+            "events": {},
+            "npc_templates": {
+                "goblin": {"type": "tag",  "description": "Small, cowardly."},
+                "thug":   {"type": "tag",  "description": "Aggressive brawler."},
+                "Mr_XYZ": {"type": "name", "description": "CEO of Evil Corp."},
+            },
+        }
+        _validate_yare(config)  # must not raise
+
+    def test_yare_with_invalid_npc_templates_raises(self):
+        config = {
+            "state_schema": {},
+            "events": {},
+            "npc_templates": {"goblin": {"type": "monster", "description": "Bad type."}},
+        }
+        with pytest.raises(ValueError, match="invalid type"):
+            _validate_yare(config)
+
+    def test_loading_yare_with_npc_templates_succeeds(self, tmp_path):
+        """CartridgeLoader must accept yare.yaml files containing npc_templates."""
+        yare = {
+            "version": "1.0",
+            "state_schema": {},
+            "events": {},
+            "npc_templates": {
+                "goblin": {"type": "tag",  "description": "Small, cowardly."},
+                "Mr_XYZ": {"type": "name", "description": "CEO of Evil Corp."},
+            },
+        }
+        (tmp_path / "yare.yaml").write_text(yaml.dump(yare))
+        (tmp_path / "bot_lore.md").write_text("# Test\nSome lore.")
+
+        cartridge = CartridgeLoader().load(str(tmp_path))
+        assert "npc_templates" in cartridge.yare_config
+        assert "goblin" in cartridge.yare_config["npc_templates"]
+
+    def test_generic_rpg_cartridge_has_npc_templates(self, generic_rpg_cartridge_dir):
+        """The generic-rpg cartridge should now contain an npc_templates block."""
+        cartridge = CartridgeLoader().load(generic_rpg_cartridge_dir)
+        assert "npc_templates" in cartridge.yare_config
+        templates = cartridge.yare_config["npc_templates"]
+        assert any(entry["type"] == "tag"  for entry in templates.values())
+        assert any(entry["type"] == "name" for entry in templates.values())

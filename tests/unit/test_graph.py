@@ -45,7 +45,7 @@ def make_state(**overrides) -> dict:
         "agent_messages": [],
         "bot_memory": {
             "player": {"hp": 100, "gold": 0, "level": 1},
-            "npc":    {"hp": 20, "strength": 5, "archetype": ""},
+            "npc":    {"hp": 20, "strength": 5},
             "current_location": "Crossroads",
         },
         "yare_config": {
@@ -165,7 +165,7 @@ class TestContextRetrievalNode:
 
     def test_npc_name_enriches_query(self):
         state = make_state()
-        state["bot_memory"]["npc"] = {"name": "Goblin", "archetype": ""}
+        state["bot_memory"]["npc"] = {"name": "Goblin"}
         state["client_messages"] = [{"role": "user", "content": "I fight the goblin."}]
         result = context_retrieval_node(state)
         assert isinstance(result["retrieved_lore"], str)
@@ -177,10 +177,91 @@ class TestContextRetrievalNode:
         # Must not raise; may be empty string
         assert isinstance(result["retrieved_lore"], str)
 
+    def test_npc_template_name_mode_included_in_query(self):
+        """NPC with a 'template' key (Name Mode) should be added to the query."""
+        from unittest.mock import patch, MagicMock
 
-# ---------------------------------------------------------------------------
-# cycle_tick_node
-# ---------------------------------------------------------------------------
+        state = make_state()
+        state["bot_memory"]["npc"] = {"name": "Mr_XYZ", "template": "Mr_XYZ"}
+        state["client_messages"] = [{"role": "user", "content": "Hello."}]
+
+        mock_store = MagicMock()
+        mock_store.query.return_value = ""
+
+        with patch("MnesOS.graph.VectorLoreStore.from_file", return_value=mock_store):
+            context_retrieval_node(state)
+
+        call_args = mock_store.query.call_args
+        query_text = call_args[0][0]
+        assert "Mr_XYZ" in query_text
+
+    def test_npc_tags_list_all_included_in_query(self):
+        """NPC with 'tags' list (Tag Mode) must have every tag in the query string."""
+        from unittest.mock import patch, MagicMock
+
+        state = make_state()
+        state["bot_memory"]["npc"] = {"name": "Some NPC", "tags": ["orc", "shopkeeper"]}
+        state["client_messages"] = [{"role": "user", "content": "Hello."}]
+
+        mock_store = MagicMock()
+        mock_store.query.return_value = ""
+
+        with patch("MnesOS.graph.VectorLoreStore.from_file", return_value=mock_store):
+            context_retrieval_node(state)
+
+        call_args = mock_store.query.call_args
+        query_text = call_args[0][0]
+        assert "orc" in query_text
+        assert "shopkeeper" in query_text
+
+    def test_npc_multiple_tags_all_extracted(self):
+        """All tags in the list should appear in query_text, not just the first."""
+        from unittest.mock import patch, MagicMock
+
+        state = make_state()
+        state["bot_memory"]["npc"] = {"tags": ["orc", "shopkeeper", "veteran"]}
+        state["client_messages"] = [{"role": "user", "content": "Trade."}]
+
+        mock_store = MagicMock()
+        mock_store.query.return_value = ""
+
+        with patch("MnesOS.graph.VectorLoreStore.from_file", return_value=mock_store):
+            context_retrieval_node(state)
+
+        query_text = mock_store.query.call_args[0][0]
+        assert "orc" in query_text
+        assert "shopkeeper" in query_text
+        assert "veteran" in query_text
+
+    def test_legacy_archetype_species_keys_no_longer_used(self):
+        """Old 'archetype' and 'species' keys should not be added to the query."""
+        from unittest.mock import patch, MagicMock
+
+        state = make_state()
+        state["bot_memory"]["npc"] = {
+            "archetype": "warrior",
+            "species": "human",
+        }
+        state["client_messages"] = [{"role": "user", "content": "Fight."}]
+
+        mock_store = MagicMock()
+        mock_store.query.return_value = ""
+
+        with patch("MnesOS.graph.VectorLoreStore.from_file", return_value=mock_store):
+            context_retrieval_node(state)
+
+        query_text = mock_store.query.call_args[0][0]
+        assert "warrior" not in query_text
+        assert "human" not in query_text
+
+    def test_npc_without_template_or_tags_does_not_crash(self):
+        """NPC data with neither template nor tags (e.g. only name) must not raise."""
+        state = make_state()
+        state["bot_memory"]["npc"] = {"name": "Goblin"}
+        state["client_messages"] = [{"role": "user", "content": "Hello."}]
+        result = context_retrieval_node(state)
+        assert isinstance(result["retrieved_lore"], str)
+
 
 class TestCycleTickNode:
     def test_cycle_tick_runs_triggered_event(self):
