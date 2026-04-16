@@ -665,16 +665,16 @@ class TestNarratorNodeWithLLM:
         call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
         assert "is_poisoned_with_asymptomatic_poison" not in call_arg
 
-    def test_agent_messages_are_included_in_narrator_prompt(self):
+    def test_scene_directive_is_extracted_from_agent_messages(self):
         fake_llm = MagicMock()
         fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story text.", tool_calls=[])
         state = make_state(
             system_notes=["Test."],
-            agent_messages=[ToolMessage(content="Succeeded!", tool_call_id="call_1")],
+            agent_messages=[AIMessage(content="The scene directive from the Director.", tool_calls=[])],
         )
         narrator_node(state, llm=fake_llm)
         call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
-        assert "Succeeded!" in call_arg
+        assert "The scene directive from the Director." in call_arg
 
     def test_game_time_context_is_injected_into_narrator_prompt(self):
         fake_llm = MagicMock()
@@ -742,6 +742,83 @@ class TestNarratorNodeWithLLM:
         result = narrator_node(state, llm=fake_llm)
         assert "bot_memory" not in result
         assert "[[TIME_ADVANCE: PT15M]]" in result["client_messages"][0]["content"]
+
+
+class TestNarratorNodeSceneDirectiveFilter:
+    """Tests that narrator_node strictly isolates the Director's Scene Directive
+    and hides system_notes and raw tool traces from the Narrator."""
+
+    def test_system_notes_not_in_narrator_prompt(self):
+        fake_llm = MagicMock()
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
+        state = make_state(
+            system_notes=["SECRET: player.hp = 42", "Roll succeeded with modifier 3"],
+            agent_messages=[AIMessage(content="The Director's summary.", tool_calls=[])],
+        )
+        narrator_node(state, llm=fake_llm)
+        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        assert "SECRET: player.hp = 42" not in call_arg
+        assert "Roll succeeded with modifier 3" not in call_arg
+
+    def test_tool_call_messages_not_in_narrator_prompt(self):
+        fake_llm = MagicMock()
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
+        ai_with_tool = AIMessage(
+            content="",
+            tool_calls=[{"name": "trigger_event", "args": {"event": "deal_damage"}, "id": "call_x", "type": "tool_call"}],
+        )
+        state = make_state(
+            system_notes=["Damage dealt."],
+            agent_messages=[
+                ai_with_tool,
+                ToolMessage(content="Engine result: hp -10", tool_call_id="call_x"),
+                AIMessage(content="The Director's final clean summary.", tool_calls=[]),
+            ],
+        )
+        narrator_node(state, llm=fake_llm)
+        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        assert "trigger_event" not in call_arg
+        assert "Engine result: hp -10" not in call_arg
+
+    def test_scene_directive_present_in_narrator_prompt(self):
+        fake_llm = MagicMock()
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
+        scene_directive = "The goblin steps forward menacingly."
+        state = make_state(
+            system_notes=["hp -10"],
+            agent_messages=[
+                AIMessage(content="", tool_calls=[{"name": "trigger_event", "args": {}, "id": "c1", "type": "tool_call"}]),
+                ToolMessage(content="Tool result", tool_call_id="c1"),
+                AIMessage(content=scene_directive, tool_calls=[]),
+            ],
+        )
+        narrator_node(state, llm=fake_llm)
+        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        assert scene_directive in call_arg
+
+    def test_last_plain_ai_message_is_used_as_scene_directive(self):
+        """When multiple plain AIMessages exist, only the last one is used."""
+        fake_llm = MagicMock()
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
+        state = make_state(
+            system_notes=[],
+            agent_messages=[
+                AIMessage(content="First Director message.", tool_calls=[]),
+                AIMessage(content="Final Director summary.", tool_calls=[]),
+            ],
+        )
+        narrator_node(state, llm=fake_llm)
+        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        assert "Final Director summary." in call_arg
+        assert "First Director message." not in call_arg
+
+    def test_empty_agent_messages_produces_empty_scene_directive(self):
+        fake_llm = MagicMock()
+        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
+        state = make_state(system_notes=[], agent_messages=[])
+        narrator_node(state, llm=fake_llm)
+        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        assert "Director's Scene Directives:" in call_arg
 
 
 # ---------------------------------------------------------------------------
