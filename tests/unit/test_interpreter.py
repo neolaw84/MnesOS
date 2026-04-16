@@ -2,13 +2,13 @@
 Unit tests for interpreter.YAREInterpreter.
 
 Covers: expression evaluation, all action types (set/mutate/branch/table_roll/
-        call/note), schema bounds, call-depth guard, private-variable access
-        enforcement, and dice mocking.
+        call/note/foreach/list_push/list_remove/dict_set/dict_delete), schema bounds,
+        call-depth guard, private-variable access enforcement, and dice mocking.
 """
 
 import pytest
 from unittest.mock import patch
-from MnesOS.interpreter import YAREInterpreter
+from MnesOS.interpreter import YAREInterpreter, MAX_CONTAINER_SIZE, MAX_DICT_DEPTH
 
 
 # ---------------------------------------------------------------------------
@@ -552,3 +552,264 @@ class TestPathCaseInsensitiveFallback:
         interp = make_interp(state={"npc": {"hp": 20}})
         interp._set_path("state.NPC.hp", 5)
         assert "NPC" not in interp.state
+
+
+# ---------------------------------------------------------------------------
+# _execute_step — list_push
+# ---------------------------------------------------------------------------
+
+class TestActionListPush:
+    def test_list_push_appends_item(self):
+        interp = make_interp(state={"player": {"inventory": ["Sword"]}})
+        interp._execute_step(
+            {"action": "list_push", "var": "state.player.inventory", "item": "'Potion'"},
+            {},
+        )
+        assert interp.state["player"]["inventory"] == ["Sword", "Potion"]
+
+    def test_list_push_creates_list_if_missing(self):
+        interp = make_interp(state={"player": {}})
+        interp._execute_step(
+            {"action": "list_push", "var": "state.player.inventory", "item": "'Shield'"},
+            {},
+        )
+        assert interp.state["player"]["inventory"] == ["Shield"]
+
+    def test_list_push_into_temp(self):
+        interp = make_interp()
+        interp._execute_step(
+            {"action": "list_push", "var": "temp.queue", "item": 42},
+            {},
+        )
+        assert interp.temp["queue"] == [42]
+
+    def test_list_push_evaluates_item_expression(self):
+        interp = make_interp(state={"player": {"inventory": []}})
+        interp._execute_step(
+            {"action": "list_push", "var": "state.player.inventory", "item": "@ 3 + 7"},
+            {},
+        )
+        assert interp.state["player"]["inventory"] == [10]
+
+    def test_list_push_raises_at_max_container_size(self):
+        big_list = list(range(MAX_CONTAINER_SIZE))
+        interp = make_interp(state={"player": {"inventory": big_list}})
+        with pytest.raises(ValueError, match="MAX_CONTAINER_SIZE"):
+            interp._execute_step(
+                {"action": "list_push", "var": "state.player.inventory", "item": "'one more'"},
+                {},
+            )
+
+    def test_list_push_on_non_list_raises_type_error(self):
+        interp = make_interp(state={"player": {"inventory": "not-a-list"}})
+        with pytest.raises(TypeError, match="list_push"):
+            interp._execute_step(
+                {"action": "list_push", "var": "state.player.inventory", "item": "'item'"},
+                {},
+            )
+
+
+# ---------------------------------------------------------------------------
+# _execute_step — list_remove
+# ---------------------------------------------------------------------------
+
+class TestActionListRemove:
+    def test_list_remove_by_index(self):
+        interp = make_interp(state={"player": {"inventory": ["Sword", "Potion", "Shield"]}})
+        interp._execute_step(
+            {"action": "list_remove", "var": "state.player.inventory", "index": 1},
+            {},
+        )
+        assert interp.state["player"]["inventory"] == ["Sword", "Shield"]
+
+    def test_list_remove_by_value(self):
+        interp = make_interp(state={"player": {"inventory": ["Sword", "Potion"]}})
+        interp._execute_step(
+            {"action": "list_remove", "var": "state.player.inventory", "value": "'Potion'"},
+            {},
+        )
+        assert interp.state["player"]["inventory"] == ["Sword"]
+
+    def test_list_remove_out_of_range_index_is_noop(self):
+        interp = make_interp(state={"player": {"inventory": ["Sword"]}})
+        interp._execute_step(
+            {"action": "list_remove", "var": "state.player.inventory", "index": 99},
+            {},
+        )
+        assert interp.state["player"]["inventory"] == ["Sword"]
+
+    def test_list_remove_missing_value_is_noop(self):
+        interp = make_interp(state={"player": {"inventory": ["Sword"]}})
+        interp._execute_step(
+            {"action": "list_remove", "var": "state.player.inventory", "value": "'Potion'"},
+            {},
+        )
+        assert interp.state["player"]["inventory"] == ["Sword"]
+
+    def test_list_remove_from_none_path_leaves_empty(self):
+        interp = make_interp(state={"player": {}})
+        interp._execute_step(
+            {"action": "list_remove", "var": "state.player.inventory", "index": 0},
+            {},
+        )
+        assert interp.state["player"]["inventory"] == []
+
+    def test_list_remove_evaluates_index_expression(self):
+        interp = make_interp(state={"player": {"inventory": ["A", "B", "C"]}})
+        interp._execute_step(
+            {"action": "list_remove", "var": "state.player.inventory", "index": "@ 1 + 1"},
+            {},
+        )
+        assert interp.state["player"]["inventory"] == ["A", "B"]
+
+
+# ---------------------------------------------------------------------------
+# _execute_step — dict_set
+# ---------------------------------------------------------------------------
+
+class TestActionDictSet:
+    def test_dict_set_creates_key(self):
+        interp = make_interp(state={"world": {"flags": {}}})
+        interp._execute_step(
+            {"action": "dict_set", "var": "state.world.flags", "key": "'bridge_repaired'", "value": True},
+            {},
+        )
+        assert interp.state["world"]["flags"]["bridge_repaired"] is True
+
+    def test_dict_set_updates_existing_key(self):
+        interp = make_interp(state={"world": {"flags": {"gate_open": False}}})
+        interp._execute_step(
+            {"action": "dict_set", "var": "state.world.flags", "key": "'gate_open'", "value": True},
+            {},
+        )
+        assert interp.state["world"]["flags"]["gate_open"] is True
+
+    def test_dict_set_creates_dict_if_missing(self):
+        interp = make_interp(state={"world": {}})
+        interp._execute_step(
+            {"action": "dict_set", "var": "state.world.flags", "key": "'quest_done'", "value": 1},
+            {},
+        )
+        assert interp.state["world"]["flags"]["quest_done"] == 1
+
+    def test_dict_set_into_temp(self):
+        interp = make_interp()
+        interp._execute_step(
+            {"action": "dict_set", "var": "temp.scratch", "key": "'x'", "value": 99},
+            {},
+        )
+        assert interp.temp["scratch"]["x"] == 99
+
+    def test_dict_set_raises_at_max_container_size(self):
+        big_dict = {f"key_{i}": i for i in range(MAX_CONTAINER_SIZE)}
+        interp = make_interp(state={"world": {"flags": big_dict}})
+        with pytest.raises(ValueError, match="MAX_CONTAINER_SIZE"):
+            interp._execute_step(
+                {"action": "dict_set", "var": "state.world.flags", "key": "'new_key'", "value": 1},
+                {},
+            )
+
+    def test_dict_set_raises_at_max_dict_depth(self):
+        # Build a nested dict that's already at MAX_DICT_DEPTH - 1 levels (path itself is level 1)
+        # state.d = {"a": {"b": {"c": {}}}}  → depth 4 if we nest one more
+        interp = make_interp(state={"d": {}})
+        # Fill to depth MAX_DICT_DEPTH by hand then try to go one deeper
+        deep = {}
+        cursor = deep
+        for _ in range(MAX_DICT_DEPTH):
+            cursor["child"] = {}
+            cursor = cursor["child"]
+        interp.state["d"]["nested"] = deep
+        with pytest.raises(ValueError, match="MAX_DICT_DEPTH"):
+            interp._execute_step(
+                {
+                    "action": "dict_set",
+                    "var": "state.d.nested",
+                    "key": "'x'",
+                    "value": deep,  # appending the full deep structure
+                },
+                {},
+            )
+
+    def test_dict_set_on_non_dict_raises_type_error(self):
+        interp = make_interp(state={"world": {"flags": "not-a-dict"}})
+        with pytest.raises(TypeError, match="dict_set"):
+            interp._execute_step(
+                {"action": "dict_set", "var": "state.world.flags", "key": "'k'", "value": 1},
+                {},
+            )
+
+
+# ---------------------------------------------------------------------------
+# _execute_step — dict_delete
+# ---------------------------------------------------------------------------
+
+class TestActionDictDelete:
+    def test_dict_delete_removes_existing_key(self):
+        interp = make_interp(state={"world": {"flags": {"gate_open": True, "quest_done": False}}})
+        interp._execute_step(
+            {"action": "dict_delete", "var": "state.world.flags", "key": "'gate_open'"},
+            {},
+        )
+        assert "gate_open" not in interp.state["world"]["flags"]
+        assert "quest_done" in interp.state["world"]["flags"]
+
+    def test_dict_delete_missing_key_is_noop(self):
+        interp = make_interp(state={"world": {"flags": {"quest_done": True}}})
+        interp._execute_step(
+            {"action": "dict_delete", "var": "state.world.flags", "key": "'nonexistent'"},
+            {},
+        )
+        assert interp.state["world"]["flags"] == {"quest_done": True}
+
+    def test_dict_delete_from_none_path_leaves_empty_dict(self):
+        interp = make_interp(state={"world": {}})
+        interp._execute_step(
+            {"action": "dict_delete", "var": "state.world.flags", "key": "'k'"},
+            {},
+        )
+        assert interp.state["world"]["flags"] == {}
+
+    def test_dict_delete_into_temp(self):
+        interp = make_interp()
+        interp.temp["scratch"] = {"a": 1, "b": 2}
+        interp._execute_step(
+            {"action": "dict_delete", "var": "temp.scratch", "key": "'a'"},
+            {},
+        )
+        assert "a" not in interp.temp["scratch"]
+        assert interp.temp["scratch"]["b"] == 2
+
+    def test_dict_delete_on_non_dict_raises_type_error(self):
+        interp = make_interp(state={"world": {"flags": [1, 2, 3]}})
+        with pytest.raises(TypeError, match="dict_delete"):
+            interp._execute_step(
+                {"action": "dict_delete", "var": "state.world.flags", "key": "'k'"},
+                {},
+            )
+
+
+# ---------------------------------------------------------------------------
+# _dict_depth helper
+# ---------------------------------------------------------------------------
+
+class TestDictDepth:
+    def test_flat_dict_has_depth_one(self):
+        interp = make_interp()
+        assert interp._dict_depth({"a": 1, "b": 2}) == 1
+
+    def test_two_level_dict_has_depth_two(self):
+        interp = make_interp()
+        assert interp._dict_depth({"a": {"b": 1}}) == 2
+
+    def test_three_level_dict_has_depth_three(self):
+        interp = make_interp()
+        assert interp._dict_depth({"a": {"b": {"c": 1}}}) == 3
+
+    def test_non_dict_value_has_depth_zero(self):
+        interp = make_interp()
+        assert interp._dict_depth("not a dict") == 0
+
+    def test_empty_dict_has_depth_zero(self):
+        interp = make_interp()
+        assert interp._dict_depth({}) == 0

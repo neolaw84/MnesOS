@@ -4,6 +4,9 @@ import random
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union
 
+MAX_CONTAINER_SIZE = 100
+MAX_DICT_DEPTH = 3
+
 class YAREInterpreter:
     """
     A secure, non-cyclic interpreter for the YAML Agentic Rules Engine (YARE).
@@ -242,6 +245,79 @@ class YAREInterpreter:
                 msg = re.sub(r'\{(.*?)\}', lambda m: str(self.evaluate("@" + m.group(1), context)), msg)
             self.notes.append(msg)
         
+        elif action == "list_push":
+            var = self.evaluate(step["var"], context)
+            if not isinstance(var, str):
+                raise TypeError(f"'var' must resolve to a string path, got {type(var).__name__}: {var!r}")
+            item = self.evaluate(step["item"], context)
+            lst = self._get_path(var)
+            if lst is None:
+                lst = []
+            if not isinstance(lst, list):
+                raise TypeError(f"list_push: path {var!r} does not resolve to a list, got {type(lst).__name__}")
+            if len(lst) >= MAX_CONTAINER_SIZE:
+                raise ValueError(
+                    f"list_push: container at {var!r} has reached MAX_CONTAINER_SIZE ({MAX_CONTAINER_SIZE})"
+                )
+            self._set_path(var, lst + [item])
+
+        elif action == "list_remove":
+            var = self.evaluate(step["var"], context)
+            if not isinstance(var, str):
+                raise TypeError(f"'var' must resolve to a string path, got {type(var).__name__}: {var!r}")
+            lst = self._get_path(var)
+            if lst is None:
+                lst = []
+            if not isinstance(lst, list):
+                raise TypeError(f"list_remove: path {var!r} does not resolve to a list, got {type(lst).__name__}")
+            lst = list(lst)
+            if "index" in step:
+                idx = int(self.evaluate(step["index"], context))
+                if 0 <= idx < len(lst):
+                    lst.pop(idx)
+            elif "value" in step:
+                val = self.evaluate(step["value"], context)
+                if val in lst:
+                    lst.remove(val)
+            self._set_path(var, lst)
+
+        elif action == "dict_set":
+            var = self.evaluate(step["var"], context)
+            if not isinstance(var, str):
+                raise TypeError(f"'var' must resolve to a string path, got {type(var).__name__}: {var!r}")
+            key = self.evaluate(step["key"], context)
+            val = self.evaluate(step["value"], context)
+            d = self._get_path(var)
+            if d is None:
+                d = {}
+            if not isinstance(d, dict):
+                raise TypeError(f"dict_set: path {var!r} does not resolve to a dict, got {type(d).__name__}")
+            d = dict(d)
+            d[key] = val
+            if self._dict_depth(d) > MAX_DICT_DEPTH:
+                raise ValueError(
+                    f"dict_set: result at {var!r} would exceed MAX_DICT_DEPTH ({MAX_DICT_DEPTH})"
+                )
+            if len(d) > MAX_CONTAINER_SIZE:
+                raise ValueError(
+                    f"dict_set: container at {var!r} has reached MAX_CONTAINER_SIZE ({MAX_CONTAINER_SIZE})"
+                )
+            self._set_path(var, d)
+
+        elif action == "dict_delete":
+            var = self.evaluate(step["var"], context)
+            if not isinstance(var, str):
+                raise TypeError(f"'var' must resolve to a string path, got {type(var).__name__}: {var!r}")
+            key = self.evaluate(step["key"], context)
+            d = self._get_path(var)
+            if d is None:
+                d = {}
+            if not isinstance(d, dict):
+                raise TypeError(f"dict_delete: path {var!r} does not resolve to a dict, got {type(d).__name__}")
+            d = dict(d)
+            d.pop(key, None)
+            self._set_path(var, d)
+
         elif action == "foreach":
             array_expr = step.get("array")
             is_direct_state_path = (
@@ -358,6 +434,16 @@ class YAREInterpreter:
             raise TypeError(
                 f"Cannot coerce {value!r} to type {schema['type']!r} for path {path!r}: {exc}"
             ) from exc
+
+    def _dict_depth(self, d: Any) -> int:
+        """Compute the nesting depth of a dict recursively.
+
+        Returns 1 for a flat dict with no nested dicts, 2 for one level of
+        nesting, etc.  Non-dict values do not contribute a level.
+        """
+        if not isinstance(d, dict) or not d:
+            return 0
+        return 1 + max(self._dict_depth(v) for v in d.values())
 
     def _match_range(self, range_str: Union[str, int], value: Any) -> bool:
         value = self._to_numeric(value)
