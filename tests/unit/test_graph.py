@@ -8,6 +8,7 @@ from langchain_core.language_models.fake_chat_models import FakeMessagesListChat
 from langchain_core.messages import AIMessage, ToolMessage
 
 from MnesOS.graph import (
+    BatchedNPCIntent,
     build_graph,
     build_npc_intent_tool,
     build_yare_event_tools,
@@ -22,6 +23,7 @@ from MnesOS.graph import (
     NPCIntentOutput,
     post_tools_node,
     pre_tools_node,
+    reset_agent_messages_node,
     route_director,
     route_rules,
     workflow,
@@ -922,12 +924,17 @@ class TestGetNpcVisibleState:
 # build_npc_intent_tool / query_npc_intent
 # ---------------------------------------------------------------------------
 
-def _make_npc_fake_llm(dialogue="Hello.", action_intent="Stand still.", internal_monologue="Nervous."):
-    """Return a mock LLM whose with_structured_output returns a preset NPCIntentOutput."""
-    output = NPCIntentOutput(
-        dialogue=dialogue,
-        action_intent=action_intent,
-        internal_monologue=internal_monologue,
+def _make_npc_fake_llm(npc_id="goblin_chief", dialogue="Hello.", action_intent="Stand still.", internal_monologue="Nervous."):
+    """Return a mock LLM whose with_structured_output returns a preset BatchedNPCIntent."""
+    output = BatchedNPCIntent(
+        intents=[
+            NPCIntentOutput(
+                npc_id=npc_id,
+                dialogue=dialogue,
+                action_intent=action_intent,
+                internal_monologue=internal_monologue,
+            )
+        ]
     )
     mock_llm = MagicMock()
     mock_llm.with_structured_output.return_value.invoke.return_value = output
@@ -958,14 +965,17 @@ def _make_npc_state(**overrides):
                 "Mr_XYZ": {
                     "type": "name",
                     "description": "CEO of Evil Corp. Speaks in corporate buzzwords.",
+                    "credit": 8,
                 },
                 "goblin": {
                     "type": "tag",
                     "description": "Small, green, cowardly creature.",
+                    "credit": 3,
                 },
                 "thug": {
                     "type": "tag",
                     "description": "Aggressive, relies on intimidation.",
+                    "credit": 3,
                 },
             },
             "events": {},
@@ -985,28 +995,32 @@ class TestBuildNpcIntentTool:
         tool = build_npc_intent_tool(_make_npc_fake_llm())
         assert tool.name == "query_npc_intent"
 
-    def test_returns_json_string(self):
+    def test_returns_batched_command(self):
         import json
-        mock_llm = _make_npc_fake_llm(dialogue="Halt!", action_intent="Block path.", internal_monologue="Fear.")
+        from langgraph.types import Command
+        mock_llm = _make_npc_fake_llm(npc_id="goblin_chief", dialogue="Halt!", action_intent="Block path.", internal_monologue="Fear.")
         tool = build_npc_intent_tool(mock_llm)
         state = _make_npc_state()
-        raw = tool.func(
-            npc_id="goblin_chief",
+        result = tool.func(
+            npc_ids=["goblin_chief"],
             immediate_stimulus="The player draws a sword.",
             history_turns=0,
             state=state,
         )
-        parsed = json.loads(raw)
-        assert parsed["dialogue"] == "Halt!"
-        assert parsed["action_intent"] == "Block path."
-        assert parsed["internal_monologue"] == "Fear."
+        assert isinstance(result, Command)
+        assert result.update["npc_intent_called"] is True
+        msg = result.update["agent_messages"][0]
+        parsed = json.loads(msg.content)
+        assert parsed["intents"][0]["dialogue"] == "Halt!"
+        assert parsed["intents"][0]["action_intent"] == "Block path."
+        assert parsed["intents"][0]["internal_monologue"] == "Fear."
 
     def test_tag_mode_concatenates_multiple_descriptions(self):
         mock_llm = _make_npc_fake_llm()
         tool = build_npc_intent_tool(mock_llm)
         state = _make_npc_state()
         tool.func(
-            npc_id="goblin_chief",
+            npc_ids=["goblin_chief"],
             immediate_stimulus="Player enters room.",
             history_turns=0,
             state=state,
@@ -1020,7 +1034,7 @@ class TestBuildNpcIntentTool:
         tool = build_npc_intent_tool(mock_llm)
         state = _make_npc_state()
         tool.func(
-            npc_id="mr_xyz",
+            npc_ids=["mr_xyz"],
             immediate_stimulus="Player challenges authority.",
             history_turns=0,
             state=state,
@@ -1033,7 +1047,7 @@ class TestBuildNpcIntentTool:
         tool = build_npc_intent_tool(mock_llm)
         state = _make_npc_state()
         tool.func(
-            npc_id="goblin_chief",
+            npc_ids=["goblin_chief"],
             immediate_stimulus="Player taunts the NPC.",
             history_turns=0,
             state=state,
@@ -1048,7 +1062,7 @@ class TestBuildNpcIntentTool:
         messages = [{"role": "user", "content": f"msg{i}"} for i in range(5)]
         state = _make_npc_state(client_messages=messages)
         tool.func(
-            npc_id="goblin_chief",
+            npc_ids=["goblin_chief"],
             immediate_stimulus="Test.",
             history_turns=2,
             state=state,
@@ -1064,7 +1078,7 @@ class TestBuildNpcIntentTool:
         messages = [{"role": "user", "content": f"msg{i}"} for i in range(15)]
         state = _make_npc_state(client_messages=messages)
         tool.func(
-            npc_id="goblin_chief",
+            npc_ids=["goblin_chief"],
             immediate_stimulus="Test.",
             history_turns=50,
             state=state,
@@ -1078,7 +1092,7 @@ class TestBuildNpcIntentTool:
         tool = build_npc_intent_tool(mock_llm)
         state = _make_npc_state()
         tool.func(
-            npc_id="goblin_chief",
+            npc_ids=["goblin_chief"],
             immediate_stimulus="Test.",
             history_turns=0,
             dm_directives="Be extra menacing.",
@@ -1114,3 +1128,187 @@ class TestBuildNpcIntentTool:
         bound_tools = fake_director.bind_tools.call_args[0][0]
         tool_names = [t.name for t in bound_tools]
         assert "query_npc_intent" not in tool_names
+
+
+# ---------------------------------------------------------------------------
+# Attention Budget: credit scoring, filtering, and npc_intent_called
+# ---------------------------------------------------------------------------
+
+def _make_credit_scoring_state(npc_data: dict, templates: dict, engine_settings: dict = None) -> dict:
+    """Build a minimal state for credit-scoring tests."""
+    yare_config = {
+        "state_schema": {},
+        "npc_templates": templates,
+        "events": {},
+        "macros": {},
+    }
+    if engine_settings is not None:
+        yare_config["engine_settings"] = engine_settings
+    return make_state(
+        bot_memory={"npcs": npc_data},
+        yare_config=yare_config,
+    )
+
+
+class TestNpcCreditScoring:
+    """Tests for the attention-budget scoring and filtering logic in query_npc_intent."""
+
+    def test_npcs_below_threshold_are_excluded(self):
+        """NPCs whose accumulated credit is below min_credit_threshold are not queried."""
+        mock_llm = _make_npc_fake_llm()
+        tool = build_npc_intent_tool(mock_llm)
+
+        state = _make_credit_scoring_state(
+            npc_data={
+                "boss":    {"template": "boss_tmpl"},   # credit 10 — passes
+                "minion1": {"template": "minion_tmpl"},  # credit 2  — filtered
+                "minion2": {"template": "minion_tmpl"},  # credit 2  — filtered
+            },
+            templates={
+                "boss_tmpl":   {"description": "The big boss.", "credit": 10},
+                "minion_tmpl": {"description": "A weak minion.", "credit": 2},
+            },
+            engine_settings={"npc_min_credit_threshold": 5, "max_batched_npcs": 3},
+        )
+
+        tool.func(
+            npc_ids=["boss", "minion1", "minion2"],
+            immediate_stimulus="Battle starts.",
+            history_turns=0,
+            state=state,
+        )
+
+        invocation_args = str(mock_llm.with_structured_output.return_value.invoke.call_args)
+        assert "boss" in invocation_args
+        assert "minion1" not in invocation_args
+        assert "minion2" not in invocation_args
+
+    def test_list_is_capped_at_max_batched_npcs(self):
+        """When more NPCs pass the threshold than max_batched_npcs, only the top N are queried."""
+        mock_llm = _make_npc_fake_llm()
+        tool = build_npc_intent_tool(mock_llm)
+
+        state = _make_credit_scoring_state(
+            npc_data={
+                "npc_a": {"template": "high"},    # credit 10
+                "npc_b": {"template": "high"},    # credit 10
+                "npc_c": {"template": "high"},    # credit 10
+                "npc_d": {"template": "medium"},  # credit 5 — passes but should be sliced off
+            },
+            templates={
+                "high":   {"description": "High credit NPC.", "credit": 10},
+                "medium": {"description": "Medium credit NPC.", "credit": 5},
+            },
+            engine_settings={"npc_min_credit_threshold": 5, "max_batched_npcs": 3},
+        )
+
+        tool.func(
+            npc_ids=["npc_a", "npc_b", "npc_c", "npc_d"],
+            immediate_stimulus="Big fight.",
+            history_turns=0,
+            state=state,
+        )
+
+        invocation_args = str(mock_llm.with_structured_output.return_value.invoke.call_args)
+        # npc_a, npc_b, npc_c occupy the top 3 slots; npc_d should be excluded
+        assert "npc_a" in invocation_args
+        assert "npc_b" in invocation_args
+        assert "npc_c" in invocation_args
+        assert "npc_d" not in invocation_args
+
+    def test_tag_credits_accumulate_across_multiple_tags(self):
+        """Credits from multiple tags are summed together for the score."""
+        mock_llm = _make_npc_fake_llm()
+        tool = build_npc_intent_tool(mock_llm)
+
+        state = _make_credit_scoring_state(
+            npc_data={
+                "combo_npc": {"tags": ["tag_a", "tag_b"]},  # 3 + 3 = 6 — passes threshold 5
+                "single_npc": {"tags": ["tag_a"]},          # 3      — filtered
+            },
+            templates={
+                "tag_a": {"description": "Tag A description.", "credit": 3},
+                "tag_b": {"description": "Tag B description.", "credit": 3},
+            },
+            engine_settings={"npc_min_credit_threshold": 5, "max_batched_npcs": 3},
+        )
+
+        tool.func(
+            npc_ids=["combo_npc", "single_npc"],
+            immediate_stimulus="Encounter begins.",
+            history_turns=0,
+            state=state,
+        )
+
+        invocation_args = str(mock_llm.with_structured_output.return_value.invoke.call_args)
+        assert "combo_npc" in invocation_args
+        assert "single_npc" not in invocation_args
+
+    def test_default_threshold_and_max_applied_when_no_engine_settings(self):
+        """When engine_settings is absent, defaults (threshold=5, max=3) are used."""
+        mock_llm = _make_npc_fake_llm()
+        tool = build_npc_intent_tool(mock_llm)
+
+        # No engine_settings block — defaults threshold=5, max=3
+        state = _make_credit_scoring_state(
+            npc_data={
+                "hero_npc": {"template": "hero_tmpl"},     # credit 8 — passes
+                "weak_npc": {"template": "weak_tmpl"},     # credit 1 — filtered
+            },
+            templates={
+                "hero_tmpl": {"description": "A hero NPC.", "credit": 8},
+                "weak_tmpl": {"description": "A weak NPC.", "credit": 1},
+            },
+        )
+
+        tool.func(
+            npc_ids=["hero_npc", "weak_npc"],
+            immediate_stimulus="Test defaults.",
+            history_turns=0,
+            state=state,
+        )
+
+        invocation_args = str(mock_llm.with_structured_output.return_value.invoke.call_args)
+        assert "hero_npc" in invocation_args
+        assert "weak_npc" not in invocation_args
+
+
+class TestNpcIntentCalledFlag:
+    """Tests for the npc_intent_called state flag."""
+
+    def test_reset_agent_messages_node_sets_npc_intent_called_false(self):
+        """reset_agent_messages_node must reset npc_intent_called to False each turn."""
+        state = make_state()
+        # Simulate a previous turn where the flag was set to True
+        state["npc_intent_called"] = True
+        result = reset_agent_messages_node(state)
+        assert result["npc_intent_called"] is False
+
+    def test_npc_intent_called_reset_even_when_previously_false(self):
+        """reset_agent_messages_node sets npc_intent_called=False regardless of prior value."""
+        state = make_state()
+        state["npc_intent_called"] = False
+        result = reset_agent_messages_node(state)
+        assert result["npc_intent_called"] is False
+
+    def test_query_npc_intent_sets_npc_intent_called_true(self):
+        """Invoking query_npc_intent must update npc_intent_called to True via the Command."""
+        from langgraph.types import Command
+        mock_llm = _make_npc_fake_llm()
+        tool = build_npc_intent_tool(mock_llm)
+
+        state = _make_credit_scoring_state(
+            npc_data={"boss": {"template": "boss_tmpl"}},
+            templates={"boss_tmpl": {"description": "The boss.", "credit": 10}},
+            engine_settings={"npc_min_credit_threshold": 5, "max_batched_npcs": 3},
+        )
+
+        result = tool.func(
+            npc_ids=["boss"],
+            immediate_stimulus="Fight!",
+            history_turns=0,
+            state=state,
+        )
+
+        assert isinstance(result, Command)
+        assert result.update["npc_intent_called"] is True
