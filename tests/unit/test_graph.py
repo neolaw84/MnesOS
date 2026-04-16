@@ -254,7 +254,13 @@ class TestContextRetrievalNode:
         assert "warrior" not in query_text
         assert "human" not in query_text
 
-
+    def test_npc_without_template_or_tags_does_not_crash(self):
+        """NPC data with neither template nor tags (e.g. only name) must not raise."""
+        state = make_state()
+        state["bot_memory"]["npc"] = {"name": "Goblin"}
+        state["client_messages"] = [{"role": "user", "content": "Hello."}]
+        result = context_retrieval_node(state)
+        assert isinstance(result["retrieved_lore"], str)
 
 
 class TestCycleTickNode:
