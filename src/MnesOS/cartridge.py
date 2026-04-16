@@ -248,6 +248,30 @@ def _validate_events(events: Dict[str, Any]) -> None:
         )
 
 
+def _validate_npc_templates(templates: Any) -> None:
+    """Validate the optional npc_templates mapping in yare.yaml."""
+    if not isinstance(templates, dict):
+        raise ValueError("npc_templates must be a YAML mapping.")
+
+    valid_types = {"name", "tag"}
+    for key, entry in templates.items():
+        if not isinstance(entry, dict):
+            raise ValueError(
+                f"npc_templates entry {key!r} must be a mapping with 'type' and 'description'."
+            )
+        entry_type = entry.get("type")
+        if entry_type not in valid_types:
+            raise ValueError(
+                f"npc_templates entry {key!r} has invalid type {entry_type!r}. "
+                f"Allowed values: {valid_types}."
+            )
+        description = entry.get("description")
+        if description is None or not isinstance(description, str):
+            raise ValueError(
+                f"npc_templates entry {key!r} must have a 'description' string."
+            )
+
+
 def _validate_yare(config: Dict[str, Any]) -> None:
     """Run all deterministic checks on a loaded yare.yaml dict."""
     if "prompt_directives" in config:
@@ -264,7 +288,11 @@ def _validate_yare(config: Dict[str, Any]) -> None:
                 "separate_npc_brain must be a boolean (true or false), "
                 f"got {type(separate_npc_brain).__name__}."
             )
-    
+
+    # Validate npc_templates (optional)
+    if "npc_templates" in config:
+        _validate_npc_templates(config["npc_templates"])
+
     _validate_state_schema(config.get("state_schema", {}))
     _validate_macros(config.get("macros", {}))
     _validate_events(config.get("events", {}))

@@ -40,6 +40,13 @@ You are the Dungeon Master and Narrator for a detailed, high-stakes RPG. Your go
 - End your turn immediately after your narration. Do NOT speak for the player.
 """
 
+# TODO: Lead will fill these in later.
+NPC_SYSTEM_PROMPT = (
+    "ID: {npc_id}, Profile: {profile_text}, Lore: {lore_text}, "
+    "State: {visible_state}, History: {history_text}, "
+    "Stimulus: {immediate_stimulus}, Directives: {dm_directives}"
+)
+
 NPC_BRAIN_SYSTEM_PROMPT = """
 You are the Tactical AI governing ALL Non-Player Characters (NPCs) in this scene.
 Your job is to evaluate the Game State, read the retrieved lore, observe the player's turn, and proactively initiate NPC actions.
