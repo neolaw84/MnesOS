@@ -125,6 +125,9 @@ Your job is to react to the immediate stimulus provided by the Director (the Gam
 --- THE CAST (Characters you must play this turn) ---
 {batched_profiles}
 
+--- CARTRIDGE DIRECTIVES (OBEY STRICTLY) ---
+{cartridge_directives}
+
 --- YOUR TASK ---
 Based on the situation and each character's unique profile, respond using the required JSON schema. 
 You must provide a list of intents, containing exactly one entry for each NPC ID listed in The Cast. 
