@@ -710,10 +710,10 @@ class TestActionDictSet:
             )
 
     def test_dict_set_raises_at_max_dict_depth(self):
-        # Build a nested dict that's already at MAX_DICT_DEPTH - 1 levels (path itself is level 1)
-        # state.d = {"a": {"b": {"c": {}}}}  → depth 4 if we nest one more
+        # Build a dict that is already at MAX_DICT_DEPTH levels, then attempt
+        # to nest the same structure inside it — the result would be depth
+        # MAX_DICT_DEPTH + 1, which must be rejected.
         interp = make_interp(state={"d": {}})
-        # Fill to depth MAX_DICT_DEPTH by hand then try to go one deeper
         deep = {}
         cursor = deep
         for _ in range(MAX_DICT_DEPTH):
