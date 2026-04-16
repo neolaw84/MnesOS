@@ -86,6 +86,57 @@ Evaluates `roll`, then maps the result through a table using exact values, range
 
 Invokes another event. Calls are allowed, but execution depth is capped at 10.
 
+### `list_push`
+
+Appends an item to an array stored at a `state.*` or `temp.*` path. Creates an empty list if the path does not yet exist.
+
+```yaml
+- action: list_push
+  var: "state.player.inventory"
+  item: "'Health Potion'"
+```
+
+The engine enforces a hard cap of `MAX_CONTAINER_SIZE` (100) items. Attempting to push beyond this limit raises an error.
+
+### `list_remove`
+
+Removes an item from a list by **index** or by **value**. Exactly one of `index` or `value` must be provided. If the index is out of range, or the value is not found, the list is left unchanged.
+
+```yaml
+# Remove by zero-based index
+- action: list_remove
+  var: "state.player.inventory"
+  index: 0
+
+# Remove by value
+- action: list_remove
+  var: "state.player.inventory"
+  value: "'Health Potion'"
+```
+
+### `dict_set`
+
+Sets a key-value pair on a dict stored at a `state.*` or `temp.*` path. Creates an empty dict if the path does not yet exist.
+
+```yaml
+- action: dict_set
+  var: "state.world.flags"
+  key: "'bridge_repaired'"
+  value: true
+```
+
+The engine enforces `MAX_CONTAINER_SIZE` (100) keys per dict and `MAX_DICT_DEPTH` (3) nesting levels. Either limit being exceeded raises an error.
+
+### `dict_delete`
+
+Removes a key from a dict. If the key is absent, the action is a no-op.
+
+```yaml
+- action: dict_delete
+  var: "state.world.flags"
+  key: "'bridge_repaired'"
+```
+
 ### `foreach`
 
 Iterates a list and executes nested steps once per item.

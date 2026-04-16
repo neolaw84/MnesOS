@@ -451,6 +451,18 @@ def get_npc_visible_state(bot_memory: Dict[str, Any], yare_config: Dict[str, Any
 # NPC Intent Tool
 # ---------------------------------------------------------
 
+class NPCPresentation(TypedDict):
+    """DTO carrying the identifying information for a single NPC.
+
+    Constructed by the Director LLM before calling ``query_npc_intent``.
+    The tool is a pure function that reads only this DTO and static templates —
+    it never touches ``bot_memory["npcs"]``.
+    """
+    id: str
+    template: Optional[str]
+    tags: Optional[List[str]]
+
+
 class NPCIntentOutput(BaseModel):
     npc_id: str = Field(description="The ID of the NPC this intent belongs to.")
     dialogue: str = Field(description="Exactly what the NPC says out loud. Can be empty.")
@@ -467,14 +479,19 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
 
     @tool
     def query_npc_intent(
-        npc_ids: List[str],
-        immediate_stimulus: str,
+        present_npcs: List[NPCPresentation],
+        scene_context: str,
         history_turns: int,
         dm_directives: str = "",
         tool_call_id: Annotated[str, InjectedToolCallId()] = "",
         state: Annotated[dict, InjectedState()] = None,
     ) -> Command:
-        """Call this to see how a list of NPCs want to react before you calculate the rules."""
+        """Call this to see how a list of NPCs want to react before you calculate the rules.
+
+        present_npcs is a list of NPCPresentation DTOs constructed by the Director.
+        Each DTO contains the NPC's id, template (optional), and tags (optional).
+        scene_context is a brief synthesis of the immediate physical environment.
+        """
         state = state or {}
         yare_config: Dict[str, Any] = state.get("yare_config", {})
         bot_memory: Dict[str, Any] = state.get("bot_memory", {})
@@ -485,24 +502,25 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
         min_credit = settings.get("npc_min_credit_threshold", 5)
         max_npcs = settings.get("max_batched_npcs", 3)
 
-        # Score each NPC and filter below threshold
+        # Score each NPC using the DTO — no bot_memory["npcs"] lookup
         scored_npcs = []
-        for nid in npc_ids:
+        for npc in (present_npcs or []):
+            nid = npc.get("id", "")
             score = 0
-            npc_data = bot_memory.get("npcs", {}).get(nid, {})
             # Credit from Name template
-            if tmpl := npc_templates.get(npc_data.get("template")):
+            if tmpl := npc_templates.get(npc.get("template")):
                 score += tmpl.get("credit", 0)
             # Credit from Tags
-            for tag in npc_data.get("tags", []):
+            for tag in (npc.get("tags") or []):
                 if tmpl := npc_templates.get(tag):
                     score += tmpl.get("credit", 0)
             if score >= min_credit:
-                scored_npcs.append({"id": nid, "score": score})
+                scored_npcs.append({"id": nid, "score": score, "dto": npc})
 
         # Sort by score descending, then slice to max_npcs
         scored_npcs.sort(key=lambda x: x["score"], reverse=True)
-        top_npcs = [npc["id"] for npc in scored_npcs[:max_npcs]]
+        top_entries = scored_npcs[:max_npcs]
+        top_npc_ids = [entry["id"] for entry in top_entries]
 
         # 1. Assemble history (most recent N turns, capped at 10)
         client_messages = state.get("client_messages", [])
@@ -518,20 +536,20 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
         # 3. Assemble NPC-visible state
         visible_state = get_npc_visible_state(bot_memory, yare_config)
 
-        # 4. Build batched profile text for top NPCs
+        # 4. Build batched profile text for top NPCs using DTO data
         profile_parts: list[str] = []
-        for nid in top_npcs:
-            npc_entry: Dict[str, Any] = bot_memory.get("npcs", {}).get(nid, {})
+        for entry in top_entries:
+            nid = entry["id"]
+            npc_dto: Dict[str, Any] = entry["dto"]
             npc_desc_parts: list[str] = []
 
             # Name-mode: single template reference
-            template_key = npc_entry.get("template")
+            template_key = npc_dto.get("template")
             if template_key and template_key in npc_templates:
-                tmpl = npc_templates[template_key]
-                npc_desc_parts.append(tmpl.get("description", ""))
+                npc_desc_parts.append(npc_templates[template_key].get("description", ""))
 
             # Tag-mode: concatenate multiple tag descriptions
-            for tag in npc_entry.get("tags", []):
+            for tag in (npc_dto.get("tags") or []):
                 if tag in npc_templates:
                     npc_desc_parts.append(npc_templates[tag].get("description", ""))
 
@@ -539,10 +557,9 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
             profile_parts.append(f"NPC: {nid} | Profile: {npc_desc}")
 
         profile_text = "\n".join(profile_parts) if profile_parts else "No qualifying NPCs."
-        npc_ids_str = ", ".join(top_npcs) if top_npcs else "none"
 
         # 5. When no NPCs qualify, return early without querying the LLM
-        if not top_npcs:
+        if not top_entries:
             return Command(
                 update={
                     "agent_messages": [ToolMessage(content=profile_text, tool_call_id=tool_call_id)],
@@ -555,7 +572,7 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
             visible_state=json.dumps(visible_state),
             lore_text=lore_text,
             history_text=history_text,
-            immediate_stimulus=immediate_stimulus,
+            scene_context=scene_context,
             dm_directives=dm_directives,
             batched_profiles=profile_text,
             cartridge_directives=c_directives,
