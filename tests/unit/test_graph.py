@@ -9,20 +9,20 @@ from langchain_core.messages import AIMessage, ToolMessage
 
 from MnesOS.graph import (
     build_graph,
+    build_npc_intent_tool,
     build_yare_event_tools,
     context_retrieval_node,
     cycle_tick_node,
     director_node,
     end_of_narration,
     GameState,
+    get_npc_visible_state,
     get_public_state,
-    npc_brain_node,
     narrator_node,
+    NPCIntentOutput,
     post_tools_node,
     pre_tools_node,
     route_director,
-    route_director_separate,
-    route_npc_brain,
     route_rules,
     workflow,
 )
@@ -241,27 +241,6 @@ class TestDirectorNode:
         )
         result = director_node(state)
         assert "turn_phase" in result  # node ran without error
-
-
-# ---------------------------------------------------------------------------
-# npc_brain_node
-# ---------------------------------------------------------------------------
-
-class TestNpcBrainNode:
-    def test_sets_turn_phase_npc(self):
-        state = make_state()
-        result = npc_brain_node(state)
-        assert result["turn_phase"] == "npc"
-
-    def test_resets_iteration_count_to_zero(self):
-        state = make_state(iteration_count=2)
-        result = npc_brain_node(state)
-        assert result["iteration_count"] == 0
-
-    def test_directives_present_does_not_crash(self):
-        state = make_state(prompt_directives={"npc_brain": "Act aggressively."})
-        result = npc_brain_node(state)
-        assert "turn_phase" in result
 
 
 # ---------------------------------------------------------------------------
@@ -484,80 +463,14 @@ class TestRouteDirector:
         )
 
 
-class TestRouteDirectorSeparate:
-    """Tests for route_director_separate — the decoupled-architecture Director router."""
-
-    def test_routes_to_pretools_when_calls_present_and_below_max(self):
-        state = make_state(
-            agent_messages=[_ai_msg_with_tool_call("attack")],
-            iteration_count=1,
-        )
-        assert route_director_separate(state) == "PreTools"
-
-    def test_routes_to_npc_brain_when_no_calls(self):
-        state = make_state(
-            agent_messages=[AIMessage(content="Just looking.", tool_calls=[])],
-            iteration_count=1,
-        )
-        assert route_director_separate(state) == "NPC_Brain"
-
-    def test_routes_to_npc_brain_when_no_ai_message(self):
-        state = make_state(agent_messages=[], iteration_count=1)
-        assert route_director_separate(state) == "NPC_Brain"
-
-    def test_routes_to_npc_brain_when_max_iterations_reached(self):
-        state = make_state(
-            agent_messages=[_ai_msg_with_tool_call("attack")],
-            iteration_count=3,
-        )
-        assert route_director_separate(state) == "NPC_Brain"
-
-    def test_does_not_inspect_yare_config(self):
-        import inspect
-        source = inspect.getsource(route_director_separate)
-        assert "separate_npc_brain" not in source
-        assert "yare_config" not in source
-
-
 class TestRouteRules:
-    def test_player_phase_routes_back_to_director(self):
+    def test_always_routes_back_to_director(self):
         state = make_state(turn_phase="player")
         assert route_rules(state) == "Director"
 
-    def test_npc_phase_routes_back_to_npc_brain(self):
-        state = make_state(turn_phase="npc")
-        assert route_rules(state) == "NPC_Brain"
-
-    def test_unknown_phase_routes_to_npc_brain(self):
-        state = make_state(turn_phase="unknown")
-        assert route_rules(state) == "NPC_Brain"
-
-
-class TestRouteNpcBrain:
-    def test_routes_to_tools_when_calls_present_and_below_max(self):
-        state = make_state(
-            agent_messages=[_ai_msg_with_tool_call("attack")],
-            iteration_count=1,
-        )
-        assert route_npc_brain(state) == "PreTools"
-
-    def test_routes_to_narrator_when_no_calls(self):
-        state = make_state(
-            agent_messages=[AIMessage(content="Standing down.", tool_calls=[])],
-            iteration_count=0,
-        )
-        assert route_npc_brain(state) == "Narrator"
-
-    def test_routes_to_narrator_when_no_ai_message(self):
-        state = make_state(agent_messages=[], iteration_count=0)
-        assert route_npc_brain(state) == "Narrator"
-
-    def test_routes_to_narrator_when_max_iterations_reached(self):
-        state = make_state(
-            agent_messages=[_ai_msg_with_tool_call("attack")],
-            iteration_count=3,
-        )
-        assert route_npc_brain(state) == "Narrator"
+    def test_routes_to_director_regardless_of_phase(self):
+        for phase in ("player", "npc", "unknown", ""):
+            assert route_rules(make_state(turn_phase=phase)) == "Director"
 
 
 # ---------------------------------------------------------------------------
@@ -633,68 +546,6 @@ class TestDirectorNodeWithLLM:
         baseline = make_state()
         state = make_state(bot_memory={**baseline["bot_memory"], "game_time": "2026-04-10T08:00:00+00:00"})
         director_node(state, llm=fake_llm)
-        system_content = fake_llm.bind_tools.return_value.invoke.call_args[0][0][0].content
-        assert "state.game_time" in system_content
-        assert "2026-04-10T08:00:00+00:00" in system_content
-
-
-class TestNpcBrainNodeWithLLM:
-    def test_llm_is_invoked(self):
-        fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
-        state = make_state()
-        npc_brain_node(state, llm=fake_llm)
-        fake_llm.bind_tools.assert_called_once()
-        fake_llm.bind_tools.return_value.invoke.assert_called_once()
-
-    def test_dynamic_tools_are_bound(self):
-        fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
-        state = make_state()
-        dynamic_tools = build_yare_event_tools(state["yare_config"])
-        npc_brain_node(state, llm=fake_llm, tools=dynamic_tools)
-        bound_tools = fake_llm.bind_tools.call_args[0][0]
-        assert len(bound_tools) > 0
-
-    def test_llm_tool_calls_stored_in_agent_messages(self):
-        ai_msg = AIMessage(
-            content="",
-            tool_calls=[{
-                "name": "counter_attack",
-                "args": {},
-                "id": "call_1",
-                "type": "tool_call",
-            }],
-        )
-        fake_llm = _BindableFakeModel(responses=[ai_msg])
-        state = make_state()
-        state["bot_memory"]["npc"]["archetype"] = "Wolf"
-        result = npc_brain_node(state, llm=fake_llm)
-        assert "tool_calls" not in result
-        assert len(result["agent_messages"][0].tool_calls) == 1
-        assert result["agent_messages"][0].tool_calls[0]["name"] == "counter_attack"
-
-    def test_agent_messages_are_included_in_npc_prompt(self):
-        fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
-        state = make_state(agent_messages=[ToolMessage(content="Succeeded!", tool_call_id="call_1")])
-        npc_brain_node(state, llm=fake_llm)
-        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
-        assert "Succeeded!" in call_arg
-
-    def test_llm_no_tool_calls_agent_messages_has_empty_tool_calls(self):
-        ai_msg = AIMessage(content="The NPC holds back.", tool_calls=[])
-        fake_llm = _BindableFakeModel(responses=[ai_msg])
-        state = make_state()
-        result = npc_brain_node(state, llm=fake_llm)
-        assert result["agent_messages"][0].tool_calls == []
-
-    def test_game_time_context_is_injected_into_npc_prompt(self):
-        fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
-        baseline = make_state()
-        state = make_state(bot_memory={**baseline["bot_memory"], "game_time": "2026-04-10T08:00:00+00:00"})
-        npc_brain_node(state, llm=fake_llm)
         system_content = fake_llm.bind_tools.return_value.invoke.call_args[0][0][0].content
         assert "state.game_time" in system_content
         assert "2026-04-10T08:00:00+00:00" in system_content
@@ -857,3 +708,251 @@ class TestBuildGraphFactory:
         state = make_state()
         result = app.invoke(state)
         assert "bot_memory" in result
+
+# ---------------------------------------------------------------------------
+# get_npc_visible_state
+# ---------------------------------------------------------------------------
+
+class TestGetNpcVisibleState:
+    def _yare_config_with_visibility(self):
+        return {
+            "state_schema": {
+                "player_hp":     {"type": "int",  "npc_visibility": True},
+                "hidden_dagger": {"type": "bool", "npc_visibility": False},
+                "no_flag_key":   {"type": "str"},
+            }
+        }
+
+    def test_visible_key_is_included(self):
+        bot_memory = {"player_hp": 80}
+        result = get_npc_visible_state(bot_memory, self._yare_config_with_visibility())
+        assert result["player_hp"] == 80
+
+    def test_hidden_key_is_excluded(self):
+        bot_memory = {"hidden_dagger": True}
+        result = get_npc_visible_state(bot_memory, self._yare_config_with_visibility())
+        assert "hidden_dagger" not in result
+
+    def test_key_without_npc_visibility_flag_is_excluded(self):
+        bot_memory = {"no_flag_key": "some_value"}
+        result = get_npc_visible_state(bot_memory, self._yare_config_with_visibility())
+        assert "no_flag_key" not in result
+
+    def test_key_not_in_schema_is_excluded(self):
+        bot_memory = {"unlisted_key": 42}
+        result = get_npc_visible_state(bot_memory, self._yare_config_with_visibility())
+        assert "unlisted_key" not in result
+
+    def test_empty_bot_memory_returns_empty(self):
+        result = get_npc_visible_state({}, self._yare_config_with_visibility())
+        assert result == {}
+
+    def test_multiple_visible_keys_all_included(self):
+        yare_config = {
+            "state_schema": {
+                "a": {"npc_visibility": True},
+                "b": {"npc_visibility": True},
+                "c": {"npc_visibility": False},
+            }
+        }
+        bot_memory = {"a": 1, "b": 2, "c": 3}
+        result = get_npc_visible_state(bot_memory, yare_config)
+        assert result == {"a": 1, "b": 2}
+
+
+# ---------------------------------------------------------------------------
+# build_npc_intent_tool / query_npc_intent
+# ---------------------------------------------------------------------------
+
+def _make_npc_fake_llm(dialogue="Hello.", action_intent="Stand still.", internal_monologue="Nervous."):
+    """Return a mock LLM whose with_structured_output returns a preset NPCIntentOutput."""
+    output = NPCIntentOutput(
+        dialogue=dialogue,
+        action_intent=action_intent,
+        internal_monologue=internal_monologue,
+    )
+    mock_llm = MagicMock()
+    mock_llm.with_structured_output.return_value.invoke.return_value = output
+    return mock_llm
+
+
+def _make_npc_state(**overrides):
+    """Minimal state dict for NPC intent tool tests."""
+    base = make_state(
+        bot_memory={
+            "player_hp": 80,
+            "hidden_dagger": True,
+            "npcs": {
+                "goblin_chief": {
+                    "tags": ["goblin", "thug"],
+                },
+                "mr_xyz": {
+                    "template": "Mr_XYZ",
+                },
+            },
+        },
+        yare_config={
+            "state_schema": {
+                "player_hp":     {"type": "int",  "npc_visibility": True},
+                "hidden_dagger": {"type": "bool", "npc_visibility": False},
+            },
+            "npc_templates": {
+                "Mr_XYZ": {
+                    "type": "name",
+                    "description": "CEO of Evil Corp. Speaks in corporate buzzwords.",
+                },
+                "goblin": {
+                    "type": "tag",
+                    "description": "Small, green, cowardly creature.",
+                },
+                "thug": {
+                    "type": "tag",
+                    "description": "Aggressive, relies on intimidation.",
+                },
+            },
+            "events": {},
+            "macros": {},
+        },
+    )
+    base.update(overrides)
+    return base
+
+
+class TestBuildNpcIntentTool:
+    def test_tool_is_callable(self):
+        tool = build_npc_intent_tool(_make_npc_fake_llm())
+        assert hasattr(tool, "invoke") and hasattr(tool, "name")
+
+    def test_tool_name_is_query_npc_intent(self):
+        tool = build_npc_intent_tool(_make_npc_fake_llm())
+        assert tool.name == "query_npc_intent"
+
+    def test_returns_json_string(self):
+        import json
+        mock_llm = _make_npc_fake_llm(dialogue="Halt!", action_intent="Block path.", internal_monologue="Fear.")
+        tool = build_npc_intent_tool(mock_llm)
+        state = _make_npc_state()
+        raw = tool.func(
+            npc_id="goblin_chief",
+            immediate_stimulus="The player draws a sword.",
+            history_turns=0,
+            state=state,
+        )
+        parsed = json.loads(raw)
+        assert parsed["dialogue"] == "Halt!"
+        assert parsed["action_intent"] == "Block path."
+        assert parsed["internal_monologue"] == "Fear."
+
+    def test_tag_mode_concatenates_multiple_descriptions(self):
+        mock_llm = _make_npc_fake_llm()
+        tool = build_npc_intent_tool(mock_llm)
+        state = _make_npc_state()
+        tool.func(
+            npc_id="goblin_chief",
+            immediate_stimulus="Player enters room.",
+            history_turns=0,
+            state=state,
+        )
+        invocation_args = str(mock_llm.with_structured_output.return_value.invoke.call_args)
+        assert "Small, green, cowardly creature." in invocation_args
+        assert "Aggressive, relies on intimidation." in invocation_args
+
+    def test_name_mode_uses_template_description(self):
+        mock_llm = _make_npc_fake_llm()
+        tool = build_npc_intent_tool(mock_llm)
+        state = _make_npc_state()
+        tool.func(
+            npc_id="mr_xyz",
+            immediate_stimulus="Player challenges authority.",
+            history_turns=0,
+            state=state,
+        )
+        invocation_args = str(mock_llm.with_structured_output.return_value.invoke.call_args)
+        assert "CEO of Evil Corp" in invocation_args
+
+    def test_npc_visible_state_hides_secret_variables(self):
+        mock_llm = _make_npc_fake_llm()
+        tool = build_npc_intent_tool(mock_llm)
+        state = _make_npc_state()
+        tool.func(
+            npc_id="goblin_chief",
+            immediate_stimulus="Player taunts the NPC.",
+            history_turns=0,
+            state=state,
+        )
+        invocation_args = str(mock_llm.with_structured_output.return_value.invoke.call_args)
+        assert "hidden_dagger" not in invocation_args
+        assert "player_hp" in invocation_args
+
+    def test_history_turns_limits_messages_passed(self):
+        mock_llm = _make_npc_fake_llm()
+        tool = build_npc_intent_tool(mock_llm)
+        messages = [{"role": "user", "content": f"msg{i}"} for i in range(5)]
+        state = _make_npc_state(client_messages=messages)
+        tool.func(
+            npc_id="goblin_chief",
+            immediate_stimulus="Test.",
+            history_turns=2,
+            state=state,
+        )
+        invocation_args = str(mock_llm.with_structured_output.return_value.invoke.call_args)
+        assert "msg4" in invocation_args
+        assert "msg3" in invocation_args
+        assert "msg0" not in invocation_args
+
+    def test_history_turns_capped_at_ten(self):
+        mock_llm = _make_npc_fake_llm()
+        tool = build_npc_intent_tool(mock_llm)
+        messages = [{"role": "user", "content": f"msg{i}"} for i in range(15)]
+        state = _make_npc_state(client_messages=messages)
+        tool.func(
+            npc_id="goblin_chief",
+            immediate_stimulus="Test.",
+            history_turns=50,
+            state=state,
+        )
+        invocation_args = str(mock_llm.with_structured_output.return_value.invoke.call_args)
+        assert "msg14" in invocation_args
+        assert "msg0" not in invocation_args  # only last 10
+
+    def test_dm_directives_are_included_in_prompt(self):
+        mock_llm = _make_npc_fake_llm()
+        tool = build_npc_intent_tool(mock_llm)
+        state = _make_npc_state()
+        tool.func(
+            npc_id="goblin_chief",
+            immediate_stimulus="Test.",
+            history_turns=0,
+            dm_directives="Be extra menacing.",
+            state=state,
+        )
+        invocation_args = str(mock_llm.with_structured_output.return_value.invoke.call_args)
+        assert "Be extra menacing." in invocation_args
+
+    def test_tool_is_added_to_build_graph_when_npc_llm_provided(self):
+        mock_npc_llm = _make_npc_fake_llm()
+        mock_director_llm = MagicMock()
+        mock_director_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
+        state = make_state()
+        app = build_graph(
+            yare_config=state["yare_config"],
+            llm_director=mock_director_llm,
+            llm_npc_brain=mock_npc_llm,
+        )
+        app.invoke(state)
+        bound_tools = mock_director_llm.bind_tools.call_args[0][0]
+        tool_names = [t.name for t in bound_tools]
+        assert "query_npc_intent" in tool_names
+
+    def test_npc_intent_tool_not_added_when_no_npc_llm(self):
+        fake_director = MagicMock()
+        fake_director.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
+        state = make_state()
+        app = build_graph(
+            yare_config=state["yare_config"],
+            llm_director=fake_director,
+        )
+        app.invoke(state)
+        bound_tools = fake_director.bind_tools.call_args[0][0]
+        tool_names = [t.name for t in bound_tools]
+        assert "query_npc_intent" not in tool_names
