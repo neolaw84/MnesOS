@@ -538,7 +538,15 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
         profile_text = "\n".join(profile_parts) if profile_parts else "No qualifying NPCs."
         npc_ids_str = ", ".join(top_npcs) if top_npcs else "none"
 
-        # 5. Build prompt and invoke the LLM with structured output
+        # 5. When no NPCs qualify, return early without querying the LLM
+        if not top_npcs:
+            return Command(
+                update={
+                    "agent_messages": [ToolMessage(content=profile_text, tool_call_id=tool_call_id)],
+                }
+            )
+
+        # 6. Build prompt and invoke the LLM with structured output
         formatted_prompt = NPC_SYSTEM_PROMPT.format(
             npc_id=npc_ids_str,
             profile_text=profile_text,

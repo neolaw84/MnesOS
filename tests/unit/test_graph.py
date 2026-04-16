@@ -1312,3 +1312,27 @@ class TestNpcIntentCalledFlag:
 
         assert isinstance(result, Command)
         assert result.update["npc_intent_called"] is True
+
+    def test_no_qualifying_npcs_does_not_set_npc_intent_called(self):
+        """When no NPCs pass the threshold, npc_intent_called must NOT be set to True."""
+        from langgraph.types import Command
+        mock_llm = _make_npc_fake_llm()
+        tool = build_npc_intent_tool(mock_llm)
+
+        state = _make_credit_scoring_state(
+            npc_data={"weak": {"template": "weak_tmpl"}},
+            templates={"weak_tmpl": {"description": "Very weak.", "credit": 1}},
+            engine_settings={"npc_min_credit_threshold": 5, "max_batched_npcs": 3},
+        )
+
+        result = tool.func(
+            npc_ids=["weak"],
+            immediate_stimulus="Fight!",
+            history_turns=0,
+            state=state,
+        )
+
+        assert isinstance(result, Command)
+        assert "npc_intent_called" not in result.update
+        # LLM must not have been invoked
+        mock_llm.with_structured_output.return_value.invoke.assert_not_called()
