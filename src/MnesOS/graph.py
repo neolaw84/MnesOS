@@ -334,9 +334,16 @@ def context_retrieval_node(state: GameState) -> dict:
 
     npc_data = memory.get("npc", {})
     if isinstance(npc_data, dict):
-        if "archetype" in npc_data: query_parts.append(str(npc_data["archetype"]))
-        if "name" in npc_data: query_parts.append(str(npc_data["name"]))
-        if "species" in npc_data: query_parts.append(str(npc_data["species"]))
+        if "name" in npc_data:
+            query_parts.append(str(npc_data["name"]))
+
+        # Check for Name Mode template
+        if "template" in npc_data:
+            query_parts.append(str(npc_data["template"]))
+
+        # Check for Tag Mode array (can be multiple tags!)
+        if "tags" in npc_data and isinstance(npc_data["tags"], list):
+            query_parts.extend([str(tag) for tag in npc_data["tags"]])
 
     inventory = memory.get("inventory", [])
     if isinstance(inventory, list):

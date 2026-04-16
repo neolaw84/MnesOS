@@ -1,6 +1,20 @@
 version: "1.0"
 bot_name: "generic-rpg"
 
+npc_templates:
+  # Name Mode: a specific, unique character
+  "Mr_XYZ":
+    type: "name"
+    description: "CEO of Evil Corp."
+
+  # Tag Mode: reusable archetypes that can be combined
+  "goblin":
+    type: "tag"
+    description: "Small, green, cowardly creature."
+  "thug":
+    type: "tag"
+    description: "Aggressive, relies on physical intimidation."
+
 state_schema:
   player:
     hp: { type: int, default: 100, min: 0 }
