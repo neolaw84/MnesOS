@@ -93,7 +93,7 @@ def build_yare_event_tools(yare_config: Dict[str, Any]) -> List[StructuredTool]:
                 new_notes = []
                 
                 # Intercept shadow parameter before passing to YARE
-                kwargs.pop("_engine_time_delta", None)
+                kwargs.pop("engine_time_delta", None)
                 
                 if (
                     state.get("turn_phase") == "npc"
@@ -117,7 +117,7 @@ def build_yare_event_tools(yare_config: Dict[str, Any]) -> List[StructuredTool]:
             efields_with_injected = dict(efields)
             efields_with_injected["tool_call_id"] = (Annotated[str, InjectedToolCallId()], Field(default=""))
             efields_with_injected["state"] = (Annotated[dict, InjectedState()], Field(default=None))
-            efields_with_injected["_engine_time_delta"] = (str, Field(default="PT0S", description="Estimated in-game time this action takes."))
+            efields_with_injected["engine_time_delta"] = (str, Field(default="PT0S", description="Estimated in-game time this action takes."))
 
             ArgsSchema = create_model(f"{ename}_Schema", **efields_with_injected)
             
@@ -253,7 +253,7 @@ def post_tools_node(state: GameState) -> dict:
     total_delta = timedelta()
     for call in calls:
         args = call.get("args", {})
-        delta_str = args.get("_engine_time_delta")
+        delta_str = args.get("engine_time_delta")
         if call.get("name") == "advance_game_time":
             delta_str = args.get("duration")
             
