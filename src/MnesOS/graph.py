@@ -92,6 +92,9 @@ def build_yare_event_tools(yare_config: Dict[str, Any]) -> List[StructuredTool]:
                 interpreter = YAREInterpreter(state["yare_config"], state["bot_memory"])
                 new_notes = []
                 
+                # Intercept shadow parameter before passing to YARE
+                kwargs.pop("engine_time_delta", None)
+                
                 if (
                     state.get("turn_phase") == "npc"
                     and "\n--- NPC Turn Resolution ---" not in state.get("system_notes", [])
@@ -114,6 +117,7 @@ def build_yare_event_tools(yare_config: Dict[str, Any]) -> List[StructuredTool]:
             efields_with_injected = dict(efields)
             efields_with_injected["tool_call_id"] = (Annotated[str, InjectedToolCallId()], Field(default=""))
             efields_with_injected["state"] = (Annotated[dict, InjectedState()], Field(default=None))
+            efields_with_injected["engine_time_delta"] = (str, Field(default="PT0S", description="Estimated in-game time this action takes."))
 
             ArgsSchema = create_model(f"{ename}_Schema", **efields_with_injected)
             
@@ -130,31 +134,16 @@ def build_yare_event_tools(yare_config: Dict[str, Any]) -> List[StructuredTool]:
 
 
 @tool
-def end_of_narration(
-    actions: Optional[list[dict]] = None,
+def advance_game_time(
+    duration: str,
     tool_call_id: Annotated[str, InjectedToolCallId()] = "",
-    state: Annotated["GameState", InjectedState()] = None,
 ) -> Command:
-    """
-    Apply end-of-narration engine actions from the narrator.
-
-    Supported actions:
-      - {"type": "advance_time", "duration": "PT15M"} (also 15m/2h/1d/30s)
-      - {"type": "set_game_time", "value": "2026-04-10T10:00:00+00:00"}
-    """
-    updated_memory, warnings = _apply_end_of_narration_actions(
-        state.get("bot_memory", {}),
-        actions or [],
+    """Advance the in-game clock by a given duration without taking any other action. Required format: ISO 8601 (e.g., PT15M, PT2H) or shorthand (e.g., 15m, 2h)."""
+    return Command(
+        update={
+            "agent_messages": [ToolMessage(content=f"Time advanced by {duration}.", tool_call_id=tool_call_id)],
+        }
     )
-    notes_text = "\n".join(warnings) if warnings else "end_of_narration: no effect."
-    update: Dict[str, Any] = {
-        "agent_messages": [ToolMessage(content=notes_text, tool_call_id=tool_call_id)],
-    }
-    if updated_memory is not None:
-        update["bot_memory"] = updated_memory
-    if warnings:
-        update["system_notes"] = warnings
-    return Command(update=update)
 
 # ---------------------------------------------------------
 # Helpers
@@ -237,62 +226,6 @@ def _coerce_game_time_to_datetime(value: Any) -> Optional[datetime]:
     return None
 
 
-def _apply_end_of_narration_actions(
-    bot_memory: Dict[str, Any],
-    actions: List[Dict[str, Any]],
-) -> Tuple[Optional[Dict[str, Any]], List[str]]:
-    """Apply structured narrator end-of-narration actions to bot_memory."""
-    if not actions:
-        return None, []
-
-    updated = dict(bot_memory)
-    current = updated.get("game_time")
-    warnings: List[str] = []
-    changed = False
-
-    for action in actions:
-        if not isinstance(action, dict):
-            warnings.append("SYSTEM: end_of_narration skipped invalid action payload.")
-            continue
-
-        kind = str(action.get("type", "")).strip().lower()
-        if kind == "set_game_time":
-            value = str(action.get("value", "")).strip()
-            if not value:
-                warnings.append("SYSTEM: end_of_narration set_game_time skipped because value is empty.")
-                continue
-            updated["game_time"] = value
-            current = value
-            changed = True
-            continue
-
-        if kind == "advance_time":
-            duration = str(action.get("duration", "")).strip()
-            if not duration:
-                warnings.append("SYSTEM: end_of_narration advance_time skipped because duration is empty.")
-                continue
-            base_dt = _coerce_game_time_to_datetime(current)
-            if base_dt is None:
-                warnings.append(
-                    f"SYSTEM: end_of_narration advance_time skipped because state.game_time is missing or unparseable (current value: {current!r})."
-                )
-                continue
-            try:
-                delta = _parse_duration_token(duration)
-            except ValueError as exc:
-                warnings.append(f"SYSTEM: end_of_narration advance_time skipped ({exc}).")
-                continue
-            new_dt = base_dt + delta
-            updated["game_time"] = new_dt.isoformat()
-            current = updated["game_time"]
-            changed = True
-            continue
-
-        warnings.append(f"SYSTEM: end_of_narration skipped unknown action type '{kind}'.")
-
-    return (updated if changed else None), warnings
-
-
 def reset_agent_messages_node(state: GameState) -> dict:
     """Clear any stale agent-side messages at the start of a top-level invoke."""
     return {"agent_messages": [RemoveMessage(id=REMOVE_ALL_MESSAGES)], "npc_intent_called": False}
@@ -309,11 +242,37 @@ def pre_tools_node(state: GameState) -> dict:
 
 
 def post_tools_node(state: GameState) -> dict:
-    """Commit the last staged YARE state snapshot into bot_memory."""
+    """Commit the last staged YARE state snapshot into bot_memory, and reconcile time."""
     staging = state.get("bot_memory_staging") or []
     result: dict = {"bot_memory_staging": None}
-    if staging:
-        result["bot_memory"] = staging[-1]
+    
+    current_memory = staging[-1] if staging else state.get("bot_memory", {})
+    new_memory = dict(current_memory)
+    
+    calls = _get_last_ai_tool_calls(state.get("agent_messages", []))
+    total_delta = timedelta()
+    for call in calls:
+        args = call.get("args", {})
+        delta_str = args.get("engine_time_delta")
+        if call.get("name") == "advance_game_time":
+            delta_str = args.get("duration")
+            
+        if delta_str:
+            try:
+                total_delta += _parse_duration_token(delta_str)
+            except ValueError:
+                pass
+                
+    if total_delta.total_seconds() > 0:
+        current_time = new_memory.get("game_time")
+        base_dt = _coerce_game_time_to_datetime(current_time)
+        if base_dt is not None:
+            new_dt = base_dt + total_delta
+            new_memory["game_time"] = new_dt.isoformat()
+
+    if staging or total_delta.total_seconds() > 0:
+        result["bot_memory"] = new_memory
+        
     return result
 
 # ---------------------------------------------------------
@@ -606,14 +565,6 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
     result: dict = {"iteration_count": 0, "system_notes": [], "retrieved_lore": ""}
 
     if llm is not None:
-        end_of_narration_contract = (
-            "\n\n### End of Narration Contract:\n"
-            "If engine-side end-of-narration actions are needed, call tool end_of_narration with:\n"
-            "- actions: [{type:'advance_time', duration:'PT15M'}]\n"
-            "- actions: [{type:'set_game_time', value:'2026-04-10T10:00:00+00:00'}]\n"
-            "You may include both actions and narrative text in the same response."
-        )
-
         # Find the Director's final Scene Directive (last AIMessage without tool calls)
         scene_directives = ""
         for msg in reversed(state.get("agent_messages", [])):
@@ -627,37 +578,15 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
             scene_directives=scene_directives,
             cartridge_directives=c_directives,
         )
-        system_content = formatted_prompt + _format_game_time_context(state.get("bot_memory", {})) + end_of_narration_contract
+        system_content = formatted_prompt + _format_game_time_context(state.get("bot_memory", {}))
         prompt_messages = [SystemMessage(content=system_content)]
         prompt_messages.extend(
             _client_messages_to_langchain_messages(state.get("client_messages", []))
         )
-        response = llm.bind_tools([end_of_narration], parallel_tool_calls=False).invoke(prompt_messages)
+        response = llm.invoke(prompt_messages)
         narrative = response.content
         result["narrative"] = narrative
         result["client_messages"] = [{"role": "assistant", "content": narrative}]
-
-        current_memory = state.get("bot_memory", {})
-        warnings: List[str] = []
-        changed = False
-        for call in (getattr(response, "tool_calls", None) or []):
-            if call.get("name") != "end_of_narration":
-                continue
-            cmd = end_of_narration.func(
-                actions=(call.get("args") or {}).get("actions"),
-                tool_call_id=call.get("id", ""),
-                state={**state, "bot_memory": current_memory},
-            )
-            if isinstance(cmd, Command):
-                update = cmd.update or {}
-                if "bot_memory" in update:
-                    current_memory = update["bot_memory"]
-                    changed = True
-                warnings.extend(update.get("system_notes", []))
-        if changed:
-            result["bot_memory"] = current_memory
-        if warnings:
-            result["system_notes"] = warnings
 
     return result
 
@@ -704,6 +633,7 @@ def build_graph(
         A compiled LangGraph application ready for invoke().
     """
     dynamic_tools = build_yare_event_tools(yare_config)
+    dynamic_tools.append(advance_game_time)
 
     if llm_npc is not None:
         dynamic_tools = dynamic_tools + [build_npc_intent_tool(llm_npc)]

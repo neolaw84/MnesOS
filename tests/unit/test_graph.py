@@ -15,7 +15,7 @@ from MnesOS.graph import (
     context_retrieval_node,
     cycle_tick_node,
     director_node,
-    end_of_narration,
+    advance_game_time,
     GameState,
     get_npc_visible_state,
     get_public_state,
@@ -487,6 +487,26 @@ class TestPreToolsNode:
 
 
 class TestPostToolsNode:
+
+    def test_post_tools_extracts_and_sums_time_delta_from_tools(self):
+        from langchain_core.messages import AIMessage
+        from datetime import datetime, timezone
+        
+        state = make_state(bot_memory_staging=[], bot_memory={"game_time": "2026-04-10T08:00:00+00:00"})
+        
+        ai_msg = AIMessage(
+            content="",
+            tool_calls=[
+                {"name": "some_tool", "args": {"engine_time_delta": "PT15M"}, "id": "1"},
+                {"name": "advance_game_time", "args": {"duration": "PT45M"}, "id": "2"},
+            ]
+        )
+        state["agent_messages"] = [ai_msg]
+        
+        result = post_tools_node(state)
+        
+        assert result["bot_memory"]["game_time"] == "2026-04-10T09:00:00+00:00"
+
     def test_commits_last_staging_entry_to_bot_memory(self):
         state = make_state(bot_memory_staging=[
             {"npc": {"hp": 15}},
@@ -564,7 +584,7 @@ class TestRouteRules:
 class TestDirectorNodeWithLLM:
     def test_llm_is_invoked(self):
         fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
+        fake_llm.invoke.return_value = AIMessage(content="", tool_calls=[])
         state = make_state(client_messages=[{"role": "user", "content": "I examine the ruins."}])
         director_node(state, llm=fake_llm)
         fake_llm.bind_tools.assert_called_once()
@@ -572,7 +592,7 @@ class TestDirectorNodeWithLLM:
 
     def test_dynamic_tools_are_bound(self):
         fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
+        fake_llm.invoke.return_value = AIMessage(content="", tool_calls=[])
         state = make_state(client_messages=[{"role": "user", "content": "I examine the ruins."}])
         dynamic_tools = build_yare_event_tools(state["yare_config"])
         director_node(state, llm=fake_llm, tools=dynamic_tools)
@@ -613,7 +633,7 @@ class TestDirectorNodeWithLLM:
 
     def test_directive_included_in_prompt_passed_to_llm(self):
         fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
+        fake_llm.invoke.return_value = AIMessage(content="", tool_calls=[])
         state = make_state(
             prompt_directives={"director": "Prefer skill checks over combat."},
             client_messages=[{"role": "user", "content": "I parley with the guard."}],
@@ -626,7 +646,7 @@ class TestDirectorNodeWithLLM:
 
     def test_game_time_context_is_injected_into_director_prompt(self):
         fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="", tool_calls=[])
+        fake_llm.invoke.return_value = AIMessage(content="", tool_calls=[])
         baseline = make_state()
         state = make_state(bot_memory={**baseline["bot_memory"], "game_time": "2026-04-10T08:00:00+00:00"})
         director_node(state, llm=fake_llm)
@@ -637,22 +657,18 @@ class TestDirectorNodeWithLLM:
 
 class TestNarratorNodeWithLLM:
     def test_llm_is_invoked(self):
+        from unittest.mock import MagicMock
+        from langchain_core.messages import AIMessage
+        from MnesOS.graph import narrator_node
         fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="The goblin snarls.")
+        fake_llm.invoke.return_value = AIMessage(content="The goblin snarls.")
         state = make_state(system_notes=["Player dealt 10 damage."])
         narrator_node(state, llm=fake_llm)
-        fake_llm.bind_tools.assert_called_once()
-        fake_llm.bind_tools.return_value.invoke.assert_called_once()
-
-    def test_end_of_narration_tool_is_bound(self):
-        fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story text.")
-        state = make_state(system_notes=["Player dealt 10 damage."])
-        narrator_node(state, llm=fake_llm)
-        bound_tools = fake_llm.bind_tools.call_args[0][0]
-        assert end_of_narration in bound_tools
+        fake_llm.invoke.assert_called_once()
 
     def test_llm_response_stored_as_narrative(self):
+        from langchain_core.messages import AIMessage
+        from MnesOS.graph import narrator_node
         fake_llm = _BindableFakeModel(responses=[AIMessage(content="The goblin snarls and lunges at you.", tool_calls=[])])
         state = make_state(system_notes=["Player dealt 10 damage."])
         result = narrator_node(state, llm=fake_llm)
@@ -660,92 +676,46 @@ class TestNarratorNodeWithLLM:
         assert "goblin" in result["narrative"].lower()
 
     def test_narrative_uses_public_state_not_private(self):
+        from unittest.mock import MagicMock
+        from langchain_core.messages import AIMessage
+        from MnesOS.graph import narrator_node
         fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story text.", tool_calls=[])
+        fake_llm.invoke.return_value = AIMessage(content="Story text.", tool_calls=[])
         state = make_state(system_notes=["Test."])
         state["bot_memory"]["player"]["is_poisoned_with_asymptomatic_poison"] = True
         narrator_node(state, llm=fake_llm)
-        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        call_arg = str(fake_llm.invoke.call_args)
         assert "is_poisoned_with_asymptomatic_poison" not in call_arg
 
     def test_scene_directive_is_extracted_from_agent_messages(self):
+        from unittest.mock import MagicMock
+        from langchain_core.messages import AIMessage
+        from MnesOS.graph import narrator_node
         fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story text.", tool_calls=[])
+        fake_llm.invoke.return_value = AIMessage(content="Story text.", tool_calls=[])
         state = make_state(
             system_notes=["Test."],
             agent_messages=[AIMessage(content="The scene directive from the Director.", tool_calls=[])],
         )
         narrator_node(state, llm=fake_llm)
-        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        call_arg = str(fake_llm.invoke.call_args)
         assert "The scene directive from the Director." in call_arg
 
     def test_game_time_context_is_injected_into_narrator_prompt(self):
+        from unittest.mock import MagicMock
+        from langchain_core.messages import AIMessage
+        from MnesOS.graph import narrator_node
         fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story text.", tool_calls=[])
+        fake_llm.invoke.return_value = AIMessage(content="Story text.", tool_calls=[])
         baseline = make_state()
         state = make_state(
             bot_memory={**baseline["bot_memory"], "game_time": "2026-04-10T08:00:00+00:00"},
             system_notes=["Test."],
         )
         narrator_node(state, llm=fake_llm)
-        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        call_arg = str(fake_llm.invoke.call_args)
         assert "state.game_time" in call_arg
         assert "2026-04-10T08:00:00+00:00" in call_arg
-
-    def test_narrator_end_of_narration_tool_advance_time_updates_bot_memory(self):
-        fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(
-            content="A while passes.",
-            tool_calls=[{
-                "name": "end_of_narration",
-                "args": {"actions": [{"type": "advance_time", "duration": "PT15M"}]},
-                "id": "call_1",
-                "type": "tool_call",
-            }],
-        )
-        baseline = make_state()
-        state = make_state(
-            bot_memory={**baseline["bot_memory"], "game_time": "2026-04-10T08:00:00+00:00"},
-            system_notes=["Test."],
-        )
-        result = narrator_node(state, llm=fake_llm)
-        assert result["bot_memory"]["game_time"] == "2026-04-10T08:15:00+00:00"
-        assert result["client_messages"][0]["content"] == "A while passes."
-
-    def test_narrator_end_of_narration_advance_without_parseable_game_time_adds_system_note(self):
-        fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(
-            content="Time passes.",
-            tool_calls=[{
-                "name": "end_of_narration",
-                "args": {"actions": [{"type": "advance_time", "duration": "PT15M"}]},
-                "id": "call_1",
-                "type": "tool_call",
-            }],
-        )
-        baseline = make_state()
-        state = make_state(
-            bot_memory={**baseline["bot_memory"], "game_time": "not-a-time"},
-            system_notes=["Test."],
-        )
-        result = narrator_node(state, llm=fake_llm)
-        assert any("advance_time skipped" in n.lower() for n in result.get("system_notes", []))
-
-    def test_narrator_inline_time_tags_do_not_mutate_state(self):
-        fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(
-            content="A while passes. [[TIME_ADVANCE: PT15M]]",
-            tool_calls=[],
-        )
-        baseline = make_state()
-        state = make_state(
-            bot_memory={**baseline["bot_memory"], "game_time": "2026-04-10T08:00:00+00:00"},
-            system_notes=["Test."],
-        )
-        result = narrator_node(state, llm=fake_llm)
-        assert "bot_memory" not in result
-        assert "[[TIME_ADVANCE: PT15M]]" in result["client_messages"][0]["content"]
-
 
 class TestNarratorNodeSceneDirectiveFilter:
     """Tests that narrator_node strictly isolates the Director's Scene Directive
@@ -753,19 +723,19 @@ class TestNarratorNodeSceneDirectiveFilter:
 
     def test_system_notes_not_in_narrator_prompt(self):
         fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
+        fake_llm.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
         state = make_state(
             system_notes=["SECRET: player.hp = 42", "Roll succeeded with modifier 3"],
             agent_messages=[AIMessage(content="The Director's summary.", tool_calls=[])],
         )
         narrator_node(state, llm=fake_llm)
-        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        call_arg = str(fake_llm.invoke.call_args)
         assert "SECRET: player.hp = 42" not in call_arg
         assert "Roll succeeded with modifier 3" not in call_arg
 
     def test_tool_call_messages_not_in_narrator_prompt(self):
         fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
+        fake_llm.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
         ai_with_tool = AIMessage(
             content="",
             tool_calls=[{"name": "trigger_event", "args": {"event": "deal_damage"}, "id": "call_x", "type": "tool_call"}],
@@ -779,13 +749,13 @@ class TestNarratorNodeSceneDirectiveFilter:
             ],
         )
         narrator_node(state, llm=fake_llm)
-        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        call_arg = str(fake_llm.invoke.call_args)
         assert "trigger_event" not in call_arg
         assert "Engine result: hp -10" not in call_arg
 
     def test_scene_directive_present_in_narrator_prompt(self):
         fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
+        fake_llm.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
         scene_directive = "The goblin steps forward menacingly."
         state = make_state(
             system_notes=["hp -10"],
@@ -796,13 +766,13 @@ class TestNarratorNodeSceneDirectiveFilter:
             ],
         )
         narrator_node(state, llm=fake_llm)
-        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        call_arg = str(fake_llm.invoke.call_args)
         assert scene_directive in call_arg
 
     def test_last_plain_ai_message_is_used_as_scene_directive(self):
         """When multiple plain AIMessages exist, only the last one is used."""
         fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
+        fake_llm.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
         state = make_state(
             system_notes=[],
             agent_messages=[
@@ -811,16 +781,16 @@ class TestNarratorNodeSceneDirectiveFilter:
             ],
         )
         narrator_node(state, llm=fake_llm)
-        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        call_arg = str(fake_llm.invoke.call_args)
         assert "Final Director summary." in call_arg
         assert "First Director message." not in call_arg
 
     def test_empty_agent_messages_produces_empty_scene_directive(self):
         fake_llm = MagicMock()
-        fake_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
+        fake_llm.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
         state = make_state(system_notes=[], agent_messages=[])
         narrator_node(state, llm=fake_llm)
-        call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
+        call_arg = str(fake_llm.invoke.call_args)
         assert "SCENE DIRECTIVES" in call_arg
 
 
