@@ -5,7 +5,7 @@ Integration tests for graph.py — tests that exercise the full compiled workflo
 import pytest
 from langchain_core.messages import ToolMessage
 
-from MnesOS.graph import workflow, GameState
+from MnesOS.graph import build_graph, GameState
 
 
 # CWD-relative path — pytest is always invoked from the project root.
@@ -51,19 +51,19 @@ def make_state(**overrides) -> dict:
 
 class TestWorkflowAgentMessageCleanup:
     def test_entry_node_clears_stale_agent_messages(self):
-        app = workflow.compile()
         state = make_state(
             agent_messages=[ToolMessage(content="stale", tool_call_id="old_call")],
             client_messages=[{"role": "user", "content": "I look around."}],
         )
+        app = build_graph(state["yare_config"])
         result = app.invoke(state)
         assert result.get("agent_messages", []) == []
 
     def test_exit_node_returns_empty_agent_messages(self):
-        app = workflow.compile()
         state = make_state(
             client_messages=[{"role": "user", "content": "I look around."}],
             agent_messages=[ToolMessage(content="stale", tool_call_id="old_call")],
         )
+        app = build_graph(state["yare_config"])
         result = app.invoke(state)
         assert result.get("agent_messages", []) == []

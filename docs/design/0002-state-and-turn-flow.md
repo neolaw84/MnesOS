@@ -5,7 +5,7 @@ This document describes the internal turn architecture implemented in `src/MnesO
 ## Terms
 
 - client: the caller that invokes `app.invoke(...)`
-- agent: the compiled LangGraph workflow
+- agent: the compiled LangGraph application (built via `build_graph()`)
 - node: one unit of graph execution, LLM-backed or deterministic
 
 ## Core Architecture
