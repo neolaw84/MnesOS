@@ -208,19 +208,19 @@ class TestStateIsolation:
 
 
 # ---------------------------------------------------------------------------
-# separate_npc_brain feature tests
+# separate_npc feature tests
 # ---------------------------------------------------------------------------
 
 class TestSeparateNpcBrainFeature:
-    """Tests for the optional separate_npc_brain architecture runtime behavior."""
+    """Tests for the optional separate_npc architecture runtime behavior."""
 
-    def test_orchestrator_with_separate_npc_brain_false_works(self, tmp_path):
-        """When separate_npc_brain is False, orchestrator should work normally."""
+    def test_orchestrator_with_separate_npc_false_works(self, tmp_path):
+        """When separate_npc is False, orchestrator should work normally."""
         yare = {
             "version": "1.0",
             "state_schema": {"player": {"hp": {"type": "int", "default": 100}}},
             "events": {},
-            "separate_npc_brain": False,
+            "separate_npc": False,
         }
         (tmp_path / "yare.yaml").write_text(yaml.dump(yare))
         (tmp_path / "bot_lore.md").write_text("# Test\nSome lore.")
@@ -229,22 +229,22 @@ class TestSeparateNpcBrainFeature:
         result = orch.process_turn("Hello")
         assert isinstance(result, str)
 
-    def test_orchestrator_with_separate_npc_brain_true_raises_not_implemented(self, tmp_path):
-        """When separate_npc_brain is True, orchestrator should raise NotImplementedError."""
+    def test_orchestrator_with_separate_npc_true_raises_not_implemented(self, tmp_path):
+        """When separate_npc is True, orchestrator should raise NotImplementedError."""
         yare = {
             "version": "1.0",
             "state_schema": {"player": {"hp": {"type": "int", "default": 100}}},
             "events": {},
-            "separate_npc_brain": True,
+            "separate_npc": True,
         }
         (tmp_path / "yare.yaml").write_text(yaml.dump(yare))
         (tmp_path / "bot_lore.md").write_text("# Test\nSome lore.")
 
-        with pytest.raises(NotImplementedError, match="separate_npc_brain.*not yet implemented"):
+        with pytest.raises(NotImplementedError, match="separate_npc.*not yet implemented"):
             Orchestrator(str(tmp_path))
 
-    def test_orchestrator_without_separate_npc_brain_key_works(self, tmp_path):
-        """When separate_npc_brain key is omitted (default False), orchestrator works."""
+    def test_orchestrator_without_separate_npc_key_works(self, tmp_path):
+        """When separate_npc key is omitted (default False), orchestrator works."""
         yare = {
             "version": "1.0",
             "state_schema": {"player": {"hp": {"type": "int", "default": 100}}},
@@ -258,18 +258,18 @@ class TestSeparateNpcBrainFeature:
         assert isinstance(result, str)
 
     def test_generic_rpg_cartridge_does_not_raise(self):
-        """The generic-rpg cartridge (with default separate_npc_brain=False) works."""
+        """The generic-rpg cartridge (with default separate_npc=False) works."""
         orch = Orchestrator(CARTRIDGE_DIR)
         result = orch.process_turn("Look around")
         assert isinstance(result, str)
 
-    def test_monolithic_mode_graph_excludes_npc_brain_node(self, tmp_path):
-        """When separate_npc_brain=False, the compiled graph should NOT have NPC_Brain node."""
+    def test_monolithic_mode_graph_excludes_npc_node(self, tmp_path):
+        """When separate_npc=False, the compiled graph should NOT have NPC_Brain node."""
         yare = {
             "version": "1.0",
             "state_schema": {"player": {"hp": {"type": "int", "default": 100}}},
             "events": {},
-            "separate_npc_brain": False,
+            "separate_npc": False,
         }
         (tmp_path / "yare.yaml").write_text(yaml.dump(yare))
         (tmp_path / "bot_lore.md").write_text("# Test\nSome lore.")
@@ -279,12 +279,12 @@ class TestSeparateNpcBrainFeature:
         assert "NPC_Brain" not in node_names, "NPC_Brain node should not exist in monolithic mode"
 
     def test_monolithic_mode_graph_includes_expected_nodes(self, tmp_path):
-        """When separate_npc_brain=False, graph should have Director and Narrator."""
+        """When separate_npc=False, graph should have Director and Narrator."""
         yare = {
             "version": "1.0",
             "state_schema": {"player": {"hp": {"type": "int", "default": 100}}},
             "events": {},
-            "separate_npc_brain": False,
+            "separate_npc": False,
         }
         (tmp_path / "yare.yaml").write_text(yaml.dump(yare))
         (tmp_path / "bot_lore.md").write_text("# Test\nSome lore.")

@@ -46,18 +46,6 @@ Use this file for deterministic state and event logic.
 - `events` define executable steps
 - supported actions are `set`, `mutate`, `branch`, `table_roll`, `call`, and `note`
 
-**`MAX_ITERATIONS` constraint**: The engine enforces a hard cap of `MAX_ITERATIONS = 3` tool-call
-loops per phase (player phase and NPC phase independently). This means the Director and NPC Brain
-each have at most 3 chances to call `trigger_event` before the engine moves on. Design your events
-to be self-contained and to avoid requiring long chains of dependent calls:
-
-- prefer a single event that calls sub-events via the `call` action rather than relying on the LLM
-  to chain multiple `trigger_event` calls
-- do **not** model flows like "cast → check_hit → apply_damage" as three separate events; fold the
-  chain into a single event's `steps` using `branch` and `call`
-- use `note` actions liberally so the LLM understands what happened without needing to make
-  a follow-up tool call
-
 Example:
 
 ```yaml
@@ -85,14 +73,14 @@ Use this file only for short per-role LLM steering.
 Allowed keys:
 
 - `director`
-- `npc_brain`
+- `npc`
 - `narrator`
 
 Example:
 
 ```yaml
 director: "Prefer explicit mechanical events over narration-only turns."
-npc_brain: "Escalate only when the NPC has a clear advantage."
+npc: "Escalate only when the NPC has a clear advantage."
 narrator: "Keep the prose terse and grounded."
 ```
 

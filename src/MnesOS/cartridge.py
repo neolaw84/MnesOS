@@ -9,7 +9,7 @@ A cartridge directory must contain:
 Scrutiny layers applied at load time:
 
   prompt_directives.yaml
-    - Only keys "director", "narrator", "npc_brain" are allowed.
+    - Only keys "director", "narrator", "npc" are allowed.
     - Each value must be a plain string within MAX_DIRECTIVE_LEN chars.
     - Combined total must not exceed MAX_TOTAL_DIRECTIVE_LEN chars.
     - Injection-pattern blocklist is applied to every directive.
@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-ALLOWED_DIRECTIVE_KEYS: Set[str] = {"director", "narrator", "npc_brain"}
+ALLOWED_DIRECTIVE_KEYS: Set[str] = {"director", "narrator", "npc"}
 
 MAX_DIRECTIVE_LEN = 1024 * 1024        # chars — single directive (1MB)
 MAX_TOTAL_DIRECTIVE_LEN = 2 * 1024 * 1024  # chars — all directives combined (2MB)
@@ -366,13 +366,13 @@ def _validate_yare(config: Dict[str, Any]) -> None:
             "not in yare.yaml. Keep yare.yaml purely procedural."
         )
     
-    # Validate separate_npc_brain flag (optional, defaults to False)
-    if "separate_npc_brain" in config:
-        separate_npc_brain = config["separate_npc_brain"]
-        if not isinstance(separate_npc_brain, bool):
+    # Validate separate_npc flag (optional, defaults to False)
+    if "separate_npc" in config:
+        separate_npc = config["separate_npc"]
+        if not isinstance(separate_npc, bool):
             raise ValueError(
-                "separate_npc_brain must be a boolean (true or false), "
-                f"got {type(separate_npc_brain).__name__}."
+                "separate_npc must be a boolean (true or false), "
+                f"got {type(separate_npc).__name__}."
             )
 
     # Validate npc_templates (optional)

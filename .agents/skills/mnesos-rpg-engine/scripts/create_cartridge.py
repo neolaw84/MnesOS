@@ -14,7 +14,7 @@ def create_cartridge(game_name):
     try:
         os.makedirs(base_path)
         with open(os.path.join(base_path, 'prompt_directives.yaml'), 'w') as f:
-            f.write("director: ''\nnarrator: ''\nnpc_brain: ''\n")
+            f.write("director: ''\nnarrator: ''\nnpc: ''\n")
         with open(os.path.join(base_path, 'bot_lore.md'), 'w') as f:
             f.write(f"# {game_name.replace('-', ' ').title()}\n\n")
         with open(os.path.join(base_path, 'yare.yaml'), 'w') as f:

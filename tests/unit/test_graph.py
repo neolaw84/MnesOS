@@ -541,8 +541,8 @@ class TestRouteDirector:
         """OCP: route_director must not inspect yare_config — routing is structural."""
         import inspect
         source = inspect.getsource(route_director)
-        assert "separate_npc_brain" not in source, (
-            "route_director reads separate_npc_brain from state, violating OCP. "
+        assert "separate_npc" not in source, (
+            "route_director reads separate_npc from state, violating OCP. "
             "Use route_director_separate for the decoupled architecture."
         )
 
@@ -848,7 +848,7 @@ class TestBuildGraphFactory:
         ):
             assert expected in node_names, f"Missing expected node: {expected!r}"
 
-    def test_build_graph_monolithic_excludes_npc_brain(self):
+    def test_build_graph_monolithic_excludes_npc(self):
         app = build_graph(yare_config=make_state()["yare_config"])
         node_names = set(app.get_graph().nodes.keys())
         assert "NPC_Brain" not in node_names
@@ -858,7 +858,7 @@ class TestBuildGraphFactory:
         app = build_graph(
             yare_config=make_state()["yare_config"],
             llm_director=fake,
-            llm_npc_brain=fake,
+            llm_npc=fake,
             llm_narrator=fake,
         )
         assert hasattr(app, "invoke")
@@ -1115,7 +1115,7 @@ class TestBuildNpcIntentTool:
         app = build_graph(
             yare_config=state["yare_config"],
             llm_director=mock_director_llm,
-            llm_npc_brain=mock_npc_llm,
+            llm_npc=mock_npc_llm,
         )
         app.invoke(state)
         bound_tools = mock_director_llm.bind_tools.call_args[0][0]

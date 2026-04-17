@@ -170,33 +170,21 @@ YARE is deterministic except where the rules explicitly use `roll(...)`.
 
 ## LLM Tool Interface
 
-YARE events are exposed to the LLM through a single LangChain tool:
+YARE events are dynamically exposed to the Director LLM as individual LangChain structured tools.
+
+For example, an event named `combat_strike` in `yare.yaml` with inputs for `attacker` and `defender` is automatically surfaced to the LLM as:
 
 ```python
 @tool
-def trigger_event(
-    event_name: str,
-    event_args: dict | None = None,
-    # tool_call_id and state are injected — not visible to the LLM
-) -> Command:
-    """Trigger a named YARE rules event with optional input arguments."""
+def combat_strike(attacker: str, defender: str) -> Command:
+    """Trigger the combat_strike event."""
 ```
 
-`ToolNode` calls this tool directly. It accesses the full `GameState` via `InjectedState`, runs `YAREInterpreter.run_event(event_name, event_args)`, and returns a `Command` that updates `bot_memory_staging`, `system_notes`, and appends a `ToolMessage` with the event notes. The `post_tools_node` then commits the `bot_memory_staging` update.
+The underlying dynamically generated tool manages accessing the full `GameState` via `InjectedState`, running `YAREInterpreter.run_event(...)`, and returning a `Command` that updates `bot_memory_staging`, `system_notes`, and appends a `ToolMessage` with the event notes. The `post_tools_node` then commits the `bot_memory_staging` update.
 
-### Event Signature Injection
+This architecture removes the need to inject an "Available Events" textual list into the system prompt, as the native tool-calling features of the LLM automatically handle tool capability discovery and parameter validation.
 
-The LLM needs to know which keys belong in `event_args` for each event. Both `director_node` and `npc_brain_node` (when enabled) read the `inputs` lists from `yare_config` and inject event signatures into the system prompt:
-
-```
-### Available Events:
-- combat_strike(event_args: {attacker, defender, power})
-- cast_spell(event_args: {spell_name, mana_cost})
-```
-
-This means the LLM receives enough information to populate `event_args` correctly without seeing the full `yare.yaml`.
-
-New events are added in `yare.yaml`. No code changes are required to expose them — the graph reads event signatures dynamically at each invocation.
+New events are simply added in `yare.yaml`. No code changes are required to expose them — the engine dynamically translates them to LangChain tools at load time.
 
 ## Time Sync Extensions
 

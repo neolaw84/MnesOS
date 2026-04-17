@@ -1,6 +1,6 @@
 # MnesOS Cartridge Mechanics: Logging and Counter-Play
 
-This document outlines the operational domain of the MnesOS 3-node graph, including how `system_notes` are safely passed to the Narrator and how complex combat systems (like countering) can be implemented by cartridge developers.
+This document outlines the operational domain of the MnesOS 2-node graph, including how `system_notes` are safely passed to the Narrator and how complex combat systems (like countering) can be implemented by cartridge developers.
 
 ## 1. Ensuring Narrator Semantic Understanding
 
@@ -33,91 +33,40 @@ By convention, enclosing `system_notes` in a tag bracket (like `[SYSTEM LOG: ...
 
 ---
 
-## 2. The Operational Domain of the 3-Node Graph
+## 2. The Operational Domain of the 2-Node Graph
 
-Because the execution graph flows **Strictly Serial in one direction:** 
-`Director (Player Turn)` ➔ `NPC_Brain (NPC Turn)` ➔ `Narrator (Render)`
+The execution graph flows iteratively between the Director and the ToolNode before finally reaching the Narrator:
+`Director (Intent Analysis)` 🔁 `ToolNode (Mechanics & NPC Intent)` ➔ `Narrator (Render)`
 
 The system natively supports **Asynchronous Turn-Based Games** (e.g., standard D&D, where actors fully resolve their action on their specific turn).
 
-If an action is "immediate" (an attack calculates and subtracts HP instantly), true reactive "counters" are impossible because the damage is dealt *before* the other actor gets a chance to invoke a node. To circumvent this and allow "Counters", cartridge developers must design their YARE events using **Phase-Based Intention** and **Telegraphing**.
+If an action is "immediate" (an attack calculates and subtracts HP instantly), reactive "counters" within the same turn require the Director to query the NPC before finalizing damage. To allow "Counters", cartridge developers must design their YARE events using **Phase-Based Intention** and **Telegraphing**.
 
 ---
 
 ## 3. Scenario A: Player attacks, NPC Counters (Shield Block)
 
-If the player's attack immediately reduces HP during the `Director` phase, the `NPC_Brain` cannot stop it. Instead, the `Director` must declare an *Intent*, and the `NPC_Brain` resolves it.
+If the player's attack immediately reduces HP during the Director resolution, the NPC has no chance to block. Instead, the Director should query the NPC intent *before* applying final damage.
 
 **How it works:**
 1. Player says *"I attack the Goblin"*.
-2. Director triggers `plan_player_attack`. This *does not* deal damage. It saves the attack value to a temporary state buffer.
-3. NPC_Brain analyzes the state, detects `state.combat.player_attack_pending` is true, and triggers `npc_react`.
-4. `npc_react` cross-references the NPC's chosen defense, calculates mitigated damage, applies the final HP mutate, and clears the buffer.
+2. Director queries NPC intent using the `query_npc_intent` tool.
+3. NPC Brain responds: *"I intend to raise my shield!"*
+4. Director resolves the attack mechanics (YARE), taking the shield block into account, and then summarizes for the Narrator.
 
-### Cartridge Example: NPC Countering
-```yaml
-state_schema:
-  combat:
-    player_attack_val: { type: "int", default: 0 }
-    player_target: { type: "string", default: "none" }
-
-events:
-  # Triggered by the Director
-  plan_player_attack:
-    inputs:
-      target: { type: "string" }
-    steps:
-      - action: call
-        event: do_attack_roll
-      - action: set
-        var: "state.combat.player_target"
-        value: "@inputs.target"
-      - action: set
-        var: "state.combat.player_attack_val"
-        value: "@temp.roll_result"
-      - action: note
-        message: "[SYSTEM LOG: Player is lunging to attack {inputs.target} with power {temp.roll_result}. Awaiting opponent reaction.]"
-  
-  # Triggered by the NPC_Brain
-  npc_react:
-    inputs:
-      decision: { type: "string", enum: ["block", "take_hit"] }
-    steps:
-      - action: branch
-        conditions:
-          - if: "@inputs.decision == 'block'"
-            steps:
-              - action: set
-                var: "temp.final_damage"
-                # Arbitrary block logic: half damage
-                value: "@state.combat.player_attack_val / 2"
-              - action: note
-                message: "[SYSTEM LOG: Goblin dynamically raised a shield! The {state.combat.player_attack_val} damage was blocked and reduced to {temp.final_damage}.]"
-          - else: true
-            steps:
-              - action: set
-                var: "temp.final_damage"
-                value: "@state.combat.player_attack_val"
-              - action: note
-                message: "[SYSTEM LOG: Goblin failed to block and takes full {temp.final_damage} damage.]"
-      - action: mutate
-        var: "state.goblin.hp"
-        op: "sub"
-        value: "@temp.final_damage"
-      # Clear the buffer
-      - action: set
-        var: "state.combat.player_attack_val"
-        value: 0
-```
+Alternatively, for complex multi-turn logic:
+1. Director triggers `plan_player_attack`. This *does not* deal damage. It saves the value to a buffer.
+2. In the next turn iteration (or turn phase), the NPC intent is processed.
+3. Mechanics resolution clears the buffer and applies damage.
 
 ---
 
 ## 4. Scenario B: NPC Telegraphs, Player Counters
 
-Because the graph strictly hands control back to the player *after* the Narrator finishes, the Player cannot physically interrupt an active NPC turn. To allow a Player to counter an NPC, the NPC must **telegraph** an attack on Turn 1, so the Player can respond on Turn 2.
+Because control is handed back to the player *after* the Narrator finishes, the Player cannot physically interrupt an active Turn resolution. To allow a Player to counter an NPC, the NPC must **telegraph** an attack on Turn 1, so the Player can respond on Turn 2.
 
 **How it works:**
-1. **Turn N (NPC Phase)**: NPC_Brain triggers `telegraph_attack`.
+1. **Turn N (Mechanics Phase)**: Director triggers `npc_telegraph_attack`.
 2. **Turn N (Narrator)**: Narrator writes *"The Goblin raises his heavy club, preparing to smash it down!"*
 3. **Turn N+1 (Player Phase)**: Player says *"I raise my shield to brace."* Director triggers `player_resolve_incoming`.
 
@@ -128,7 +77,7 @@ state_schema:
     incoming_attack_val: { type: "int", default: 0 }
 
 events:
-  # Triggered by NPC_Brain on Turn 1
+  # Triggered by Director on Turn 1
   npc_telegraph_attack:
     steps:
       - action: call
@@ -144,7 +93,6 @@ events:
     inputs:
       player_action: { type: "string", enum: ["dodge", "block", "ignore"] }
     steps:
-      # If Player chooses to Block
       - action: branch
         conditions:
           - if: "@inputs.player_action == 'block'"
@@ -173,6 +121,3 @@ events:
         var: "state.combat.incoming_attack_val"
         value: 0
 ```
-
-### Summary of the Mechanism
-Because MnesOS evaluates tool calls sequentially via LLM checkpoints (`Director` > `NPC`), standard reactive "Interrupts" are architecturally impossible within a single chat message boundary. Instead, the game's logic requires a **State Buffer Pattern** (`State.Pending_Action`), allowing one turn phase to enqueue intent and the following turn phase to dequeue and resolve it.

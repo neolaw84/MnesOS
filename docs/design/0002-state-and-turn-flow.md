@@ -15,15 +15,11 @@ graph TD
     Client[Client] --> Reset[Reset Agent Messages]
     Reset --> Lore[Lore Node]
     Lore --> Director[Director Node]
-    Director -->|AIMessage has tool_calls| PreTools[PreTools Node]
-    Director -->|no tool_calls & decoupled| NPC["NPC Brain Node (upcoming)"]
-    Director -->|no tool_calls & monolithic| Narrator[Narrator Node]
+    Director -->|Tool Call| PreTools[PreTools Node]
+    Director -->|Final Summary| Narrator[Narrator Node]
     PreTools --> Tools[ToolNode]
     Tools --> PostTools[PostTools Node]
-    PostTools -->|turn_phase=player| Director
-    PostTools -->|turn_phase=npc| NPC
-    NPC -->|AIMessage has tool_calls| PreTools
-    NPC -->|no tool_calls| Narrator
+    PostTools --> Director
     Narrator --> Cleanup[Cleanup Agent Messages]
     Cleanup --> Client
 ```
@@ -52,10 +48,10 @@ Persistent story history. This belongs to the client and is part of `GameState`.
 
 ### `agent_messages`
 
-Ephemeral per-turn internal protocol messages, stored in `GameState` with the `add_messages` reducer.
+Ephemeral per-turn internal protocol messages (LLM prompts and tool traces), stored in `GameState` with the `add_messages` reducer.
 
-- `director_node` and `npc_brain_node` append their `AIMessage` response (which may carry `tool_calls`)
-- `ToolNode` executes `trigger_event` and appends `ToolMessage` results via `Command`
+- `Director` appends its `AIMessage` response (carrying `tool_calls`)
+- `ToolNode` executes the requested YARE event or NPC query and appends `ToolMessage` results
 - `reset_agent_messages_node` clears this channel at graph entry
 - `cleanup_agent_messages_node` clears this channel before returning to the client
 
@@ -63,28 +59,29 @@ The client never sees or manages `agent_messages`.
 
 ## Turn Flow
 
-1. `reset_agent_messages_node` clears any stale `agent_messages` from a previous turn
-2. `context_retrieval_node` reads the latest client message and current world state, then retrieves relevant lore
-3. `director_node` binds the `trigger_event` tool to the LLM with `parallel_tool_calls=False`, invokes it, and appends the `AIMessage` to `agent_messages`
-4. `pre_tools_node` clears `bot_memory_staging` (the YARE write buffer) to ensure a clean slate
-5. `ToolNode` calls `trigger_event`; the tool runs `YAREInterpreter` and returns `Command(update={bot_memory_staging, system_notes, agent_messages})` — all three fields have reducers so concurrent writes are safe
-6. `post_tools_node` reads the last entry from `bot_memory_staging` and writes it to `bot_memory`, then clears the staging buffer — this is the single authoritative write point for world state
-7. `npc_brain_node` (when enabled, upcoming feature) does the same as step 3 for NPC decision-making; steps 4–6 repeat for NPC tool calls
-8. `narrator_node` receives the full `agent_messages` history and `client_messages` and produces the assistant response
-9. `cleanup_agent_messages_node` clears `agent_messages` before returning state to the client
+1. **`reset_agent_messages_node`**: Clears any stale `agent_messages` from a previous turn.
+2. **`context_retrieval_node`**: Reads the latest client message and current world state, then retrieves relevant lore chunks.
+3. **`director_node`**: Binds all dynamic YARE tools and the `query_npc_intent` tool. Invokes the LLM to analyze intent and choose an action.
+4. **`pre_tools_node`**: Clears `bot_memory_staging` (the YARE write buffer) to ensure a clean slate for the current iteration.
+5. **`ToolNode`**: Executes the tool call. If it's a YARE event, it runs the `YAREInterpreter`. If it's `query_npc_intent`, it queries the NPC brain. Returns a `Command` with updates.
+6. **`post_tools_node`**: Commits the updated state to `bot_memory` and clears the staging buffer.
+7. **Iteration Loop**: The graph routes back to the `Director` (up to `MAX_ITERATIONS = 3`) to allow for sequential resolutions (e.g., Attack -> NPC React -> Results).
+8. **`narrator_node`**: Once the Director provides a final plain-text summary (Scene Directive), the Narrator renders the turn into story prose.
+9. **`cleanup_agent_messages_node`**: Clears internal traces.
 
 ## Tool Protocol
 
-Director and NPC Brain each bind the single `trigger_event` LangChain tool to the LLM with `parallel_tool_calls=False`:
+MnesOS uses **Dynamic Tool Generation**. At graph compilation, every YARE event defined in the cartridge is converted into a native LangChain tool with its own schema.
 
 ```python
-response = llm.bind_tools([trigger_event], parallel_tool_calls=False).invoke(prompt_messages)
+# graph.py implementation detail
+tools = build_yare_event_tools(yare_config)
+tools.append(build_npc_intent_tool(llm_npc))
+
+# In director_node
+response = llm.bind_tools(tools, parallel_tool_calls=False).invoke(prompt)
 ```
 
-`parallel_tool_calls=False` constrains the LLM to emit at most one tool call per response. The `Director → PreTools → Tools → PostTools → Director` loop handles multi-event turns iteratively (capped at `MAX_ITERATIONS = 3`).
+`parallel_tool_calls=False` ensures the Director handles one mechanic at a time, preventing state conflict. The iterative loop (`Director -> Tools -> Director`) handles complex chain reactions. 
 
-Routing decisions (`route_director`, `route_npc_brain`) inspect the `tool_calls` attribute on the last `AIMessage` in `agent_messages` — no separate `tool_calls` state field exists.
-
-`ToolNode` dispatches to `trigger_event`, which receives the full `GameState` via `InjectedState`. The tool runs `YAREInterpreter` and returns a `Command` that appends `[interpreter.state]` to `bot_memory_staging`, appends notes to `system_notes`, and pushes a `ToolMessage`. Because all three keys have reducers, concurrent writes can never cause `InvalidUpdateError`. `post_tools_node` then commits `bot_memory_staging[-1]` to `bot_memory` — a single plain-assignment update from a regular node, not a tool.
-
-The LLM supplies `event_name` and `event_args`. Both Director and NPC Brain inject the available event signatures — name plus `inputs` field list — into the system prompt so the LLM knows the expected keys for `event_args`. The YARE engine is the sole executor of game logic.
+Routing decisions inspect the `tool_calls` attribute on the last `AIMessage` in `agent_messages`. If no calls are present, the turn transitions to the `Narrator`.

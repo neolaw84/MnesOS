@@ -4,7 +4,7 @@
 # yare.yaml so that procedural rules and narrative style never mix.
 #
 # Rules:
-#   - Only keys "director", "narrator", and "npc_brain" are allowed.
+#   - Only keys "director", "narrator", and "npc" are allowed.
 #   - Each directive is a plain string (max 500 chars).
 #   - Total combined text must not exceed 1000 chars.
 #   - Do NOT include instructions that override engine behaviour,
@@ -21,7 +21,7 @@ narrator: >
   Describe wounds and exhaustion in physical terms. When the player
   succeeds dramatically, hint at growing legend and reputation.
 
-npc_brain: >
+npc: >
   Goblins act in packs and prioritize swarming weakened targets.
   They retreat when outnumbered or when their morale breaks.
   Play them as cowardly but opportunistic.

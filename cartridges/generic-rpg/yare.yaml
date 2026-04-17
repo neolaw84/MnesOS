@@ -17,16 +17,20 @@ npc_templates:
 
 state_schema:
   player:
+    npc_visibility: true
+    visibility: public
     hp: { type: int, default: 100, min: 0 }
     mana: { type: int, default: 50, min: 0 }
     level: { type: int, default: 1 }
     gold: { type: int, default: 0, min: 0 }
   npc:
+    npc_visibility: true
+    visibility: public
     name: { type: string, default: "Goblin" }
     hp: { type: int, default: 20, min: 0 }
     strength: { type: int, default: 5 }
-  current_location: { type: string, default: "Crossroads" }
-  inventory: { type: list, default: [] }
+  current_location: { type: string, default: "Crossroads", npc_visibility: true, visibility: public }
+  inventory: { type: list, default: [], npc_visibility: true, visibility: public }
 
 events:
   combat_strike:

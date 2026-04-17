@@ -684,7 +684,7 @@ def route_rules(state: GameState) -> Literal["Director"]:
 def build_graph(
     yare_config: Dict[str, Any],
     llm_director=None,
-    llm_npc_brain=None,
+    llm_npc=None,
     llm_narrator=None,
 ):
     """
@@ -697,7 +697,7 @@ def build_graph(
     Args:
         yare_config:   Parsed YARE configuration dict (from yare.yaml).
         llm_director:  LangChain BaseChatModel for the Director node (optional).
-        llm_npc_brain: LangChain BaseChatModel for the NPC Brain tool (optional).
+        llm_npc: LangChain BaseChatModel for the NPC Brain tool (optional).
         llm_narrator:  LangChain BaseChatModel for the Narrator node (optional).
 
     Returns:
@@ -705,8 +705,8 @@ def build_graph(
     """
     dynamic_tools = build_yare_event_tools(yare_config)
 
-    if llm_npc_brain is not None:
-        dynamic_tools = dynamic_tools + [build_npc_intent_tool(llm_npc_brain)]
+    if llm_npc is not None:
+        dynamic_tools = dynamic_tools + [build_npc_intent_tool(llm_npc)]
 
     graph = StateGraph(GameState)
 
