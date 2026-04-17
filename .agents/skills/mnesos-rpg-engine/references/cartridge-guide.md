@@ -73,14 +73,14 @@ Use this file only for short per-role LLM steering.
 Allowed keys:
 
 - `director`
-- `npc_brain`
+- `npc`
 - `narrator`
 
 Example:
 
 ```yaml
 director: "Prefer explicit mechanical events over narration-only turns."
-npc_brain: "Escalate only when the NPC has a clear advantage."
+npc: "Escalate only when the NPC has a clear advantage."
 narrator: "Keep the prose terse and grounded."
 ```
 

@@ -1,5 +1,6 @@
 from typing import Annotated, TypedDict, Literal, List, Dict, Any, Optional, Tuple
 import functools
+import json
 import operator
 import re
 from datetime import datetime, timedelta
@@ -391,16 +392,18 @@ def director_node(state: GameState, *, llm=None, tools=None) -> dict:
     """
     loops = state.get("iteration_count", 0) + 1
 
-    director_prompt = DIRECTOR_SYSTEM_PROMPT
-    directives = state.get("prompt_directives", {}).get("director", "")
-    if directives:
-        director_prompt += "\n\n### Cartridge Directives:\n" + directives
+    c_directives = state.get("prompt_directives", {}).get("director", "") or ""
+    formatted_prompt = DIRECTOR_SYSTEM_PROMPT.format(
+        retrieved_lore=state.get("retrieved_lore", ""),
+        bot_memory=json.dumps(state.get("bot_memory", {})),
+        system_notes="\n".join(state.get("system_notes", [])),
+        npc_intent_called=state.get("npc_intent_called", False),
+        cartridge_directives=c_directives,
+    )
+    system_content = formatted_prompt + _format_game_time_context(state.get("bot_memory", {}))
 
     result = {"iteration_count": loops, "turn_phase": "player"}
     if llm is not None:
-        system_content = director_prompt
-        system_content += _format_game_time_context(state.get("bot_memory", {}))
-
         prompt_messages = [SystemMessage(content=system_content)]
         prompt_messages.extend(
             _client_messages_to_langchain_messages(state.get("client_messages", []))
@@ -448,6 +451,18 @@ def get_npc_visible_state(bot_memory: Dict[str, Any], yare_config: Dict[str, Any
 # NPC Intent Tool
 # ---------------------------------------------------------
 
+class NPCPresentation(TypedDict):
+    """DTO carrying the identifying information for a single NPC.
+
+    Constructed by the Director LLM before calling ``query_npc_intent``.
+    The tool is a pure function that reads only this DTO and static templates —
+    it never touches ``bot_memory["npcs"]``.
+    """
+    id: str
+    template: Optional[str]
+    tags: Optional[List[str]]
+
+
 class NPCIntentOutput(BaseModel):
     npc_id: str = Field(description="The ID of the NPC this intent belongs to.")
     dialogue: str = Field(description="Exactly what the NPC says out loud. Can be empty.")
@@ -464,14 +479,19 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
 
     @tool
     def query_npc_intent(
-        npc_ids: List[str],
-        immediate_stimulus: str,
+        present_npcs: List[NPCPresentation],
+        scene_context: str,
         history_turns: int,
         dm_directives: str = "",
         tool_call_id: Annotated[str, InjectedToolCallId()] = "",
         state: Annotated[dict, InjectedState()] = None,
     ) -> Command:
-        """Call this to see how a list of NPCs want to react before you calculate the rules."""
+        """Call this to see how a list of NPCs want to react before you calculate the rules.
+
+        present_npcs is a list of NPCPresentation DTOs constructed by the Director.
+        Each DTO contains the NPC's id, template (optional), and tags (optional).
+        scene_context is a brief synthesis of the immediate physical environment.
+        """
         state = state or {}
         yare_config: Dict[str, Any] = state.get("yare_config", {})
         bot_memory: Dict[str, Any] = state.get("bot_memory", {})
@@ -482,24 +502,25 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
         min_credit = settings.get("npc_min_credit_threshold", 5)
         max_npcs = settings.get("max_batched_npcs", 3)
 
-        # Score each NPC and filter below threshold
+        # Score each NPC using the DTO — no bot_memory["npcs"] lookup
         scored_npcs = []
-        for nid in npc_ids:
+        for npc in (present_npcs or []):
+            nid = npc.get("id", "")
             score = 0
-            npc_data = bot_memory.get("npcs", {}).get(nid, {})
             # Credit from Name template
-            if tmpl := npc_templates.get(npc_data.get("template")):
+            if tmpl := npc_templates.get(npc.get("template")):
                 score += tmpl.get("credit", 0)
             # Credit from Tags
-            for tag in npc_data.get("tags", []):
+            for tag in (npc.get("tags") or []):
                 if tmpl := npc_templates.get(tag):
                     score += tmpl.get("credit", 0)
             if score >= min_credit:
-                scored_npcs.append({"id": nid, "score": score})
+                scored_npcs.append({"id": nid, "score": score, "dto": npc})
 
         # Sort by score descending, then slice to max_npcs
         scored_npcs.sort(key=lambda x: x["score"], reverse=True)
-        top_npcs = [npc["id"] for npc in scored_npcs[:max_npcs]]
+        top_entries = scored_npcs[:max_npcs]
+        top_npc_ids = [entry["id"] for entry in top_entries]
 
         # 1. Assemble history (most recent N turns, capped at 10)
         client_messages = state.get("client_messages", [])
@@ -515,20 +536,20 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
         # 3. Assemble NPC-visible state
         visible_state = get_npc_visible_state(bot_memory, yare_config)
 
-        # 4. Build batched profile text for top NPCs
+        # 4. Build batched profile text for top NPCs using DTO data
         profile_parts: list[str] = []
-        for nid in top_npcs:
-            npc_entry: Dict[str, Any] = bot_memory.get("npcs", {}).get(nid, {})
+        for entry in top_entries:
+            nid = entry["id"]
+            npc_dto: Dict[str, Any] = entry["dto"]
             npc_desc_parts: list[str] = []
 
             # Name-mode: single template reference
-            template_key = npc_entry.get("template")
+            template_key = npc_dto.get("template")
             if template_key and template_key in npc_templates:
-                tmpl = npc_templates[template_key]
-                npc_desc_parts.append(tmpl.get("description", ""))
+                npc_desc_parts.append(npc_templates[template_key].get("description", ""))
 
             # Tag-mode: concatenate multiple tag descriptions
-            for tag in npc_entry.get("tags", []):
+            for tag in (npc_dto.get("tags") or []):
                 if tag in npc_templates:
                     npc_desc_parts.append(npc_templates[tag].get("description", ""))
 
@@ -536,10 +557,9 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
             profile_parts.append(f"NPC: {nid} | Profile: {npc_desc}")
 
         profile_text = "\n".join(profile_parts) if profile_parts else "No qualifying NPCs."
-        npc_ids_str = ", ".join(top_npcs) if top_npcs else "none"
 
         # 5. When no NPCs qualify, return early without querying the LLM
-        if not top_npcs:
+        if not top_entries:
             return Command(
                 update={
                     "agent_messages": [ToolMessage(content=profile_text, tool_call_id=tool_call_id)],
@@ -547,14 +567,15 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
             )
 
         # 6. Build prompt and invoke the LLM with structured output
+        c_directives = state.get("prompt_directives", {}).get("npc", "") or ""
         formatted_prompt = NPC_SYSTEM_PROMPT.format(
-            npc_id=npc_ids_str,
-            profile_text=profile_text,
+            visible_state=json.dumps(visible_state),
             lore_text=lore_text,
-            visible_state=visible_state,
             history_text=history_text,
-            immediate_stimulus=immediate_stimulus,
+            scene_context=scene_context,
             dm_directives=dm_directives,
+            batched_profiles=profile_text,
+            cartridge_directives=c_directives,
         )
         prompt_messages = [SystemMessage(content=formatted_prompt)]
 
@@ -582,11 +603,6 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
     """
     public_state = get_public_state(state["bot_memory"], state["yare_config"])
 
-    narrator_prompt = NARRATOR_SYSTEM_PROMPT
-    directives = state.get("prompt_directives", {}).get("narrator", "")
-    if directives:
-        narrator_prompt += "\n\n### Cartridge Directives:\n" + directives
-
     result: dict = {"iteration_count": 0, "system_notes": [], "retrieved_lore": ""}
 
     if llm is not None:
@@ -597,10 +613,6 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
             "- actions: [{type:'set_game_time', value:'2026-04-10T10:00:00+00:00'}]\n"
             "You may include both actions and narrative text in the same response."
         )
-        prompt_messages = [SystemMessage(content=narrator_prompt + _format_game_time_context(state.get("bot_memory", {})) + end_of_narration_contract)]
-        prompt_messages.extend(
-            _client_messages_to_langchain_messages(state.get("client_messages", []))
-        )
 
         # Find the Director's final Scene Directive (last AIMessage without tool calls)
         scene_directives = ""
@@ -609,10 +621,17 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
                 scene_directives = msg.content
                 break
 
-        prompt_messages.append(HumanMessage(content=(
-            f"Director's Scene Directives:\n{scene_directives}\n\n"
-            f"Public State:\n{public_state}"
-        )))
+        c_directives = state.get("prompt_directives", {}).get("narrator", "") or ""
+        formatted_prompt = NARRATOR_SYSTEM_PROMPT.format(
+            public_state=json.dumps(public_state),
+            scene_directives=scene_directives,
+            cartridge_directives=c_directives,
+        )
+        system_content = formatted_prompt + _format_game_time_context(state.get("bot_memory", {})) + end_of_narration_contract
+        prompt_messages = [SystemMessage(content=system_content)]
+        prompt_messages.extend(
+            _client_messages_to_langchain_messages(state.get("client_messages", []))
+        )
         response = llm.bind_tools([end_of_narration], parallel_tool_calls=False).invoke(prompt_messages)
         narrative = response.content
         result["narrative"] = narrative
@@ -665,7 +684,7 @@ def route_rules(state: GameState) -> Literal["Director"]:
 def build_graph(
     yare_config: Dict[str, Any],
     llm_director=None,
-    llm_npc_brain=None,
+    llm_npc=None,
     llm_narrator=None,
 ):
     """
@@ -678,7 +697,7 @@ def build_graph(
     Args:
         yare_config:   Parsed YARE configuration dict (from yare.yaml).
         llm_director:  LangChain BaseChatModel for the Director node (optional).
-        llm_npc_brain: LangChain BaseChatModel for the NPC Brain tool (optional).
+        llm_npc: LangChain BaseChatModel for the NPC Brain tool (optional).
         llm_narrator:  LangChain BaseChatModel for the Narrator node (optional).
 
     Returns:
@@ -686,8 +705,8 @@ def build_graph(
     """
     dynamic_tools = build_yare_event_tools(yare_config)
 
-    if llm_npc_brain is not None:
-        dynamic_tools = dynamic_tools + [build_npc_intent_tool(llm_npc_brain)]
+    if llm_npc is not None:
+        dynamic_tools = dynamic_tools + [build_npc_intent_tool(llm_npc)]
 
     graph = StateGraph(GameState)
 

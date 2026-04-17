@@ -12,8 +12,8 @@ MnesOS combines four concerns into a single turn pipeline:
 - `VectorLoreStore` retrieves relevant lore from `bot_lore.md`
 - the Director LLM maps player intent to YARE events
 - `YAREInterpreter` applies deterministic state changes
-- the NPC Brain (upcoming feature) and Narrator LLMs react to the resolved turn
-
+- the Director can query NPC intents via the `query_npc_intent` tool
+- the Narrator LLM reacts to the resolved turn
 The engine state is explicit. The caller passes a `GameState` into `app.invoke(...)` and receives the updated state back.
 
 ## Turn Model
@@ -30,7 +30,7 @@ Each cartridge lives under `cartridges/<name>/` and contains:
 
 - `yare.yaml`: procedural rules and state schema
 - `bot_lore.md`: markdown lore used for retrieval
-- `prompt_directives.yaml`: optional LLM directives for `director`, `npc_brain` (upcoming feature), and `narrator`
+- `prompt_directives.yaml`: optional LLM directives for `director`, `npc`, and `narrator`
 
 `prompt_directives` must not be embedded in `yare.yaml`; the loader rejects that configuration.
 

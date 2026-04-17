@@ -21,6 +21,7 @@ from MnesOS.graph import (
     get_public_state,
     narrator_node,
     NPCIntentOutput,
+    NPCPresentation,
     post_tools_node,
     pre_tools_node,
     reset_agent_messages_node,
@@ -540,8 +541,8 @@ class TestRouteDirector:
         """OCP: route_director must not inspect yare_config — routing is structural."""
         import inspect
         source = inspect.getsource(route_director)
-        assert "separate_npc_brain" not in source, (
-            "route_director reads separate_npc_brain from state, violating OCP. "
+        assert "separate_npc" not in source, (
+            "route_director reads separate_npc from state, violating OCP. "
             "Use route_director_separate for the decoupled architecture."
         )
 
@@ -820,7 +821,7 @@ class TestNarratorNodeSceneDirectiveFilter:
         state = make_state(system_notes=[], agent_messages=[])
         narrator_node(state, llm=fake_llm)
         call_arg = str(fake_llm.bind_tools.return_value.invoke.call_args)
-        assert "Director's Scene Directives:" in call_arg
+        assert "SCENE DIRECTIVES" in call_arg
 
 
 # ---------------------------------------------------------------------------
@@ -847,7 +848,7 @@ class TestBuildGraphFactory:
         ):
             assert expected in node_names, f"Missing expected node: {expected!r}"
 
-    def test_build_graph_monolithic_excludes_npc_brain(self):
+    def test_build_graph_monolithic_excludes_npc(self):
         app = build_graph(yare_config=make_state()["yare_config"])
         node_names = set(app.get_graph().nodes.keys())
         assert "NPC_Brain" not in node_names
@@ -857,7 +858,7 @@ class TestBuildGraphFactory:
         app = build_graph(
             yare_config=make_state()["yare_config"],
             llm_director=fake,
-            llm_npc_brain=fake,
+            llm_npc=fake,
             llm_narrator=fake,
         )
         assert hasattr(app, "invoke")
@@ -947,14 +948,6 @@ def _make_npc_state(**overrides):
         bot_memory={
             "player_hp": 80,
             "hidden_dagger": True,
-            "npcs": {
-                "goblin_chief": {
-                    "tags": ["goblin", "thug"],
-                },
-                "mr_xyz": {
-                    "template": "Mr_XYZ",
-                },
-            },
         },
         yare_config={
             "state_schema": {
@@ -1002,8 +995,8 @@ class TestBuildNpcIntentTool:
         tool = build_npc_intent_tool(mock_llm)
         state = _make_npc_state()
         result = tool.func(
-            npc_ids=["goblin_chief"],
-            immediate_stimulus="The player draws a sword.",
+            present_npcs=[{"id": "goblin_chief", "template": None, "tags": ["goblin", "thug"]}],
+            scene_context="The player draws a sword in the dimly lit tavern.",
             history_turns=0,
             state=state,
         )
@@ -1020,8 +1013,8 @@ class TestBuildNpcIntentTool:
         tool = build_npc_intent_tool(mock_llm)
         state = _make_npc_state()
         tool.func(
-            npc_ids=["goblin_chief"],
-            immediate_stimulus="Player enters room.",
+            present_npcs=[{"id": "goblin_chief", "template": None, "tags": ["goblin", "thug"]}],
+            scene_context="Player enters room.",
             history_turns=0,
             state=state,
         )
@@ -1034,8 +1027,8 @@ class TestBuildNpcIntentTool:
         tool = build_npc_intent_tool(mock_llm)
         state = _make_npc_state()
         tool.func(
-            npc_ids=["mr_xyz"],
-            immediate_stimulus="Player challenges authority.",
+            present_npcs=[{"id": "mr_xyz", "template": "Mr_XYZ", "tags": []}],
+            scene_context="Player challenges authority.",
             history_turns=0,
             state=state,
         )
@@ -1047,8 +1040,8 @@ class TestBuildNpcIntentTool:
         tool = build_npc_intent_tool(mock_llm)
         state = _make_npc_state()
         tool.func(
-            npc_ids=["goblin_chief"],
-            immediate_stimulus="Player taunts the NPC.",
+            present_npcs=[{"id": "goblin_chief", "template": None, "tags": ["goblin", "thug"]}],
+            scene_context="Player taunts the NPC.",
             history_turns=0,
             state=state,
         )
@@ -1062,8 +1055,8 @@ class TestBuildNpcIntentTool:
         messages = [{"role": "user", "content": f"msg{i}"} for i in range(5)]
         state = _make_npc_state(client_messages=messages)
         tool.func(
-            npc_ids=["goblin_chief"],
-            immediate_stimulus="Test.",
+            present_npcs=[{"id": "goblin_chief", "template": None, "tags": ["goblin", "thug"]}],
+            scene_context="Test.",
             history_turns=2,
             state=state,
         )
@@ -1078,8 +1071,8 @@ class TestBuildNpcIntentTool:
         messages = [{"role": "user", "content": f"msg{i}"} for i in range(15)]
         state = _make_npc_state(client_messages=messages)
         tool.func(
-            npc_ids=["goblin_chief"],
-            immediate_stimulus="Test.",
+            present_npcs=[{"id": "goblin_chief", "template": None, "tags": ["goblin", "thug"]}],
+            scene_context="Test.",
             history_turns=50,
             state=state,
         )
@@ -1092,14 +1085,27 @@ class TestBuildNpcIntentTool:
         tool = build_npc_intent_tool(mock_llm)
         state = _make_npc_state()
         tool.func(
-            npc_ids=["goblin_chief"],
-            immediate_stimulus="Test.",
+            present_npcs=[{"id": "goblin_chief", "template": None, "tags": ["goblin", "thug"]}],
+            scene_context="Test.",
             history_turns=0,
             dm_directives="Be extra menacing.",
             state=state,
         )
         invocation_args = str(mock_llm.with_structured_output.return_value.invoke.call_args)
         assert "Be extra menacing." in invocation_args
+
+    def test_scene_context_is_included_in_prompt(self):
+        mock_llm = _make_npc_fake_llm()
+        tool = build_npc_intent_tool(mock_llm)
+        state = _make_npc_state()
+        tool.func(
+            present_npcs=[{"id": "goblin_chief", "template": None, "tags": ["goblin", "thug"]}],
+            scene_context="Torches flicker. The smell of smoke fills the air.",
+            history_turns=0,
+            state=state,
+        )
+        invocation_args = str(mock_llm.with_structured_output.return_value.invoke.call_args)
+        assert "Torches flicker" in invocation_args
 
     def test_tool_is_added_to_build_graph_when_npc_llm_provided(self):
         mock_npc_llm = _make_npc_fake_llm()
@@ -1109,7 +1115,7 @@ class TestBuildNpcIntentTool:
         app = build_graph(
             yare_config=state["yare_config"],
             llm_director=mock_director_llm,
-            llm_npc_brain=mock_npc_llm,
+            llm_npc=mock_npc_llm,
         )
         app.invoke(state)
         bound_tools = mock_director_llm.bind_tools.call_args[0][0]
@@ -1134,8 +1140,8 @@ class TestBuildNpcIntentTool:
 # Attention Budget: credit scoring, filtering, and npc_intent_called
 # ---------------------------------------------------------------------------
 
-def _make_credit_scoring_state(npc_data: dict, templates: dict, engine_settings: dict = None) -> dict:
-    """Build a minimal state for credit-scoring tests."""
+def _make_credit_scoring_state(templates: dict, engine_settings: dict = None) -> dict:
+    """Build a minimal state for credit-scoring tests (NPCs are passed as DTOs, not stored in bot_memory)."""
     yare_config = {
         "state_schema": {},
         "npc_templates": templates,
@@ -1144,10 +1150,7 @@ def _make_credit_scoring_state(npc_data: dict, templates: dict, engine_settings:
     }
     if engine_settings is not None:
         yare_config["engine_settings"] = engine_settings
-    return make_state(
-        bot_memory={"npcs": npc_data},
-        yare_config=yare_config,
-    )
+    return make_state(yare_config=yare_config)
 
 
 class TestNpcCreditScoring:
@@ -1159,11 +1162,6 @@ class TestNpcCreditScoring:
         tool = build_npc_intent_tool(mock_llm)
 
         state = _make_credit_scoring_state(
-            npc_data={
-                "boss":    {"template": "boss_tmpl"},   # credit 10 — passes
-                "minion1": {"template": "minion_tmpl"},  # credit 2  — filtered
-                "minion2": {"template": "minion_tmpl"},  # credit 2  — filtered
-            },
             templates={
                 "boss_tmpl":   {"description": "The big boss.", "credit": 10},
                 "minion_tmpl": {"description": "A weak minion.", "credit": 2},
@@ -1172,8 +1170,12 @@ class TestNpcCreditScoring:
         )
 
         tool.func(
-            npc_ids=["boss", "minion1", "minion2"],
-            immediate_stimulus="Battle starts.",
+            present_npcs=[
+                {"id": "boss",    "template": "boss_tmpl",   "tags": []},
+                {"id": "minion1", "template": "minion_tmpl", "tags": []},
+                {"id": "minion2", "template": "minion_tmpl", "tags": []},
+            ],
+            scene_context="Battle starts.",
             history_turns=0,
             state=state,
         )
@@ -1189,12 +1191,6 @@ class TestNpcCreditScoring:
         tool = build_npc_intent_tool(mock_llm)
 
         state = _make_credit_scoring_state(
-            npc_data={
-                "npc_a": {"template": "high"},    # credit 10
-                "npc_b": {"template": "high"},    # credit 10
-                "npc_c": {"template": "high"},    # credit 10
-                "npc_d": {"template": "medium"},  # credit 5 — passes but should be sliced off
-            },
             templates={
                 "high":   {"description": "High credit NPC.", "credit": 10},
                 "medium": {"description": "Medium credit NPC.", "credit": 5},
@@ -1203,8 +1199,13 @@ class TestNpcCreditScoring:
         )
 
         tool.func(
-            npc_ids=["npc_a", "npc_b", "npc_c", "npc_d"],
-            immediate_stimulus="Big fight.",
+            present_npcs=[
+                {"id": "npc_a", "template": "high",   "tags": []},
+                {"id": "npc_b", "template": "high",   "tags": []},
+                {"id": "npc_c", "template": "high",   "tags": []},
+                {"id": "npc_d", "template": "medium", "tags": []},
+            ],
+            scene_context="Big fight.",
             history_turns=0,
             state=state,
         )
@@ -1222,10 +1223,6 @@ class TestNpcCreditScoring:
         tool = build_npc_intent_tool(mock_llm)
 
         state = _make_credit_scoring_state(
-            npc_data={
-                "combo_npc": {"tags": ["tag_a", "tag_b"]},  # 3 + 3 = 6 — passes threshold 5
-                "single_npc": {"tags": ["tag_a"]},          # 3      — filtered
-            },
             templates={
                 "tag_a": {"description": "Tag A description.", "credit": 3},
                 "tag_b": {"description": "Tag B description.", "credit": 3},
@@ -1234,8 +1231,11 @@ class TestNpcCreditScoring:
         )
 
         tool.func(
-            npc_ids=["combo_npc", "single_npc"],
-            immediate_stimulus="Encounter begins.",
+            present_npcs=[
+                {"id": "combo_npc",  "template": None, "tags": ["tag_a", "tag_b"]},  # 3+3=6 passes
+                {"id": "single_npc", "template": None, "tags": ["tag_a"]},            # 3 — filtered
+            ],
+            scene_context="Encounter begins.",
             history_turns=0,
             state=state,
         )
@@ -1249,12 +1249,7 @@ class TestNpcCreditScoring:
         mock_llm = _make_npc_fake_llm()
         tool = build_npc_intent_tool(mock_llm)
 
-        # No engine_settings block — defaults threshold=5, max=3
         state = _make_credit_scoring_state(
-            npc_data={
-                "hero_npc": {"template": "hero_tmpl"},     # credit 8 — passes
-                "weak_npc": {"template": "weak_tmpl"},     # credit 1 — filtered
-            },
             templates={
                 "hero_tmpl": {"description": "A hero NPC.", "credit": 8},
                 "weak_tmpl": {"description": "A weak NPC.", "credit": 1},
@@ -1262,8 +1257,11 @@ class TestNpcCreditScoring:
         )
 
         tool.func(
-            npc_ids=["hero_npc", "weak_npc"],
-            immediate_stimulus="Test defaults.",
+            present_npcs=[
+                {"id": "hero_npc", "template": "hero_tmpl", "tags": []},
+                {"id": "weak_npc", "template": "weak_tmpl", "tags": []},
+            ],
+            scene_context="Test defaults.",
             history_turns=0,
             state=state,
         )
@@ -1298,14 +1296,13 @@ class TestNpcIntentCalledFlag:
         tool = build_npc_intent_tool(mock_llm)
 
         state = _make_credit_scoring_state(
-            npc_data={"boss": {"template": "boss_tmpl"}},
             templates={"boss_tmpl": {"description": "The boss.", "credit": 10}},
             engine_settings={"npc_min_credit_threshold": 5, "max_batched_npcs": 3},
         )
 
         result = tool.func(
-            npc_ids=["boss"],
-            immediate_stimulus="Fight!",
+            present_npcs=[{"id": "boss", "template": "boss_tmpl", "tags": []}],
+            scene_context="Fight!",
             history_turns=0,
             state=state,
         )
@@ -1320,14 +1317,13 @@ class TestNpcIntentCalledFlag:
         tool = build_npc_intent_tool(mock_llm)
 
         state = _make_credit_scoring_state(
-            npc_data={"weak": {"template": "weak_tmpl"}},
             templates={"weak_tmpl": {"description": "Very weak.", "credit": 1}},
             engine_settings={"npc_min_credit_threshold": 5, "max_batched_npcs": 3},
         )
 
         result = tool.func(
-            npc_ids=["weak"],
-            immediate_stimulus="Fight!",
+            present_npcs=[{"id": "weak", "template": "weak_tmpl", "tags": []}],
+            scene_context="Fight!",
             history_turns=0,
             state=state,
         )

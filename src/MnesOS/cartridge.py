@@ -9,7 +9,7 @@ A cartridge directory must contain:
 Scrutiny layers applied at load time:
 
   prompt_directives.yaml
-    - Only keys "director", "narrator", "npc_brain" are allowed.
+    - Only keys "director", "narrator", "npc" are allowed.
     - Each value must be a plain string within MAX_DIRECTIVE_LEN chars.
     - Combined total must not exceed MAX_TOTAL_DIRECTIVE_LEN chars.
     - Injection-pattern blocklist is applied to every directive.
@@ -39,12 +39,14 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-ALLOWED_DIRECTIVE_KEYS: Set[str] = {"director", "narrator", "npc_brain"}
+ALLOWED_DIRECTIVE_KEYS: Set[str] = {"director", "narrator", "npc"}
 
 MAX_DIRECTIVE_LEN = 1024 * 1024        # chars — single directive (1MB)
 MAX_TOTAL_DIRECTIVE_LEN = 2 * 1024 * 1024  # chars — all directives combined (2MB)
 MAX_NOTE_MSG_LEN = 300          # chars — single note.message
 MAX_MACRO_LEN = 200             # chars — single macro expression
+MAX_CONTAINER_SIZE = 100        # max items in a list or keys in a dict
+MAX_DICT_DEPTH = 3              # max nesting depth for dict fields
 
 RESERVED_NAMES: Set[str] = {"state", "temp", "inputs", "macros", "config"}
 
@@ -157,21 +159,61 @@ def _validate_prompt_directives(raw: Any) -> Dict[str, str]:
 # Validators — yare.yaml
 # ---------------------------------------------------------------------------
 
+def _compute_dict_depth(d: Any) -> int:
+    """Return the nesting depth of a dict.
+
+    Returns 1 for a flat dict, 2 for one level of nesting, etc.
+    Non-dict values do not contribute a level.
+    """
+    if not isinstance(d, dict) or not d:
+        return 0
+    return 1 + max(_compute_dict_depth(v) for v in d.values())
+
+
+def _validate_container_default(spec: Dict[str, Any], loc: str) -> None:
+    """Enforce MAX_CONTAINER_SIZE and MAX_DICT_DEPTH on a schema field's default value."""
+    field_type = spec.get("type")
+    default = spec.get("default")
+    if default is None:
+        return
+    if field_type == "list":
+        if isinstance(default, list) and len(default) > MAX_CONTAINER_SIZE:
+            raise ValueError(
+                f"{loc}: default list length {len(default)} exceeds "
+                f"MAX_CONTAINER_SIZE ({MAX_CONTAINER_SIZE})."
+            )
+    elif field_type == "dict":
+        if isinstance(default, dict):
+            if len(default) > MAX_CONTAINER_SIZE:
+                raise ValueError(
+                    f"{loc}: default dict size {len(default)} exceeds "
+                    f"MAX_CONTAINER_SIZE ({MAX_CONTAINER_SIZE})."
+                )
+            if _compute_dict_depth(default) > MAX_DICT_DEPTH:
+                raise ValueError(
+                    f"{loc}: default dict depth exceeds MAX_DICT_DEPTH ({MAX_DICT_DEPTH})."
+                )
+
+
 def _validate_state_schema(schema: Dict[str, Any]) -> None:
-    """Block reserved names in state_schema domains and field names."""
+    """Block reserved names in state_schema domains and field names; enforce container limits."""
     for domain, fields in schema.items():
         if domain in RESERVED_NAMES:
             raise ValueError(
                 f"state_schema domain {domain!r} clashes with a reserved name."
             )
         if not isinstance(fields, dict) or "type" in fields:
+            if isinstance(fields, dict):
+                _validate_container_default(fields, f"state_schema.{domain}")
             continue
-        for field_name in fields:
+        for field_name, field_spec in fields.items():
             if field_name in RESERVED_NAMES:
                 raise ValueError(
                     f"state_schema field {domain}.{field_name!r} clashes with "
                     f"a reserved name."
                 )
+            if isinstance(field_spec, dict):
+                _validate_container_default(field_spec, f"state_schema.{domain}.{field_name}")
 
 
 def _validate_macros(macros: Dict[str, Any]) -> None:
@@ -188,6 +230,68 @@ def _validate_macros(macros: Dict[str, Any]) -> None:
             )
 
 
+# ---------------------------------------------------------------------------
+# Step-level validators (Single Responsibility handlers)
+# ---------------------------------------------------------------------------
+
+def _validate_note_step(step: Dict[str, Any], loc: str) -> None:
+    """Validate a note action: length cap and injection check."""
+    msg = step.get("message", "")
+    if not isinstance(msg, str):
+        raise ValueError(f"{loc}.message must be a string.")
+    if len(msg) > MAX_NOTE_MSG_LEN:
+        raise ValueError(
+            f"{loc}.message exceeds max length "
+            f"({len(msg)} > {MAX_NOTE_MSG_LEN} chars)."
+        )
+    _check_injection(msg, f"{loc}.message")
+
+
+def _validate_call_step(step: Dict[str, Any], loc: str, declared_events: Set[str]) -> None:
+    """Validate a call action: referenced event must be declared."""
+    called = step.get("event")
+    if called not in declared_events:
+        raise ValueError(
+            f"{loc} calls undefined event {called!r}. "
+            f"Declared events: {declared_events}"
+        )
+
+
+def _validate_var_step(step: Dict[str, Any], loc: str) -> None:
+    """Validate that a static var path is rooted at state.* or temp.*."""
+    var = step.get("var", "")
+    if isinstance(var, str) and not var.startswith("@"):
+        root = var.split(".")[0]
+        if root not in ("state", "temp"):
+            raise ValueError(
+                f"{loc}.var {var!r} must start with 'state.' or 'temp.'."
+            )
+
+
+def _validate_list_push_step(step: Dict[str, Any], loc: str) -> None:
+    """Validate a list_push action: var path must be rooted at state.* or temp.*."""
+    _validate_var_step(step, loc)
+
+
+def _validate_list_remove_step(step: Dict[str, Any], loc: str) -> None:
+    """Validate a list_remove action: var path and presence of index or value."""
+    _validate_var_step(step, loc)
+    if "index" not in step and "value" not in step:
+        raise ValueError(
+            f"{loc}: list_remove must specify either 'index' or 'value'."
+        )
+
+
+def _validate_dict_set_step(step: Dict[str, Any], loc: str) -> None:
+    """Validate a dict_set action: var path must be rooted at state.* or temp.*."""
+    _validate_var_step(step, loc)
+
+
+def _validate_dict_delete_step(step: Dict[str, Any], loc: str) -> None:
+    """Validate a dict_delete action: var path must be rooted at state.* or temp.*."""
+    _validate_var_step(step, loc)
+
+
 def _validate_steps(
     steps: List[Any],
     event_name: str,
@@ -200,39 +304,21 @@ def _validate_steps(
         loc = f"events.{event_name}.steps[{i}]"
         action = step.get("action")
 
-        # note.message — injection check + length cap
         if action == "note":
-            msg = step.get("message", "")
-            if not isinstance(msg, str):
-                raise ValueError(f"{loc}.message must be a string.")
-            if len(msg) > MAX_NOTE_MSG_LEN:
-                raise ValueError(
-                    f"{loc}.message exceeds max length "
-                    f"({len(msg)} > {MAX_NOTE_MSG_LEN} chars)."
-                )
-            _check_injection(msg, f"{loc}.message")
-
-        # call.event — must reference a declared event
-        if action == "call":
-            called = step.get("event")
-            if called not in declared_events:
-                raise ValueError(
-                    f"{loc} calls undefined event {called!r}. "
-                    f"Declared events: {declared_events}"
-                )
-
-        # static var paths must be rooted at state.* or temp.*
-        if action in ("set", "mutate"):
-            var = step.get("var", "")
-            if isinstance(var, str) and not var.startswith("@"):
-                root = var.split(".")[0]
-                if root not in ("state", "temp"):
-                    raise ValueError(
-                        f"{loc}.var {var!r} must start with 'state.' or 'temp.'."
-                    )
-
-        # recurse into branch conditions
-        if action == "branch":
+            _validate_note_step(step, loc)
+        elif action == "call":
+            _validate_call_step(step, loc, declared_events)
+        elif action in ("set", "mutate"):
+            _validate_var_step(step, loc)
+        elif action == "list_push":
+            _validate_list_push_step(step, loc)
+        elif action == "list_remove":
+            _validate_list_remove_step(step, loc)
+        elif action == "dict_set":
+            _validate_dict_set_step(step, loc)
+        elif action == "dict_delete":
+            _validate_dict_delete_step(step, loc)
+        elif action == "branch":
             for cond in step.get("conditions", []):
                 _validate_steps(cond.get("steps", []), event_name, declared_events)
 
@@ -280,13 +366,13 @@ def _validate_yare(config: Dict[str, Any]) -> None:
             "not in yare.yaml. Keep yare.yaml purely procedural."
         )
     
-    # Validate separate_npc_brain flag (optional, defaults to False)
-    if "separate_npc_brain" in config:
-        separate_npc_brain = config["separate_npc_brain"]
-        if not isinstance(separate_npc_brain, bool):
+    # Validate separate_npc flag (optional, defaults to False)
+    if "separate_npc" in config:
+        separate_npc = config["separate_npc"]
+        if not isinstance(separate_npc, bool):
             raise ValueError(
-                "separate_npc_brain must be a boolean (true or false), "
-                f"got {type(separate_npc_brain).__name__}."
+                "separate_npc must be a boolean (true or false), "
+                f"got {type(separate_npc).__name__}."
             )
 
     # Validate npc_templates (optional)

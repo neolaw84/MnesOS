@@ -44,7 +44,7 @@ class Orchestrator:
         orch = Orchestrator(
             cartridge_dir="cartridges/generic-rpg",
             llm_director=llm,
-            llm_npc_brain=ChatOpenAI(model="gpt-4o-mini", temperature=0.5),
+            llm_npc=ChatOpenAI(model="gpt-4o-mini", temperature=0.5),
             llm_narrator=ChatOpenAI(model="gpt-4o-mini", temperature=0.8),
         )
 
@@ -59,7 +59,7 @@ class Orchestrator:
         self,
         cartridge_dir: str,
         llm_director=None,
-        llm_npc_brain=None,
+        llm_npc=None,
         llm_narrator=None,
     ) -> None:
         """
@@ -70,23 +70,23 @@ class Orchestrator:
                            yare.yaml, bot_lore.md, and optionally
                            prompt_directives.yaml.
             llm_director:  LangChain BaseChatModel for the Director node.
-            llm_npc_brain: LangChain BaseChatModel for the NPC Brain node.
+            llm_npc: LangChain BaseChatModel for the NPC Brain node.
             llm_narrator:  LangChain BaseChatModel for the Narrator node.
         """
         loader = CartridgeLoader()
         self._cartridge: LoadedCartridge = loader.load(cartridge_dir)
         logger.info("Cartridge loaded from %r", cartridge_dir)
 
-        # Check for separate_npc_brain feature flag
-        if self._cartridge.yare_config.get("separate_npc_brain", False):
+        # Check for separate_npc feature flag
+        if self._cartridge.yare_config.get("separate_npc", False):
             raise NotImplementedError(
-                "separate_npc_brain=True is not yet implemented. "
+                "separate_npc=True is not yet implemented. "
                 "This feature is planned for a future release. "
                 "See docs/feature_roadmap.md for details. "
-                "To use the orchestrator, set separate_npc_brain=False or omit it."
+                "To use the orchestrator, set separate_npc=False or omit it."
             )
 
-        self._app = self._compile_graph(llm_director, llm_npc_brain, llm_narrator)
+        self._app = self._compile_graph(llm_director, llm_npc, llm_narrator)
         logger.info("Graph compiled. Nodes: %s", list(self._app.get_graph().nodes.keys()))
 
         self._state: GameState = self._build_initial_state()
@@ -174,12 +174,12 @@ class Orchestrator:
             "turn_phase": "",
         }
 
-    def _compile_graph(self, llm_director, llm_npc_brain, llm_narrator):
+    def _compile_graph(self, llm_director, llm_npc, llm_narrator):
         """Delegate graph compilation to the build_graph factory in graph.py."""
         return build_graph(
             yare_config=self._cartridge.yare_config,
             llm_director=llm_director,
-            llm_npc_brain=llm_npc_brain,
+            llm_npc=llm_npc,
             llm_narrator=llm_narrator,
         )
 

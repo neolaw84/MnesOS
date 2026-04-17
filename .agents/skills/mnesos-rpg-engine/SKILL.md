@@ -15,7 +15,7 @@ This skill enables you to work with the MnesOS Agentic Role Play Game (RPG) Engi
 
 *   **Stateless Core:** The core gameplay loop is in `src/MnesOS/graph.py`. It is designed to be stateless and static.
 *   **Game Cartridges:** All game-specific content is stored in "cartridges" located in the `cartridges/` directory. Each cartridge is a self-contained game.
-*   **Deterministic Limits:** The engine allows a maximum of 3 iterations per turn phase (`MAX_ITERATIONS = 3`), and LLMs do not invoke parallel tool calls. Keep complex procedural steps encapsulated via `call` steps inside `yare.yaml` events rather than assuming the LLM can make multiple sequential tool calls.
+*   **Deterministic Limits**: The engine allows a maximum of 3 tool calls per turn (`MAX_ITERATIONS = 3`), and LLMs do not invoke parallel tool calls. Keep complex procedural steps encapsulated via `call` steps inside `yare.yaml` events rather than assuming the LLM can resolve the turn through excessive tool-call recursion.
 
 ## Cartridge Structure
 
