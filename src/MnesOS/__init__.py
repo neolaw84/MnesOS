@@ -10,7 +10,7 @@ __email__ = "neolaw@gmail.com"
 
 from .cartridge import CartridgeLoader, LoadedCartridge
 from .context import VectorLoreStore
-from .graph import GameState, workflow
+from .graph import GameState, build_graph
 from .interpreter import YAREInterpreter
 from .orchestrator import Orchestrator
 from .prompts import DIRECTOR_SYSTEM_PROMPT, NARRATOR_SYSTEM_PROMPT, NPC_SYSTEM_PROMPT
@@ -20,7 +20,7 @@ __all__ = [
     "LoadedCartridge",
     "VectorLoreStore",
     "GameState",
-    "workflow",
+    "build_graph",
     "YAREInterpreter",
     "Orchestrator",
     "DIRECTOR_SYSTEM_PROMPT",

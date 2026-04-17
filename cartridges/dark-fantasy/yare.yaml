@@ -1,0 +1,62 @@
+version: "1.0"
+
+state_schema:
+  player:
+    hp: { type: int, default: 100, min: 0, max: 100, visibility: public }
+    corruption: { type: int, default: 0, min: 0, max: 100, visibility: public }
+    gold: { type: int, default: 10, min: 0, visibility: public }
+  game_time:
+    now: { type: string, default: "1199-01-01T00:00:00" }
+
+macros:
+  attack_roll: "@ roll(1d20) + 2"
+  damage_roll: "@ roll(1d8) + 1"
+
+events:
+  combat_strike:
+    inputs: 
+      attacker: { type: string, default: "player", enum: ["player", "npc"] }
+    steps:
+      - action: branch
+        conditions:
+          - if: "@ inputs.attacker == 'player'"
+            steps:
+              - action: set
+                var: temp.roll
+                value: "@ macros.attack_roll"
+              - action: branch
+                conditions:
+                  - if: "@ temp.roll >= 10"
+                    steps:
+                      - action: set
+                        var: temp.damage
+                        value: "@ macros.damage_roll"
+                      - action: note
+                        message: "Player strikes effectively with their trick weapon! Rolled {temp.roll}. Deals {temp.damage} damage to the beast!"
+                  - else: True
+                    steps:
+                      - action: note
+                        message: "Player swings wildly and misses! Rolled {temp.roll}."
+          - else: True
+            steps:
+              - action: note
+                message: "A monstrosity lunges from the shadows!"
+              - action: mutate
+                var: state.player.hp
+                op: sub
+                value: "@ macros.damage_roll"
+              - action: mutate
+                var: state.player.corruption
+                op: add
+                value: 2
+              - action: note
+                message: "Player takes damage and corruption rises. HP is now {state.player.hp}. Corruption is {state.player.corruption}."
+
+  pray_at_shrine:
+    steps:
+      - action: mutate
+        var: state.player.corruption
+        op: sub
+        value: 10
+      - action: note
+        message: "Player prays at a bleak ruined shrine. Corruption falls to {state.player.corruption}."
