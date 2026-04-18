@@ -222,9 +222,7 @@ class TestSQLite3PhysicalComponentIsConcreteImplementation:
     def test_initialize_creates_tables(self):
         s = SQLite3PhysicalComponent(":memory:")
         s.initialize()
-        # Verify all six tables exist via sqlite_master
-        conn = sqlite3.connect(":memory:")  # different conn; test via store's own conn
-        # We access the store's internal connection to inspect schema
+        # Verify all six tables exist via the store's own connection
         table_names = s._get_table_names()
         expected = {
             "user_accounts",
