@@ -121,11 +121,10 @@ def _extract_persona_tokens(persona: Optional[Any]) -> Dict[str, str]:
     if persona is None:
         return {}
 
-    if isinstance(persona, Mapping):
-        source: Mapping[str, Any] = persona
-        getter = lambda key: source.get(key, "")
-    else:
-        getter = lambda key: getattr(persona, key, "")
+    def getter(key: str) -> Any:
+        if isinstance(persona, Mapping):
+            return persona.get(key)
+        return getattr(persona, key, None)
 
     return {
         "user": str(getter("name") or ""),

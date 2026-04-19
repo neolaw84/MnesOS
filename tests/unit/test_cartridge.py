@@ -404,7 +404,7 @@ class TestCartridgeLoader:
         (tmp_path / "prompt_directives.yaml").write_text(
             yaml.dump(
                 {
-                    "director": "Track {{user}} by {{sub}} instincts.",
+                    "director": "Track {{user}} by {{poss}} instincts.",
                     "narrator": "Address the player as you, use {{poss}} history as context.",
                     "npc": "Respect {{obj}} choices and {{poss_obj}} will.",
                 }
@@ -427,7 +427,7 @@ class TestCartridgeLoader:
         assert "{{poss}}" not in merged_text
         assert "{{poss_obj}}" not in merged_text
         assert "Aria approaches the Aria's destiny" in cartridge.lore_content
-        assert "she instincts" in cartridge.prompt_directives["director"]
+        assert "her instincts" in cartridge.prompt_directives["director"]
 
 
 class TestPersonaMacroCompiler:

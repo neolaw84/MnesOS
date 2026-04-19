@@ -3,9 +3,10 @@ from typing import Dict
 
 def build_persona_background_context(persona_context: Dict[str, str]) -> str:
     """Build non-POV-overriding persona context for Director and Narrator prompts."""
-    appearance = (persona_context or {}).get("appearance", "").strip()
-    background = (persona_context or {}).get("background", "").strip()
-    personality = (persona_context or {}).get("personality", "").strip()
+    context = persona_context or {}
+    appearance = context.get("appearance", "").strip()
+    background = context.get("background", "").strip()
+    personality = context.get("personality", "").strip()
 
     if not (appearance or background or personality):
         return ""

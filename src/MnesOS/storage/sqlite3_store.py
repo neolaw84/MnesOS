@@ -205,6 +205,30 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
         ).fetchall()
         return {row["name"] for row in rows}
 
+    def _get_personas_column_names(self) -> Set[str]:
+        conn = self._get_conn()
+        rows = conn.execute("PRAGMA table_info(personas)").fetchall()
+        return {row["name"] for row in rows}
+
+    def _migrate_personas_table(self) -> None:
+        """
+        Apply additive, backward-compatible migrations for legacy ``personas`` schema.
+
+        Older databases may still have the prior ``lore``-centric table definition.
+        We preserve existing data and add newly required columns if missing.
+        """
+        conn = self._get_conn()
+        columns = self._get_personas_column_names()
+        missing_column_ddls = {
+            "appearance": "ALTER TABLE personas ADD COLUMN appearance TEXT NOT NULL DEFAULT ''",
+            "background": "ALTER TABLE personas ADD COLUMN background TEXT NOT NULL DEFAULT ''",
+            "personality": "ALTER TABLE personas ADD COLUMN personality TEXT NOT NULL DEFAULT ''",
+        }
+        with conn:
+            for column, ddl in missing_column_ddls.items():
+                if column not in columns:
+                    conn.execute(ddl)
+
     @staticmethod
     def _new_id() -> str:
         return str(uuid.uuid4())
@@ -226,6 +250,7 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
         conn = self._get_conn()
         conn.executescript(_DDL)
         conn.executescript(_INDEXES)
+        self._migrate_personas_table()
 
     # ------------------------------------------------------------------
     # UserAccount

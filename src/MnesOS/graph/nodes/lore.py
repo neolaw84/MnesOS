@@ -1,13 +1,20 @@
 from ..state import GameState
 from ...context import VectorLoreStore
 
+
+def _build_lore_store(state: GameState) -> VectorLoreStore:
+    lore_content = state.get("lore_content")
+    if lore_content:
+        return VectorLoreStore(lore_content)
+    return VectorLoreStore.from_file(state["lore_path"])
+
+
 def context_retrieval_node(state: GameState) -> dict:
     """
     1. Lore Node: Executes FIRST. Grabs the Vector RAG context
     based on the user's input, current location, active NPCs, and items.
     """
-    lore_content = state.get("lore_content", "")
-    store = VectorLoreStore(lore_content) if lore_content else VectorLoreStore.from_file(state["lore_path"])
+    store = _build_lore_store(state)
     content = state['client_messages'][-1].get('content', '')
 
     query_parts = [content]
