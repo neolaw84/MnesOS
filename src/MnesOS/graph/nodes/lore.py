@@ -6,7 +6,8 @@ def context_retrieval_node(state: GameState) -> dict:
     1. Lore Node: Executes FIRST. Grabs the Vector RAG context
     based on the user's input, current location, active NPCs, and items.
     """
-    store = VectorLoreStore.from_file(state["lore_path"])
+    lore_content = state.get("lore_content", "")
+    store = VectorLoreStore(lore_content) if lore_content else VectorLoreStore.from_file(state["lore_path"])
     content = state['client_messages'][-1].get('content', '')
 
     query_parts = [content]

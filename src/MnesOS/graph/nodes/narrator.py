@@ -4,6 +4,7 @@ from langchain_core.messages import SystemMessage, AIMessage
 from ..state import GameState, get_public_state
 from ..utils.messages import _client_messages_to_langchain_messages
 from ..utils.time import _format_game_time_context
+from ..utils.persona import build_persona_background_context
 from ...prompts import NARRATOR_SYSTEM_PROMPT
 
 def narrator_node(state: GameState, *, llm=None) -> dict:
@@ -28,7 +29,12 @@ def narrator_node(state: GameState, *, llm=None) -> dict:
             scene_directives=scene_directives,
             cartridge_directives=c_directives,
         )
-        system_content = formatted_prompt + _format_game_time_context(state.get("bot_memory", {}))
+        persona_background = build_persona_background_context(state.get("persona_context", {}))
+        system_content = (
+            formatted_prompt
+            + persona_background
+            + _format_game_time_context(state.get("bot_memory", {}))
+        )
         prompt_messages = [SystemMessage(content=system_content)]
         prompt_messages.extend(
             _client_messages_to_langchain_messages(state.get("client_messages", []))

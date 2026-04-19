@@ -81,11 +81,13 @@ CREATE TABLE IF NOT EXISTS personas (
     id               TEXT PRIMARY KEY,
     user_id          TEXT NOT NULL REFERENCES user_accounts(id),
     name             TEXT NOT NULL,
-    lore             TEXT NOT NULL DEFAULT '',
     pronoun_sub      TEXT NOT NULL,
     pronoun_obj      TEXT NOT NULL,
     pronoun_poss     TEXT NOT NULL,
     pronoun_poss_obj TEXT NOT NULL,
+    appearance       TEXT NOT NULL DEFAULT '',
+    background       TEXT NOT NULL DEFAULT '',
+    personality      TEXT NOT NULL DEFAULT '',
     created_at       TEXT NOT NULL
 );
 
@@ -302,19 +304,22 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
             conn.execute(
                 """
                 INSERT INTO personas
-                    (id, user_id, name, lore, pronoun_sub, pronoun_obj,
-                     pronoun_poss, pronoun_poss_obj, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (id, user_id, name, pronoun_sub, pronoun_obj,
+                     pronoun_poss, pronoun_poss_obj, appearance,
+                     background, personality, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     persona.id,
                     persona.user_id,
                     persona.name,
-                    persona.lore,
                     persona.pronoun_sub,
                     persona.pronoun_obj,
                     persona.pronoun_poss,
                     persona.pronoun_poss_obj,
+                    persona.appearance,
+                    persona.background,
+                    persona.personality,
                     _ts_to_str(persona.created_at),
                 ),
             )
@@ -330,11 +335,13 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
             id=row["id"],
             user_id=row["user_id"],
             name=row["name"],
-            lore=row["lore"],
             pronoun_sub=row["pronoun_sub"],
             pronoun_obj=row["pronoun_obj"],
             pronoun_poss=row["pronoun_poss"],
             pronoun_poss_obj=row["pronoun_poss_obj"],
+            appearance=row["appearance"],
+            background=row["background"],
+            personality=row["personality"],
             created_at=_str_to_ts(row["created_at"]),
         )
 
@@ -344,18 +351,21 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
             conn.execute(
                 """
                 UPDATE personas
-                SET user_id=?, name=?, lore=?, pronoun_sub=?, pronoun_obj=?,
-                    pronoun_poss=?, pronoun_poss_obj=?
+                SET user_id=?, name=?, pronoun_sub=?, pronoun_obj=?,
+                    pronoun_poss=?, pronoun_poss_obj=?, appearance=?,
+                    background=?, personality=?
                 WHERE id=?
                 """,
                 (
                     persona.user_id,
                     persona.name,
-                    persona.lore,
                     persona.pronoun_sub,
                     persona.pronoun_obj,
                     persona.pronoun_poss,
                     persona.pronoun_poss_obj,
+                    persona.appearance,
+                    persona.background,
+                    persona.personality,
                     persona.id,
                 ),
             )
@@ -561,11 +571,13 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                 p.id             AS p_id,
                 p.user_id        AS p_user_id,
                 p.name           AS p_name,
-                p.lore           AS p_lore,
                 p.pronoun_sub    AS p_pronoun_sub,
                 p.pronoun_obj    AS p_pronoun_obj,
                 p.pronoun_poss   AS p_pronoun_poss,
                 p.pronoun_poss_obj AS p_pronoun_poss_obj,
+                p.appearance     AS p_appearance,
+                p.background     AS p_background,
+                p.personality    AS p_personality,
                 p.created_at     AS p_created_at,
 
                 cv.id            AS cv_id,
@@ -601,11 +613,13 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
             id=row["p_id"],
             user_id=row["p_user_id"],
             name=row["p_name"],
-            lore=row["p_lore"],
             pronoun_sub=row["p_pronoun_sub"],
             pronoun_obj=row["p_pronoun_obj"],
             pronoun_poss=row["p_pronoun_poss"],
             pronoun_poss_obj=row["p_pronoun_poss_obj"],
+            appearance=row["p_appearance"],
+            background=row["p_background"],
+            personality=row["p_personality"],
             created_at=_str_to_ts(row["p_created_at"]),
         )
         cartridge_version = CartridgeVersion(

@@ -38,6 +38,8 @@ class TestOrchestratorInit:
             "yare_config",
             "prompt_directives",
             "lore_path",
+            "lore_content",
+            "persona_context",
             "system_notes",
             "retrieved_lore",
             "iteration_count",

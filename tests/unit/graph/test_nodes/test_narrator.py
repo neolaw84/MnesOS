@@ -75,6 +75,23 @@ class TestNarratorNodeWithLLM:
         assert "state.game_time" in call_arg
         assert "2026-04-10T08:00:00+00:00" in call_arg
 
+    def test_persona_background_context_is_injected_into_narrator_prompt(self):
+        fake_llm = MagicMock()
+        fake_llm.invoke.return_value = AIMessage(content="Story text.", tool_calls=[])
+        state = make_state(
+            persona_context={
+                "appearance": "Amber eyes and travel-stained armor.",
+                "background": "Raised by river merchants.",
+                "personality": "Impulsive but loyal.",
+            }
+        )
+        narrator_node(state, llm=fake_llm)
+        call_arg = str(fake_llm.invoke.call_args)
+        assert "Amber eyes and travel-stained armor." in call_arg
+        assert "Raised by river merchants." in call_arg
+        assert "Impulsive but loyal." in call_arg
+        assert "Keep second-person address" in call_arg
+
 class TestNarratorNodeSceneDirectiveFilter:
     """Tests that narrator_node strictly isolates the Director's Scene Directive
     and hides system_notes and raw tool traces from the Narrator."""

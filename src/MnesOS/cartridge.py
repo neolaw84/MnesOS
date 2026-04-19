@@ -29,7 +29,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Mapping, Optional, Set
 
 import yaml
 
@@ -79,6 +79,8 @@ class LoadedCartridge:
     yare_config: Dict[str, Any]
     prompt_directives: Dict[str, str]
     lore_path: str
+    lore_content: str
+    persona_context: Dict[str, str] = field(default_factory=dict)
     initial_state: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -112,6 +114,47 @@ def _build_initial_state(state_schema: Dict[str, Any]) -> Dict[str, Any]:
                 if isinstance(v, dict)
             }
     return state
+
+
+def _extract_persona_tokens(persona: Optional[Any]) -> Dict[str, str]:
+    """Extract canonical persona tokens used for macro compilation and prompt context."""
+    if persona is None:
+        return {}
+
+    if isinstance(persona, Mapping):
+        source: Mapping[str, Any] = persona
+        getter = lambda key: source.get(key, "")
+    else:
+        getter = lambda key: getattr(persona, key, "")
+
+    return {
+        "user": str(getter("name") or ""),
+        "sub": str(getter("pronoun_sub") or ""),
+        "obj": str(getter("pronoun_obj") or ""),
+        "poss": str(getter("pronoun_poss") or ""),
+        "poss_obj": str(getter("pronoun_poss_obj") or ""),
+        "appearance": str(getter("appearance") or ""),
+        "background": str(getter("background") or ""),
+        "personality": str(getter("personality") or ""),
+    }
+
+
+def _compile_persona_macros(text: str, persona_tokens: Dict[str, str]) -> str:
+    """Deterministically replace standard persona macros in text."""
+    if not text or not persona_tokens:
+        return text
+
+    compiled = text
+    macro_map = {
+        "{{user}}": persona_tokens.get("user", ""),
+        "{{sub}}": persona_tokens.get("sub", ""),
+        "{{obj}}": persona_tokens.get("obj", ""),
+        "{{poss}}": persona_tokens.get("poss", ""),
+        "{{poss_obj}}": persona_tokens.get("poss_obj", ""),
+    }
+    for macro, replacement in macro_map.items():
+        compiled = compiled.replace(macro, replacement)
+    return compiled
 
 
 # ---------------------------------------------------------------------------
@@ -407,8 +450,9 @@ class CartridgeLoader:
         }
     """
 
-    def load(self, cartridge_dir: str) -> LoadedCartridge:
+    def load(self, cartridge_dir: str, persona: Optional[Any] = None) -> LoadedCartridge:
         base = Path(cartridge_dir)
+        persona_tokens = _extract_persona_tokens(persona)
 
         # ── yare.yaml ─────────────────────────────────────────────────────
         yare_path = base / "yare.yaml"
@@ -425,6 +469,10 @@ class CartridgeLoader:
             with directives_path.open() as f:
                 raw_directives = yaml.safe_load(f) or {}
             prompt_directives = _validate_prompt_directives(raw_directives)
+            prompt_directives = {
+                key: _compile_persona_macros(value, persona_tokens)
+                for key, value in prompt_directives.items()
+            }
             logger.info(
                 "prompt_directives.yaml validated for cartridge %r "
                 "(keys: %s)",
@@ -442,6 +490,9 @@ class CartridgeLoader:
         lore_path = base / "bot_lore.md"
         if not lore_path.exists():
             raise FileNotFoundError(f"bot_lore.md not found in {cartridge_dir!r}")
+        lore_content = _compile_persona_macros(
+            lore_path.read_text(encoding="utf-8"), persona_tokens
+        )
 
         # ── derive initial state from schema defaults ─────────────────────
         initial_state = _build_initial_state(yare_config.get("state_schema", {}))
@@ -450,5 +501,11 @@ class CartridgeLoader:
             yare_config=yare_config,
             prompt_directives=prompt_directives,
             lore_path=str(lore_path),
+            lore_content=lore_content,
+            persona_context={
+                "appearance": persona_tokens.get("appearance", ""),
+                "background": persona_tokens.get("background", ""),
+                "personality": persona_tokens.get("personality", ""),
+            },
             initial_state=initial_state,
         )

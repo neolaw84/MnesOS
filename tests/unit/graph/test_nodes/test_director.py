@@ -104,3 +104,20 @@ class TestDirectorNodeWithLLM:
         system_content = fake_llm.bind_tools.return_value.invoke.call_args[0][0][0].content
         assert "state.game_time" in system_content
         assert "2026-04-10T08:00:00+00:00" in system_content
+
+    def test_persona_background_context_is_injected_into_director_prompt(self):
+        fake_llm = MagicMock()
+        fake_llm.invoke.return_value = AIMessage(content="", tool_calls=[])
+        state = make_state(
+            persona_context={
+                "appearance": "Scarred face and silver cloak.",
+                "background": "Former royal scout.",
+                "personality": "Cautious but empathetic.",
+            }
+        )
+        director_node(state, llm=fake_llm)
+        system_content = fake_llm.bind_tools.return_value.invoke.call_args[0][0][0].content
+        assert "Scarred face and silver cloak." in system_content
+        assert "Former royal scout." in system_content
+        assert "Cautious but empathetic." in system_content
+        assert "Keep second-person address" in system_content
