@@ -68,7 +68,8 @@ class UserAccount:
 class Persona:
     """
     A player's in-game identity, including pronoun tokens for template
-    substitution (``{{user}}``, ``{{sub}}``, ``{{obj}}``, etc.).
+    substitution (``{{user}}``, ``{{sub}}``, ``{{obj}}``, etc.) and
+    narrative background context.
 
     Relations:
       N:1 with UserAccount
@@ -77,11 +78,13 @@ class Persona:
 
     user_id: str
     name: str
-    lore: str
     pronoun_sub: str
     pronoun_obj: str
     pronoun_poss: str
     pronoun_poss_obj: str
+    appearance: str
+    background: str
+    personality: str
     id: Optional[str] = None
     created_at: Optional[datetime] = None
 

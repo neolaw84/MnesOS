@@ -58,6 +58,7 @@ class Orchestrator:
     def __init__(
         self,
         cartridge_dir: str,
+        persona: Any = None,
         llm_director=None,
         llm_npc=None,
         llm_narrator=None,
@@ -74,7 +75,7 @@ class Orchestrator:
             llm_narrator:  LangChain BaseChatModel for the Narrator node.
         """
         loader = CartridgeLoader()
-        self._cartridge: LoadedCartridge = loader.load(cartridge_dir)
+        self._cartridge: LoadedCartridge = loader.load(cartridge_dir, persona=persona)
         logger.info("Cartridge loaded from %r", cartridge_dir)
 
         # Check for separate_npc feature flag
@@ -168,6 +169,8 @@ class Orchestrator:
             "yare_config": self._cartridge.yare_config,
             "prompt_directives": self._cartridge.prompt_directives,
             "lore_path": self._cartridge.lore_path,
+            "lore_content": self._cartridge.lore_content,
+            "persona_context": self._cartridge.persona_context,
             "system_notes": [],
             "retrieved_lore": "",
             "iteration_count": 0,

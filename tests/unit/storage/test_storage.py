@@ -81,11 +81,13 @@ def sample_persona(store, sample_user):
     persona = Persona(
         user_id=sample_user.id,
         name="Strider",
-        lore="A ranger from the North.",
         pronoun_sub="he",
         pronoun_obj="him",
         pronoun_poss="his",
         pronoun_poss_obj="his",
+        appearance="Tall, weathered ranger in a worn cloak.",
+        background="A ranger from the North.",
+        personality="Stoic, vigilant, and quietly compassionate.",
     )
     return store.create_persona(persona)
 
@@ -310,10 +312,10 @@ class TestPersonaCRUD:
     def test_get_persona_returns_none_for_missing(self, store):
         assert store.get_persona("nonexistent-id") is None
 
-    def test_update_persona_lore(self, store, sample_persona):
-        sample_persona.lore = "A ranger from the North, heir of Isildur."
+    def test_update_persona_background(self, store, sample_persona):
+        sample_persona.background = "A ranger from the North, heir of Isildur."
         updated = store.update_persona(sample_persona)
-        assert updated.lore == "A ranger from the North, heir of Isildur."
+        assert updated.background == "A ranger from the North, heir of Isildur."
 
     def test_delete_persona(self, store, sample_persona):
         store.delete_persona(sample_persona.id)
@@ -447,6 +449,13 @@ class TestGameInstanceContextRetrieval:
         assert persona.pronoun_obj == "him"
         assert persona.pronoun_poss == "his"
         assert persona.pronoun_poss_obj == "his"
+
+    def test_get_context_persona_background_fields_are_accessible(self, store, sample_instance):
+        context = store.get_game_instance_context(sample_instance.id)
+        persona = context["persona"]
+        assert "ranger" in persona.background.lower()
+        assert "cloak" in persona.appearance.lower()
+        assert "stoic" in persona.personality.lower()
 
     def test_get_context_yare_spec_is_deserialized_dict(self, store, sample_instance):
         context = store.get_game_instance_context(sample_instance.id)

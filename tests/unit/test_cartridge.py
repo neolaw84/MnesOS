@@ -14,6 +14,7 @@ from pathlib import Path
 
 from MnesOS.cartridge import (
     CartridgeLoader,
+    _compile_persona_macros,
     _validate_prompt_directives,
     _validate_yare,
     _validate_state_schema,
@@ -392,6 +393,57 @@ class TestCartridgeLoader:
         )
         with pytest.raises(ValueError, match="injection"):
             CartridgeLoader().load(str(tmp_path))
+
+    def test_load_compiles_persona_macros_in_prompt_directives_and_lore(self, tmp_path):
+        yare = {"version": "1.0", "state_schema": {}, "events": {}}
+        (tmp_path / "yare.yaml").write_text(yaml.dump(yare))
+        (tmp_path / "bot_lore.md").write_text(
+            "{{user}} approaches the {{user}}'s destiny. "
+            "{{sub}} trusts {{poss}} blade and protects {{obj}} allies."
+        )
+        (tmp_path / "prompt_directives.yaml").write_text(
+            yaml.dump(
+                {
+                    "director": "Track {{user}} by {{poss}} instincts.",
+                    "narrator": "Address the player as you, use {{poss}} history as context.",
+                    "npc": "Respect {{obj}} choices and {{poss_obj}} will.",
+                }
+            )
+        )
+        persona = {
+            "name": "Aria",
+            "pronoun_sub": "she",
+            "pronoun_obj": "her",
+            "pronoun_poss": "her",
+            "pronoun_poss_obj": "hers",
+        }
+
+        cartridge = CartridgeLoader().load(str(tmp_path), persona=persona)
+
+        merged_text = " ".join(cartridge.prompt_directives.values()) + " " + cartridge.lore_content
+        assert "{{user}}" not in merged_text
+        assert "{{sub}}" not in merged_text
+        assert "{{obj}}" not in merged_text
+        assert "{{poss}}" not in merged_text
+        assert "{{poss_obj}}" not in merged_text
+        assert "Aria approaches the Aria's destiny" in cartridge.lore_content
+        assert "her instincts" in cartridge.prompt_directives["director"]
+
+
+class TestPersonaMacroCompiler:
+    def test_compile_replaces_all_supported_macros(self):
+        text = "{{user}}/{{sub}}/{{obj}}/{{poss}}/{{poss_obj}}"
+        compiled = _compile_persona_macros(
+            text,
+            {
+                "user": "Kite",
+                "sub": "they",
+                "obj": "them",
+                "poss": "their",
+                "poss_obj": "theirs",
+            },
+        )
+        assert compiled == "Kite/they/them/their/theirs"
 
 
 # ---------------------------------------------------------------------------

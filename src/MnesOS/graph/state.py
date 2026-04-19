@@ -19,6 +19,8 @@ class GameState(TypedDict):
     yare_config: Dict[str, Any]
     prompt_directives: Dict[str, str]  # loaded from prompt_directives.yaml, NOT yare.yaml
     lore_path: str
+    lore_content: str
+    persona_context: Dict[str, str]
     system_notes: Annotated[List[str], operator.add]
     retrieved_lore: str
     iteration_count: int

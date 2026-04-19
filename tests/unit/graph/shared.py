@@ -70,6 +70,8 @@ def make_state(**overrides) -> dict:
         },
         "prompt_directives": {},
         "lore_path": GENERIC_RPG_LORE,
+        "lore_content": "",
+        "persona_context": {},
         "bot_memory_staging": [],
         "system_notes": [],
         "retrieved_lore": "",
