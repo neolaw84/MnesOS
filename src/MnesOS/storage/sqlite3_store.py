@@ -769,7 +769,7 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
         Raises ``KeyError`` if *turn_id* does not exist.
         """
         conn = self._get_conn()
-        chain: list[TurnLog] = []
+        chain: List[TurnLog] = []
         current_id: Optional[str] = turn_id
 
         while current_id is not None:
