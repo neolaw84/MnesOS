@@ -16,11 +16,6 @@ class GameState(TypedDict):
     agent_messages: Annotated[list[Any], add_messages]  # per-turn tool-call and tool-return history
     bot_memory: Dict[str, Any]
     bot_memory_staging: Annotated[List[Dict[str, Any]], _staging_reducer]  # tool write buffer
-    yare_config: Dict[str, Any]
-    prompt_directives: Dict[str, str]  # loaded from prompt_directives.yaml, NOT yare.yaml
-    lore_path: str
-    lore_content: str
-    persona_context: Dict[str, str]
     system_notes: Annotated[List[str], operator.add]
     retrieved_lore: str
     iteration_count: int

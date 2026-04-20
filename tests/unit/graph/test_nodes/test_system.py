@@ -1,4 +1,4 @@
-from ..shared import make_state
+from ..shared import make_state, make_config
 from MnesOS.graph.nodes.system import (
     cycle_tick_node, 
     pre_tools_node, 
@@ -13,31 +13,33 @@ from datetime import timedelta
 
 class TestCycleTickNode:
     def test_cycle_tick_runs_triggered_event(self):
-        state = make_state(
-            yare_config={
-                "state_schema": {
-                    "game_time": {"type": "string", "default": "2026-04-10T00:00:00", "visibility": "public"},
-                },
-                "events": {
-                    "tick": {
-                        "trigger_on": "cycle_tick",
-                        "steps": [
-                            {"action": "set", "var": "state.game_time", "value": "'2026-04-10T00:10:00'"},
-                            {"action": "note", "message": "Cycle tick applied."},
-                        ],
-                    }
-                },
-                "macros": {},
+        tick_yare_config = {
+            "state_schema": {
+                "game_time": {"type": "string", "default": "2026-04-10T00:00:00", "visibility": "public"},
             },
+            "events": {
+                "tick": {
+                    "trigger_on": "cycle_tick",
+                    "steps": [
+                        {"action": "set", "var": "state.game_time", "value": "'2026-04-10T00:10:00'"},
+                        {"action": "note", "message": "Cycle tick applied."},
+                    ],
+                }
+            },
+            "macros": {},
+        }
+        state = make_state(
             bot_memory={"game_time": "2026-04-10T00:00:00"},
         )
-        result = cycle_tick_node(state)
+        config = make_config(yare_config=tick_yare_config)
+        result = cycle_tick_node(state, config)
         assert result["bot_memory"]["game_time"] == "2026-04-10T00:10:00"
         assert any("Cycle tick" in n for n in result.get("system_notes", []))
 
     def test_cycle_tick_no_registered_events_is_noop(self):
         state = make_state()
-        result = cycle_tick_node(state)
+        config = make_config()
+        result = cycle_tick_node(state, config)
         assert result == {}
 
 class TestResetAgentMessagesNode:

@@ -8,8 +8,14 @@ from ..state import NPCPresentation, BatchedNPCIntent, get_npc_visible_state
 from ..utils.messages import _client_messages_to_langchain_messages
 from ...prompts import NPC_SYSTEM_PROMPT
 
-def build_npc_intent_tool(npc_llm) -> StructuredTool:
-    """Factory that returns a ``query_npc_intent`` tool wired to *npc_llm*."""
+def build_npc_intent_tool(npc_llm, yare_config: Dict[str, Any] = None, prompt_directives: Dict[str, str] = None) -> StructuredTool:
+    """Factory that returns a ``query_npc_intent`` tool wired to *npc_llm*.
+
+    ``yare_config`` and ``prompt_directives`` are closed over at build time
+    so the tool no longer reads them from graph state.
+    """
+    _yare_config = yare_config or {}
+    _prompt_directives = prompt_directives or {}
 
     @tool
     def query_npc_intent(
@@ -27,12 +33,11 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
         scene_context is a brief synthesis of the immediate physical environment.
         """
         state = state or {}
-        yare_config: Dict[str, Any] = state.get("yare_config", {})
         bot_memory: Dict[str, Any] = state.get("bot_memory", {})
-        npc_templates: Dict[str, Any] = yare_config.get("npc_templates", {})
+        npc_templates: Dict[str, Any] = _yare_config.get("npc_templates", {})
 
         # Get attention budget settings with defaults
-        settings = yare_config.get("engine_settings", {})
+        settings = _yare_config.get("engine_settings", {})
         min_credit = settings.get("npc_min_credit_threshold", 5)
         max_npcs = settings.get("max_batched_npcs", 3)
 
@@ -67,7 +72,7 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
         lore_text: str = state.get("retrieved_lore", "")
 
         # 3. Assemble NPC-visible state
-        visible_state = get_npc_visible_state(bot_memory, yare_config)
+        visible_state = get_npc_visible_state(bot_memory, _yare_config)
 
         # 4. Build batched profile text for top NPCs using DTO data
         profile_parts: list[str] = []
@@ -98,7 +103,7 @@ def build_npc_intent_tool(npc_llm) -> StructuredTool:
             )
 
         # 6. Build prompt and invoke the LLM with structured output
-        c_directives = state.get("prompt_directives", {}).get("npc", "") or ""
+        c_directives = _prompt_directives.get("npc", "") or ""
         formatted_prompt = NPC_SYSTEM_PROMPT.format(
             visible_state=json.dumps(visible_state),
             lore_text=lore_text,

@@ -8,6 +8,10 @@ Responsibilities:
   - Maintain the active GameState (conversation history + bot_memory).
   - Expose process_turn(user_input) as the single-entry core turn loop.
   - Catch graph-level errors and issue an internal-system-prompt retry.
+
+Static cartridge data (yare_config, prompt_directives, lore_path,
+lore_content, persona_context) is passed to the graph via
+``RunnableConfig["configurable"]`` instead of being stored in GameState.
 """
 
 import copy
@@ -132,9 +136,11 @@ class Orchestrator:
         self._state["client_messages"].append({"role": "user", "content": user_input})
         logger.debug("Player: %s", user_input)
 
+        config = self._build_runnable_config()
+
         for attempt in range(MAX_TURN_RETRIES + 1):
             try:
-                new_state = self._app.invoke(self._state)
+                new_state = self._app.invoke(self._state, config=config)
                 self._state = new_state
                 response = self._extract_narrator_response()
                 logger.debug("Narrator: %s", response[:120] if response else "(none)")
@@ -166,15 +172,22 @@ class Orchestrator:
             "agent_messages": [],
             "bot_memory": copy.deepcopy(self._cartridge.initial_state),
             "bot_memory_staging": [],
-            "yare_config": self._cartridge.yare_config,
-            "prompt_directives": self._cartridge.prompt_directives,
-            "lore_path": self._cartridge.lore_path,
-            "lore_content": self._cartridge.lore_content,
-            "persona_context": self._cartridge.persona_context,
             "system_notes": [],
             "retrieved_lore": "",
             "iteration_count": 0,
             "turn_phase": "",
+        }
+
+    def _build_runnable_config(self) -> dict:
+        """Build the ``RunnableConfig`` dict carrying static cartridge data."""
+        return {
+            "configurable": {
+                "yare_config": self._cartridge.yare_config,
+                "prompt_directives": self._cartridge.prompt_directives,
+                "lore_path": self._cartridge.lore_path,
+                "lore_content": self._cartridge.lore_content,
+                "persona_context": self._cartridge.persona_context,
+            }
         }
 
     def _compile_graph(self, llm_director, llm_npc, llm_narrator):
@@ -184,6 +197,7 @@ class Orchestrator:
             llm_director=llm_director,
             llm_npc=llm_npc,
             llm_narrator=llm_narrator,
+            prompt_directives=self._cartridge.prompt_directives,
         )
 
     def _extract_narrator_response(self) -> str:

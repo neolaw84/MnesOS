@@ -36,15 +36,23 @@ def build_graph(
     llm_director=None,
     llm_npc=None,
     llm_narrator=None,
+    prompt_directives: Dict[str, str] | None = None,
 ):
     """
     Build and compile a LangGraph for the given YARE config and LLM instances.
+
+    Static cartridge data that was formerly carried in ``GameState`` is now
+    closed over at build time (for tools) or passed at invoke time via
+    ``RunnableConfig["configurable"]`` (for nodes).
     """
+    prompt_directives = prompt_directives or {}
     dynamic_tools = build_yare_event_tools(yare_config)
     dynamic_tools.append(advance_game_time)
 
     if llm_npc is not None:
-        dynamic_tools = dynamic_tools + [build_npc_intent_tool(llm_npc)]
+        dynamic_tools = dynamic_tools + [
+            build_npc_intent_tool(llm_npc, yare_config=yare_config, prompt_directives=prompt_directives)
+        ]
 
     graph = StateGraph(GameState)
 

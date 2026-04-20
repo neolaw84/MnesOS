@@ -1,5 +1,5 @@
 from langchain_core.messages import AIMessage, ToolMessage
-from ..shared import make_state, GameState
+from ..shared import make_state, _DEFAULT_YARE_CONFIG, GameState
 from MnesOS.graph.tools.yare import build_yare_event_tools
 
 def _ai_msg_with_tool_call(event_name: str, call_id: str = "call_1", args: dict = None) -> AIMessage:
@@ -25,9 +25,10 @@ def _make_tools_only_app(yare_config: dict):
     g.add_edge("T", _END)
     return g.compile()
 
-def _invoke_dynamic_tool(event_name: str, state: dict, event_args: dict = None, call_id: str = "t1"):
+def _invoke_dynamic_tool(event_name: str, state: dict, event_args: dict = None, call_id: str = "t1", yare_config: dict = None):
     """Invoke a dynamic tool manually for testing."""
-    tools = build_yare_event_tools(state["yare_config"])
+    config = yare_config or _DEFAULT_YARE_CONFIG
+    tools = build_yare_event_tools(config)
     tool = next((t for t in tools if t.name == event_name), None)
     if not tool:
         class FakeCommand:
@@ -93,7 +94,7 @@ class TestDynamicEventTools:
             agent_messages=[_ai_msg_with_tool_call("deal_damage")],
             turn_phase="player",
         )
-        app = _make_tools_only_app(state["yare_config"])
+        app = _make_tools_only_app(_DEFAULT_YARE_CONFIG)
         result = app.invoke(state)
         assert result["bot_memory_staging"][-1]["npc"]["hp"] == 10
 
@@ -102,7 +103,7 @@ class TestDynamicEventTools:
             agent_messages=[_ai_msg_with_tool_call("deal_damage")],
             turn_phase="player",
         )
-        app = _make_tools_only_app(state["yare_config"])
+        app = _make_tools_only_app(_DEFAULT_YARE_CONFIG)
         result = app.invoke(state)
         tool_msgs = [m for m in result["agent_messages"] if isinstance(m, ToolMessage)]
         assert len(tool_msgs) == 1

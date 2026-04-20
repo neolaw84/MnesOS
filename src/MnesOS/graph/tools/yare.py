@@ -44,7 +44,7 @@ def build_yare_event_tools(yare_config: Dict[str, Any]) -> List[StructuredTool]:
                 state: Annotated[dict, InjectedState()] = None, 
                 **kwargs
             ) -> Command:
-                interpreter = YAREInterpreter(state["yare_config"], state["bot_memory"])
+                interpreter = YAREInterpreter(yare_config, state["bot_memory"])
                 new_notes = []
                 
                 # Intercept shadow parameter before passing to YARE
