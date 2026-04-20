@@ -16,6 +16,7 @@ from .models import (
     CartridgeVersion,
     GameInstance,
     TurnLog,
+    GameSave,
 )
 from .interface import AbstractStorageComponent
 from .sqlite3_store import SQLite3PhysicalComponent
@@ -31,6 +32,7 @@ __all__ = [
     "CartridgeVersion",
     "GameInstance",
     "TurnLog",
+    "GameSave",
     "AbstractStorageComponent",
     "SQLite3PhysicalComponent",
 ]

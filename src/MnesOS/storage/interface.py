@@ -17,6 +17,7 @@ from .models import (
     CartridgeVersion,
     Cartridge,
     GameInstance,
+    GameSave,
     Persona,
     TurnLog,
     UserAccount,
@@ -165,3 +166,33 @@ class AbstractStorageComponent(ABC):
         self, instance_id: str, limit: Optional[int] = None
     ) -> List[TurnLog]:
         """Return TurnLog entries for a GameInstance, ordered by turn_index."""
+
+    @abstractmethod
+    def get_turn_lineage(self, turn_id: str) -> List[TurnLog]:
+        """
+        Traverse up the ``parent_id`` chain from *turn_id* to the root and
+        return an ordered list of :class:`TurnLog` objects from root to the
+        specified node (inclusive).
+
+        Raises ``KeyError`` if *turn_id* does not exist.
+        """
+
+    # ------------------------------------------------------------------
+    # GameSave — bookmarks into the turn tree
+    # ------------------------------------------------------------------
+
+    @abstractmethod
+    def create_game_save(self, save: GameSave) -> GameSave:
+        """Persist a new GameSave and return it with its assigned id."""
+
+    @abstractmethod
+    def get_game_save(self, save_id: str) -> Optional[GameSave]:
+        """Return a GameSave by primary key, or None if not found."""
+
+    @abstractmethod
+    def list_game_saves(self, instance_id: str) -> List[GameSave]:
+        """Return all GameSave entries for a GameInstance, ordered by created_at."""
+
+    @abstractmethod
+    def delete_game_save(self, save_id: str) -> None:
+        """Remove a GameSave by primary key."""

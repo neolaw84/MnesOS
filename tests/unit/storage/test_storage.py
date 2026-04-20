@@ -32,6 +32,7 @@ from MnesOS.storage.models import (
     GameStatus,
     TurnLog,
     TurnActor,
+    GameSave,
     Visibility,
 )
 from MnesOS.storage.interface import AbstractStorageComponent
@@ -224,7 +225,7 @@ class TestSQLite3PhysicalComponentIsConcreteImplementation:
     def test_initialize_creates_tables(self):
         s = SQLite3PhysicalComponent(":memory:")
         s.initialize()
-        # Verify all six tables exist via the store's own connection
+        # Verify all seven tables exist via the store's own connection
         table_names = s._get_table_names()
         expected = {
             "user_accounts",
@@ -233,6 +234,7 @@ class TestSQLite3PhysicalComponentIsConcreteImplementation:
             "cartridge_versions",
             "game_instances",
             "turn_logs",
+            "game_saves",
         }
         assert expected.issubset(table_names)
 
@@ -597,6 +599,7 @@ class TestMigration:
             "cartridge_versions",
             "game_instances",
             "turn_logs",
+            "game_saves",
         }
         assert expected.issubset(tables)
 
@@ -637,3 +640,361 @@ class TestDeleteDbScript:
         spec.loader.exec_module(mod)
         # Must not raise
         mod.run(db_path)
+
+
+# ---------------------------------------------------------------------------
+# MNS-101 — TurnLog new fields (parent_id, narrator_text)
+# ---------------------------------------------------------------------------
+
+
+class TestTurnLogNewFields:
+    """Verify that TurnLog now carries parent_id and narrator_text."""
+
+    def test_turnlog_default_parent_id_is_none(self):
+        log = TurnLog(
+            instance_id="inst-1",
+            turn_index=0,
+            actor=TurnActor.PLAYER,
+            input_text="hello",
+            yare_delta={},
+        )
+        assert log.parent_id is None
+
+    def test_turnlog_default_narrator_text_is_empty(self):
+        log = TurnLog(
+            instance_id="inst-1",
+            turn_index=0,
+            actor=TurnActor.NARRATOR,
+            input_text="",
+            yare_delta={},
+        )
+        assert log.narrator_text == ""
+
+    def test_turnlog_with_explicit_fields(self):
+        log = TurnLog(
+            instance_id="inst-1",
+            turn_index=1,
+            actor=TurnActor.NARRATOR,
+            input_text="look around",
+            yare_delta={"hp": -10},
+            narrator_text="You see a dark cavern.",
+            parent_id="parent-abc",
+        )
+        assert log.narrator_text == "You see a dark cavern."
+        assert log.parent_id == "parent-abc"
+
+    def test_append_turn_log_with_narrator_text(self, store, sample_instance):
+        log = TurnLog(
+            instance_id=sample_instance.id,
+            turn_index=0,
+            actor=TurnActor.NARRATOR,
+            input_text="start",
+            yare_delta={},
+            narrator_text="The adventure begins.",
+        )
+        saved = store.append_turn_log(log)
+        fetched = store.get_turn_logs(sample_instance.id)
+        assert fetched[0].narrator_text == "The adventure begins."
+
+    def test_append_turn_log_with_parent_id(self, store, sample_instance):
+        parent = TurnLog(
+            instance_id=sample_instance.id,
+            turn_index=0,
+            actor=TurnActor.SYSTEM,
+            input_text="init",
+            yare_delta={},
+        )
+        parent = store.append_turn_log(parent)
+
+        child = TurnLog(
+            instance_id=sample_instance.id,
+            turn_index=1,
+            actor=TurnActor.PLAYER,
+            input_text="go north",
+            yare_delta={"location": "north"},
+            narrator_text="You head north.",
+            parent_id=parent.id,
+        )
+        child = store.append_turn_log(child)
+
+        fetched = store.get_turn_logs(sample_instance.id)
+        child_log = [l for l in fetched if l.turn_index == 1][0]
+        assert child_log.parent_id == parent.id
+        assert child_log.narrator_text == "You head north."
+
+
+# ---------------------------------------------------------------------------
+# MNS-101 — GameSave model
+# ---------------------------------------------------------------------------
+
+
+class TestGameSaveModel:
+    """Verify GameSave dataclass can be instantiated."""
+
+    def test_game_save_creation(self):
+        save = GameSave(
+            instance_id="inst-1",
+            turn_log_id="turn-abc",
+            label="Before the dragon fight",
+        )
+        assert save.instance_id == "inst-1"
+        assert save.turn_log_id == "turn-abc"
+        assert save.label == "Before the dragon fight"
+        assert save.id is None
+        assert save.created_at is None
+
+
+# ---------------------------------------------------------------------------
+# MNS-102 — GameSave CRUD
+# ---------------------------------------------------------------------------
+
+
+class TestGameSaveCRUD:
+    def test_create_game_save_assigns_id(self, store, sample_instance):
+        log = store.append_turn_log(TurnLog(
+            instance_id=sample_instance.id,
+            turn_index=0,
+            actor=TurnActor.SYSTEM,
+            input_text="init",
+            yare_delta={},
+        ))
+        save = store.create_game_save(GameSave(
+            instance_id=sample_instance.id,
+            turn_log_id=log.id,
+            label="Quicksave 1",
+        ))
+        assert save.id is not None
+        assert save.created_at is not None
+
+    def test_get_game_save_by_id(self, store, sample_instance):
+        log = store.append_turn_log(TurnLog(
+            instance_id=sample_instance.id,
+            turn_index=0,
+            actor=TurnActor.SYSTEM,
+            input_text="init",
+            yare_delta={},
+        ))
+        save = store.create_game_save(GameSave(
+            instance_id=sample_instance.id,
+            turn_log_id=log.id,
+            label="My Save",
+        ))
+        fetched = store.get_game_save(save.id)
+        assert fetched is not None
+        assert fetched.label == "My Save"
+        assert fetched.turn_log_id == log.id
+
+    def test_get_game_save_returns_none_for_missing(self, store):
+        assert store.get_game_save("nonexistent-id") is None
+
+    def test_list_game_saves(self, store, sample_instance):
+        log = store.append_turn_log(TurnLog(
+            instance_id=sample_instance.id,
+            turn_index=0,
+            actor=TurnActor.SYSTEM,
+            input_text="init",
+            yare_delta={},
+        ))
+        store.create_game_save(GameSave(
+            instance_id=sample_instance.id,
+            turn_log_id=log.id,
+            label="Save A",
+        ))
+        store.create_game_save(GameSave(
+            instance_id=sample_instance.id,
+            turn_log_id=log.id,
+            label="Save B",
+        ))
+        saves = store.list_game_saves(sample_instance.id)
+        assert len(saves) == 2
+        assert saves[0].label == "Save A"
+        assert saves[1].label == "Save B"
+
+    def test_list_game_saves_empty(self, store, sample_instance):
+        saves = store.list_game_saves(sample_instance.id)
+        assert saves == []
+
+    def test_delete_game_save(self, store, sample_instance):
+        log = store.append_turn_log(TurnLog(
+            instance_id=sample_instance.id,
+            turn_index=0,
+            actor=TurnActor.SYSTEM,
+            input_text="init",
+            yare_delta={},
+        ))
+        save = store.create_game_save(GameSave(
+            instance_id=sample_instance.id,
+            turn_log_id=log.id,
+            label="Doomed Save",
+        ))
+        store.delete_game_save(save.id)
+        assert store.get_game_save(save.id) is None
+
+
+# ---------------------------------------------------------------------------
+# MNS-102 — get_turn_lineage (tree traversal)
+# ---------------------------------------------------------------------------
+
+
+class TestGetTurnLineage:
+    def test_single_node_lineage(self, store, sample_instance):
+        root = store.append_turn_log(TurnLog(
+            instance_id=sample_instance.id,
+            turn_index=0,
+            actor=TurnActor.SYSTEM,
+            input_text="init",
+            yare_delta={"start": True},
+        ))
+        lineage = store.get_turn_lineage(root.id)
+        assert len(lineage) == 1
+        assert lineage[0].id == root.id
+
+    def test_linear_chain_lineage(self, store, sample_instance):
+        """Build a chain of 5 nodes and verify lineage from leaf is root→…→leaf."""
+        ids = []
+        parent_id = None
+        for i in range(5):
+            log = store.append_turn_log(TurnLog(
+                instance_id=sample_instance.id,
+                turn_index=i,
+                actor=TurnActor.PLAYER,
+                input_text=f"Turn {i}",
+                yare_delta={"turn": i},
+                parent_id=parent_id,
+            ))
+            ids.append(log.id)
+            parent_id = log.id
+
+        lineage = store.get_turn_lineage(ids[-1])
+        assert len(lineage) == 5
+        assert [l.id for l in lineage] == ids
+        # First element has no parent
+        assert lineage[0].parent_id is None
+        # Last element is the requested node
+        assert lineage[-1].id == ids[-1]
+
+    def test_branching_lineage(self, store, sample_instance):
+        """
+        Build a tree:
+            root -> A -> B
+                      -> C
+        Verify lineage(C) = [root, A, C] and lineage(B) = [root, A, B].
+        """
+        root = store.append_turn_log(TurnLog(
+            instance_id=sample_instance.id,
+            turn_index=0,
+            actor=TurnActor.SYSTEM,
+            input_text="init",
+            yare_delta={},
+        ))
+        node_a = store.append_turn_log(TurnLog(
+            instance_id=sample_instance.id,
+            turn_index=1,
+            actor=TurnActor.PLAYER,
+            input_text="go east",
+            yare_delta={"loc": "east"},
+            parent_id=root.id,
+        ))
+        node_b = store.append_turn_log(TurnLog(
+            instance_id=sample_instance.id,
+            turn_index=2,
+            actor=TurnActor.PLAYER,
+            input_text="fight dragon",
+            yare_delta={"hp": -50},
+            parent_id=node_a.id,
+        ))
+        node_c = store.append_turn_log(TurnLog(
+            instance_id=sample_instance.id,
+            turn_index=2,
+            actor=TurnActor.PLAYER,
+            input_text="flee",
+            yare_delta={"loc": "west"},
+            parent_id=node_a.id,
+        ))
+
+        lineage_b = store.get_turn_lineage(node_b.id)
+        assert [l.id for l in lineage_b] == [root.id, node_a.id, node_b.id]
+
+        lineage_c = store.get_turn_lineage(node_c.id)
+        assert [l.id for l in lineage_c] == [root.id, node_a.id, node_c.id]
+
+    def test_lineage_raises_for_missing_id(self, store):
+        with pytest.raises(KeyError):
+            store.get_turn_lineage("nonexistent-id")
+
+    def test_lineage_preserves_narrator_text(self, store, sample_instance):
+        root = store.append_turn_log(TurnLog(
+            instance_id=sample_instance.id,
+            turn_index=0,
+            actor=TurnActor.NARRATOR,
+            input_text="",
+            yare_delta={},
+            narrator_text="Once upon a time...",
+        ))
+        child = store.append_turn_log(TurnLog(
+            instance_id=sample_instance.id,
+            turn_index=1,
+            actor=TurnActor.NARRATOR,
+            input_text="look",
+            yare_delta={},
+            narrator_text="You see a castle.",
+            parent_id=root.id,
+        ))
+        lineage = store.get_turn_lineage(child.id)
+        assert lineage[0].narrator_text == "Once upon a time..."
+        assert lineage[1].narrator_text == "You see a castle."
+
+
+# ---------------------------------------------------------------------------
+# MNS-102 — Schema: game_saves table exists and idempotent init
+# ---------------------------------------------------------------------------
+
+
+class TestSchemaWithNewTables:
+    def test_game_saves_table_exists(self):
+        s = SQLite3PhysicalComponent(":memory:")
+        s.initialize()
+        assert "game_saves" in s._get_table_names()
+
+    def test_turn_logs_has_parent_id_column(self):
+        s = SQLite3PhysicalComponent(":memory:")
+        s.initialize()
+        columns = s._get_turn_logs_column_names()
+        assert "parent_id" in columns
+
+    def test_turn_logs_has_narrator_text_column(self):
+        s = SQLite3PhysicalComponent(":memory:")
+        s.initialize()
+        columns = s._get_turn_logs_column_names()
+        assert "narrator_text" in columns
+
+    def test_initialize_twice_is_idempotent(self):
+        s = SQLite3PhysicalComponent(":memory:")
+        s.initialize()
+        s.initialize()  # must not raise
+        assert "game_saves" in s._get_table_names()
+
+    def test_abstract_interface_has_game_save_methods(self):
+        methods = {
+            "create_game_save",
+            "get_game_save",
+            "list_game_saves",
+            "delete_game_save",
+            "get_turn_lineage",
+        }
+        for m in methods:
+            assert hasattr(AbstractStorageComponent, m), f"Missing method: {m}"
+
+    def test_game_save_and_turn_lineage_are_abstract(self):
+        abstract_methods = getattr(
+            AbstractStorageComponent, "__abstractmethods__", set()
+        )
+        required = {
+            "create_game_save",
+            "get_game_save",
+            "list_game_saves",
+            "delete_game_save",
+            "get_turn_lineage",
+        }
+        for m in required:
+            assert m in abstract_methods, f"{m!r} must be abstract"
