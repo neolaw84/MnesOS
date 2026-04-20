@@ -1,8 +1,9 @@
 """
 MnesOS Logical Schema — data models for the persistence layer.
 
-These dataclasses define the six entities of the MnesOS ecosystem:
-UserAccount, Persona, Cartridge, CartridgeVersion, GameInstance, TurnLog.
+These dataclasses define the seven entities of the MnesOS ecosystem:
+UserAccount, Persona, Cartridge, CartridgeVersion, GameInstance, TurnLog,
+GameSave.
 """
 
 from __future__ import annotations
@@ -158,10 +159,14 @@ class TurnLog:
     An immutable record of a single game turn (atomic append).
 
     ``yare_delta`` captures the state-change events fired during the turn,
-    stored as a JSON blob.
+    stored as a JSON blob.  ``parent_id`` links to the preceding turn,
+    enabling tree-based event sourcing with branching timelines.
+    ``narrator_text`` stores the rendered narrative so past dialogue can be
+    replayed without re-running the graph.
 
     Relations:
       N:1 with GameInstance
+      N:1 with TurnLog (self-referential via parent_id)
     """
 
     instance_id: str
@@ -169,5 +174,27 @@ class TurnLog:
     actor: TurnActor
     input_text: str
     yare_delta: Any     # dict — serialized to/from JSON
+    narrator_text: str = ""
+    parent_id: Optional[str] = None
     id: Optional[str] = None
     timestamp: Optional[datetime] = None
+
+
+@dataclass
+class GameSave:
+    """
+    A named bookmark pointing to a specific TurnLog node.
+
+    Players may create multiple saves per GameInstance, each referencing a
+    different branch point in the event tree.
+
+    Relations:
+      N:1 with GameInstance
+      N:1 with TurnLog
+    """
+
+    instance_id: str
+    turn_log_id: str
+    label: str
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
