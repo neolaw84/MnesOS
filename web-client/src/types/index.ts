@@ -75,3 +75,35 @@ export interface ChatMessage {
 export interface DisplayMessage extends ChatMessage {
   turnId?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Cartridge Library types
+// ---------------------------------------------------------------------------
+
+export interface Cartridge {
+  id: string;
+  creator_id: string;
+  title: string;
+  description: string;
+  genre: string;
+  visibility: "PUBLIC" | "PRIVATE";
+}
+
+export interface CartridgeVersion {
+  id: string;
+  cartridge_id: string;
+  version_tag: string;
+  yare_spec: Record<string, unknown>;
+  prompt_directives: Record<string, unknown>;
+  bot_lore: string;
+  checksum: string;
+  published_at: string | null;
+}
+
+export interface CreateCartridgeRequest {
+  title: string;
+  description: string;
+  genre: string;
+  visibility: "PUBLIC" | "PRIVATE";
+}
+

@@ -54,6 +54,9 @@ docs = [
     "pymdown-extensions>=10.0",
 ]
 
+[project.scripts]
+mnesos-ingest-cartridges = "MnesOS.utils.ingest_cartridges:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

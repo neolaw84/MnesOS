@@ -102,3 +102,46 @@ class HydratedStateResponse(BaseModel):
 
     bot_memory: Dict[str, Any]
     client_messages: List[Dict[str, str]]
+
+
+# ---------------------------------------------------------------------------
+# Cartridge CRUD schemas
+# ---------------------------------------------------------------------------
+
+
+class CreateCartridgeRequest(BaseModel):
+    """``POST /api/cartridges`` request body."""
+
+    title: str = Field(..., min_length=1, max_length=255)
+    description: str = Field(default="")
+    genre: str = Field(default="")
+    visibility: str = Field(default="PUBLIC", description="PUBLIC or PRIVATE")
+
+
+class CartridgeResponse(BaseModel):
+    """Cartridge entity response."""
+
+    id: str
+    creator_id: str
+    title: str
+    description: str
+    genre: str
+    visibility: str
+
+
+# ---------------------------------------------------------------------------
+# CartridgeVersion schemas
+# ---------------------------------------------------------------------------
+
+
+class CartridgeVersionResponse(BaseModel):
+    """CartridgeVersion entity response."""
+
+    id: str
+    cartridge_id: str
+    version_tag: str
+    yare_spec: Dict[str, Any]
+    prompt_directives: Dict[str, Any]
+    bot_lore: str
+    checksum: str
+    published_at: Optional[datetime]
