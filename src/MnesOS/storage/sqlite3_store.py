@@ -28,6 +28,7 @@ from .models import (
     CartridgeVersion,
     Cartridge,
     GameInstance,
+    GameSave,
     GameStatus,
     Persona,
     TurnActor,
@@ -122,13 +123,23 @@ CREATE TABLE IF NOT EXISTS game_instances (
 );
 
 CREATE TABLE IF NOT EXISTS turn_logs (
+    id            TEXT PRIMARY KEY,
+    instance_id   TEXT NOT NULL REFERENCES game_instances(id),
+    turn_index    INTEGER NOT NULL,
+    actor         TEXT NOT NULL,
+    input_text    TEXT NOT NULL DEFAULT '',
+    yare_delta    TEXT NOT NULL DEFAULT '{}',
+    narrator_text TEXT NOT NULL DEFAULT '',
+    parent_id     TEXT REFERENCES turn_logs(id),
+    timestamp     TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS game_saves (
     id           TEXT PRIMARY KEY,
     instance_id  TEXT NOT NULL REFERENCES game_instances(id),
-    turn_index   INTEGER NOT NULL,
-    actor        TEXT NOT NULL,
-    input_text   TEXT NOT NULL DEFAULT '',
-    yare_delta   TEXT NOT NULL DEFAULT '{}',
-    timestamp    TEXT NOT NULL
+    turn_log_id  TEXT NOT NULL REFERENCES turn_logs(id),
+    label        TEXT NOT NULL,
+    created_at   TEXT NOT NULL
 );
 """
 
@@ -156,6 +167,15 @@ CREATE INDEX IF NOT EXISTS idx_turn_logs_instance_id
 
 CREATE INDEX IF NOT EXISTS idx_turn_logs_instance_turn
     ON turn_logs(instance_id, turn_index);
+
+CREATE INDEX IF NOT EXISTS idx_turn_logs_parent_id
+    ON turn_logs(parent_id);
+
+CREATE INDEX IF NOT EXISTS idx_game_saves_instance_id
+    ON game_saves(instance_id);
+
+CREATE INDEX IF NOT EXISTS idx_game_saves_turn_log_id
+    ON game_saves(turn_log_id);
 """
 
 
@@ -229,6 +249,27 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                 if column not in columns:
                     conn.execute(ddl)
 
+    def _get_turn_logs_column_names(self) -> Set[str]:
+        conn = self._get_conn()
+        rows = conn.execute("PRAGMA table_info(turn_logs)").fetchall()
+        return {row["name"] for row in rows}
+
+    def _migrate_turn_logs_table(self) -> None:
+        """
+        Apply additive migrations for the ``turn_logs`` table to support
+        tree-based event sourcing (``parent_id``, ``narrator_text``).
+        """
+        conn = self._get_conn()
+        columns = self._get_turn_logs_column_names()
+        missing_column_ddls = {
+            "parent_id": "ALTER TABLE turn_logs ADD COLUMN parent_id TEXT REFERENCES turn_logs(id)",
+            "narrator_text": "ALTER TABLE turn_logs ADD COLUMN narrator_text TEXT NOT NULL DEFAULT ''",
+        }
+        with conn:
+            for column, ddl in missing_column_ddls.items():
+                if column not in columns:
+                    conn.execute(ddl)
+
     @staticmethod
     def _new_id() -> str:
         return str(uuid.uuid4())
@@ -251,6 +292,7 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
         conn.executescript(_DDL)
         conn.executescript(_INDEXES)
         self._migrate_personas_table()
+        self._migrate_turn_logs_table()
 
     # ------------------------------------------------------------------
     # UserAccount
@@ -684,8 +726,8 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                 """
                 INSERT INTO turn_logs
                     (id, instance_id, turn_index, actor, input_text,
-                     yare_delta, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                     yare_delta, narrator_text, parent_id, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     log.id,
@@ -694,6 +736,8 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                     log.actor.value,
                     log.input_text,
                     self._json_dump(log.yare_delta),
+                    log.narrator_text,
+                    log.parent_id,
                     _ts_to_str(log.timestamp),
                 ),
             )
@@ -716,6 +760,77 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
             params = (instance_id, limit)
         rows = self._get_conn().execute(sql, params).fetchall()
         return [self._row_to_turn_log(row) for row in rows]
+
+    def get_turn_lineage(self, turn_id: str) -> List[TurnLog]:
+        """
+        Walk up the ``parent_id`` chain from *turn_id* to the root and
+        return the path ordered root → … → *turn_id*.
+
+        Raises ``KeyError`` if *turn_id* does not exist.
+        """
+        conn = self._get_conn()
+        chain: List[TurnLog] = []
+        current_id: Optional[str] = turn_id
+
+        while current_id is not None:
+            row = conn.execute(
+                "SELECT * FROM turn_logs WHERE id = ?", (current_id,)
+            ).fetchone()
+            if row is None:
+                if not chain:
+                    raise KeyError(f"TurnLog with id {turn_id!r} not found")
+                break
+            turn_log = self._row_to_turn_log(row)
+            chain.append(turn_log)
+            current_id = turn_log.parent_id
+
+        chain.reverse()
+        return chain
+
+    # ------------------------------------------------------------------
+    # GameSave — bookmarks into the turn tree
+    # ------------------------------------------------------------------
+
+    def create_game_save(self, save: GameSave) -> GameSave:
+        save.id = self._new_id()
+        save.created_at = _now_utc()
+        conn = self._get_conn()
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO game_saves
+                    (id, instance_id, turn_log_id, label, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    save.id,
+                    save.instance_id,
+                    save.turn_log_id,
+                    save.label,
+                    _ts_to_str(save.created_at),
+                ),
+            )
+        return save
+
+    def get_game_save(self, save_id: str) -> Optional[GameSave]:
+        row = self._get_conn().execute(
+            "SELECT * FROM game_saves WHERE id = ?", (save_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        return self._row_to_game_save(row)
+
+    def list_game_saves(self, instance_id: str) -> List[GameSave]:
+        rows = self._get_conn().execute(
+            "SELECT * FROM game_saves WHERE instance_id = ? ORDER BY created_at ASC",
+            (instance_id,),
+        ).fetchall()
+        return [self._row_to_game_save(row) for row in rows]
+
+    def delete_game_save(self, save_id: str) -> None:
+        conn = self._get_conn()
+        with conn:
+            conn.execute("DELETE FROM game_saves WHERE id=?", (save_id,))
 
     # ------------------------------------------------------------------
     # Private row-to-model helpers
@@ -741,5 +856,17 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
             actor=TurnActor(row["actor"]),
             input_text=row["input_text"],
             yare_delta=self._json_load(row["yare_delta"]),
+            narrator_text=row["narrator_text"],
+            parent_id=row["parent_id"],
             timestamp=_str_to_ts(row["timestamp"]),
+        )
+
+    @staticmethod
+    def _row_to_game_save(row: sqlite3.Row) -> GameSave:
+        return GameSave(
+            id=row["id"],
+            instance_id=row["instance_id"],
+            turn_log_id=row["turn_log_id"],
+            label=row["label"],
+            created_at=_str_to_ts(row["created_at"]),
         )
