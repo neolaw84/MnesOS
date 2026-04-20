@@ -20,6 +20,7 @@ from .models import (
 )
 from .interface import AbstractStorageComponent
 from .sqlite3_store import SQLite3PhysicalComponent
+from .hydrator import hydrate_state
 
 __all__ = [
     "UserRole",
@@ -35,4 +36,5 @@ __all__ = [
     "GameSave",
     "AbstractStorageComponent",
     "SQLite3PhysicalComponent",
+    "hydrate_state",
 ]
