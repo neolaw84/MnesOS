@@ -1,30 +1,33 @@
 from unittest.mock import MagicMock
 from langchain_core.messages import AIMessage, ToolMessage
-from ..shared import make_state, _BindableFakeModel
+from ..shared import make_state, make_config, _BindableFakeModel
 from MnesOS.graph.nodes.narrator import narrator_node
 
 class TestNarratorNode:
     def test_clears_system_notes(self):
         state = make_state(system_notes=["Player dealt 10 damage.", "NPC is hurt."])
-        result = narrator_node(state)
+        config = make_config()
+        result = narrator_node(state, config)
         assert result["system_notes"] == []
 
     def test_clears_retrieved_lore(self):
         state = make_state(retrieved_lore="Some lore text.")
-        result = narrator_node(state)
+        config = make_config()
+        result = narrator_node(state, config)
         assert result["retrieved_lore"] == ""
 
     def test_resets_iteration_count(self):
         state = make_state(iteration_count=3)
-        result = narrator_node(state)
+        config = make_config()
+        result = narrator_node(state, config)
         assert result["iteration_count"] == 0
 
     def test_directives_present_does_not_crash(self):
         state = make_state(
-            prompt_directives={"narrator": "Be poetic."},
             system_notes=["Hit!"],
         )
-        result = narrator_node(state)
+        config = make_config(prompt_directives={"narrator": "Be poetic."})
+        result = narrator_node(state, config)
         assert result["system_notes"] == []
 
 class TestNarratorNodeWithLLM:
@@ -32,13 +35,15 @@ class TestNarratorNodeWithLLM:
         fake_llm = MagicMock()
         fake_llm.invoke.return_value = AIMessage(content="The goblin snarls.")
         state = make_state(system_notes=["Player dealt 10 damage."])
-        narrator_node(state, llm=fake_llm)
+        config = make_config()
+        narrator_node(state, config, llm=fake_llm)
         fake_llm.invoke.assert_called_once()
 
     def test_llm_response_stored_as_narrative(self):
         fake_llm = _BindableFakeModel(responses=[AIMessage(content="The goblin snarls and lunges at you.", tool_calls=[])])
         state = make_state(system_notes=["Player dealt 10 damage."])
-        result = narrator_node(state, llm=fake_llm)
+        config = make_config()
+        result = narrator_node(state, config, llm=fake_llm)
         assert "narrative" in result
         assert "goblin" in result["narrative"].lower()
 
@@ -47,7 +52,8 @@ class TestNarratorNodeWithLLM:
         fake_llm.invoke.return_value = AIMessage(content="Story text.", tool_calls=[])
         state = make_state(system_notes=["Test."])
         state["bot_memory"]["player"]["is_poisoned_with_asymptomatic_poison"] = True
-        narrator_node(state, llm=fake_llm)
+        config = make_config()
+        narrator_node(state, config, llm=fake_llm)
         call_arg = str(fake_llm.invoke.call_args)
         assert "is_poisoned_with_asymptomatic_poison" not in call_arg
 
@@ -58,7 +64,8 @@ class TestNarratorNodeWithLLM:
             system_notes=["Test."],
             agent_messages=[AIMessage(content="The scene directive from the Director.", tool_calls=[])],
         )
-        narrator_node(state, llm=fake_llm)
+        config = make_config()
+        narrator_node(state, config, llm=fake_llm)
         call_arg = str(fake_llm.invoke.call_args)
         assert "The scene directive from the Director." in call_arg
 
@@ -70,7 +77,8 @@ class TestNarratorNodeWithLLM:
             bot_memory={**baseline["bot_memory"], "game_time": "2026-04-10T08:00:00+00:00"},
             system_notes=["Test."],
         )
-        narrator_node(state, llm=fake_llm)
+        config = make_config()
+        narrator_node(state, config, llm=fake_llm)
         call_arg = str(fake_llm.invoke.call_args)
         assert "state.game_time" in call_arg
         assert "2026-04-10T08:00:00+00:00" in call_arg
@@ -78,14 +86,15 @@ class TestNarratorNodeWithLLM:
     def test_persona_background_context_is_injected_into_narrator_prompt(self):
         fake_llm = MagicMock()
         fake_llm.invoke.return_value = AIMessage(content="Story text.", tool_calls=[])
-        state = make_state(
+        state = make_state()
+        config = make_config(
             persona_context={
                 "appearance": "Amber eyes and travel-stained armor.",
                 "background": "Raised by river merchants.",
                 "personality": "Impulsive but loyal.",
             }
         )
-        narrator_node(state, llm=fake_llm)
+        narrator_node(state, config, llm=fake_llm)
         call_arg = str(fake_llm.invoke.call_args)
         assert "Amber eyes and travel-stained armor." in call_arg
         assert "Raised by river merchants." in call_arg
@@ -103,7 +112,8 @@ class TestNarratorNodeSceneDirectiveFilter:
             system_notes=["SECRET: player.hp = 42", "Roll succeeded with modifier 3"],
             agent_messages=[AIMessage(content="The Director's summary.", tool_calls=[])],
         )
-        narrator_node(state, llm=fake_llm)
+        config = make_config()
+        narrator_node(state, config, llm=fake_llm)
         call_arg = str(fake_llm.invoke.call_args)
         assert "SECRET: player.hp = 42" not in call_arg
         assert "Roll succeeded with modifier 3" not in call_arg
@@ -123,7 +133,8 @@ class TestNarratorNodeSceneDirectiveFilter:
                 AIMessage(content="The Director's final clean summary.", tool_calls=[]),
             ],
         )
-        narrator_node(state, llm=fake_llm)
+        config = make_config()
+        narrator_node(state, config, llm=fake_llm)
         call_arg = str(fake_llm.invoke.call_args)
         assert "trigger_event" not in call_arg
         assert "Engine result: hp -10" not in call_arg
@@ -140,7 +151,8 @@ class TestNarratorNodeSceneDirectiveFilter:
                 AIMessage(content=scene_directive, tool_calls=[]),
             ],
         )
-        narrator_node(state, llm=fake_llm)
+        config = make_config()
+        narrator_node(state, config, llm=fake_llm)
         call_arg = str(fake_llm.invoke.call_args)
         assert scene_directive in call_arg
 
@@ -155,7 +167,8 @@ class TestNarratorNodeSceneDirectiveFilter:
                 AIMessage(content="Final Director summary.", tool_calls=[]),
             ],
         )
-        narrator_node(state, llm=fake_llm)
+        config = make_config()
+        narrator_node(state, config, llm=fake_llm)
         call_arg = str(fake_llm.invoke.call_args)
         assert "Final Director summary." in call_arg
         assert "First Director message." not in call_arg
@@ -164,6 +177,7 @@ class TestNarratorNodeSceneDirectiveFilter:
         fake_llm = MagicMock()
         fake_llm.invoke.return_value = AIMessage(content="Story.", tool_calls=[])
         state = make_state(system_notes=[], agent_messages=[])
-        narrator_node(state, llm=fake_llm)
+        config = make_config()
+        narrator_node(state, config, llm=fake_llm)
         call_arg = str(fake_llm.invoke.call_args)
         assert "SCENE DIRECTIVES" in call_arg

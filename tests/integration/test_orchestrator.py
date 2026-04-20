@@ -148,11 +148,11 @@ class TestErrorHandling:
         call_count = {"n": 0}
         original_invoke = orch._app.invoke
 
-        def flaky_invoke(state):
+        def flaky_invoke(state, **kwargs):
             call_count["n"] += 1
             if call_count["n"] == 1:
                 raise ValueError("Simulated transient graph error")
-            return original_invoke(state)
+            return original_invoke(state, **kwargs)
 
         with patch.object(orch._app, "invoke", side_effect=flaky_invoke):
             result = orch.process_turn("Test input")
@@ -166,12 +166,12 @@ class TestErrorHandling:
         original_invoke = orch._app.invoke
         call_count = {"n": 0}
 
-        def capturing_invoke(state):
+        def capturing_invoke(state, **kwargs):
             call_count["n"] += 1
             if call_count["n"] == 1:
                 raise RuntimeError("forced error")
             captured_notes.extend(state.get("system_notes", []))
-            return original_invoke(state)
+            return original_invoke(state, **kwargs)
 
         with patch.object(orch._app, "invoke", side_effect=capturing_invoke):
             orch.process_turn("test")

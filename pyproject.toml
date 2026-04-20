@@ -29,6 +29,11 @@ Documentation = "https://neolaw84.github.io/MnesOS/"
 Issues = "https://github.com/neolaw84/MnesOS/issues"
 
 [project.optional-dependencies]
+api = [
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.34,<1.0",
+    "python-multipart>=0.0.22",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
@@ -37,6 +42,10 @@ dev = [
     "mkdocstrings[python]>=0.24",
     "pymdown-extensions>=10.0",
     "ipywidgets>=8.0",
+    # Include all api dependencies for testing
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.34,<1.0",
+    "python-multipart>=0.0.22",
 ]
 docs = [
     "mkdocs>=1.5",

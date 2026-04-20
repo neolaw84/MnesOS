@@ -11,6 +11,35 @@ from MnesOS.graph import build_graph, GameState
 # CWD-relative path — pytest is always invoked from the project root.
 GENERIC_RPG_LORE = "cartridges/generic-rpg/bot_lore.md"
 
+_DEFAULT_YARE_CONFIG = {
+    "state_schema": {
+        "player": {
+            "hp":    {"type": "int", "default": 100, "visibility": "public"},
+            "gold":  {"type": "int", "default": 0,   "visibility": "public"},
+            "level": {"type": "int", "default": 1,   "visibility": "public"},
+        },
+        "npc": {
+            "hp":       {"type": "int", "default": 20, "visibility": "public"},
+            "strength": {"type": "int", "default": 5,  "visibility": "public"},
+        },
+    },
+    "events": {},
+    "macros": {},
+}
+
+
+def make_config(**overrides) -> dict:
+    """Builds a minimal RunnableConfig dict for workflow invocation tests."""
+    configurable = {
+        "yare_config": _DEFAULT_YARE_CONFIG,
+        "prompt_directives": {},
+        "lore_path": GENERIC_RPG_LORE,
+        "lore_content": "",
+        "persona_context": {},
+    }
+    configurable.update(overrides)
+    return {"configurable": configurable}
+
 
 def make_state(**overrides) -> dict:
     """Builds a minimal GameState-shaped dict for workflow invocation tests."""
@@ -22,25 +51,6 @@ def make_state(**overrides) -> dict:
             "npc":    {"hp": 20, "strength": 5, "archetype": ""},
             "current_location": "Crossroads",
         },
-        "yare_config": {
-            "state_schema": {
-                "player": {
-                    "hp":    {"type": "int", "default": 100, "visibility": "public"},
-                    "gold":  {"type": "int", "default": 0,   "visibility": "public"},
-                    "level": {"type": "int", "default": 1,   "visibility": "public"},
-                },
-                "npc": {
-                    "hp":       {"type": "int", "default": 20, "visibility": "public"},
-                    "strength": {"type": "int", "default": 5,  "visibility": "public"},
-                },
-            },
-            "events": {},
-            "macros": {},
-        },
-        "prompt_directives": {},
-        "lore_path": GENERIC_RPG_LORE,
-        "lore_content": "",
-        "persona_context": {},
         "bot_memory_staging": [],
         "system_notes": [],
         "retrieved_lore": "",
@@ -57,8 +67,9 @@ class TestWorkflowAgentMessageCleanup:
             agent_messages=[ToolMessage(content="stale", tool_call_id="old_call")],
             client_messages=[{"role": "user", "content": "I look around."}],
         )
-        app = build_graph(state["yare_config"])
-        result = app.invoke(state)
+        config = make_config()
+        app = build_graph(_DEFAULT_YARE_CONFIG)
+        result = app.invoke(state, config=config)
         assert result.get("agent_messages", []) == []
 
     def test_exit_node_returns_empty_agent_messages(self):
@@ -66,6 +77,7 @@ class TestWorkflowAgentMessageCleanup:
             client_messages=[{"role": "user", "content": "I look around."}],
             agent_messages=[ToolMessage(content="stale", tool_call_id="old_call")],
         )
-        app = build_graph(state["yare_config"])
-        result = app.invoke(state)
+        config = make_config()
+        app = build_graph(_DEFAULT_YARE_CONFIG)
+        result = app.invoke(state, config=config)
         assert result.get("agent_messages", []) == []

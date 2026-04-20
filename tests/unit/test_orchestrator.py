@@ -35,17 +35,15 @@ class TestOrchestratorInit:
             "agent_messages",
             "bot_memory",
             "bot_memory_staging",
-            "yare_config",
-            "prompt_directives",
-            "lore_path",
-            "lore_content",
-            "persona_context",
             "system_notes",
             "retrieved_lore",
             "iteration_count",
             "turn_phase",
         ):
             assert key in state, f"Missing key: {key}"
+        # Static cartridge data must NOT be in state
+        for key in ("yare_config", "prompt_directives", "lore_path", "lore_content", "persona_context"):
+            assert key not in state, f"Static key should not be in state: {key}"
 
     def test_initial_client_messages_empty(self):
         orch = Orchestrator(CARTRIDGE_DIR)

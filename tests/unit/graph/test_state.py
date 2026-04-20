@@ -1,17 +1,17 @@
-from .shared import make_state
+from .shared import make_state, make_config, _DEFAULT_YARE_CONFIG
 from MnesOS.graph.state import get_public_state, get_npc_visible_state
 
 class TestGetPublicState:
     def test_public_vars_included(self):
         state = make_state()
-        pub = get_public_state(state["bot_memory"], state["yare_config"])
+        pub = get_public_state(state["bot_memory"], _DEFAULT_YARE_CONFIG)
         assert pub["player"]["hp"] == 100
         assert pub["player"]["gold"] == 0
 
     def test_private_vars_excluded(self):
         state = make_state()
         state["bot_memory"]["player"]["is_poisoned_with_asymptomatic_poison"] = True
-        pub = get_public_state(state["bot_memory"], state["yare_config"])
+        pub = get_public_state(state["bot_memory"], _DEFAULT_YARE_CONFIG)
         assert "is_poisoned_with_asymptomatic_poison" not in pub["player"]
 
     def test_empty_bot_memory_returns_empty(self):

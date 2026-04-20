@@ -1,6 +1,7 @@
 import json
 from typing import Dict, Any, List
 from langchain_core.messages import SystemMessage, AIMessage
+from langchain_core.runnables import RunnableConfig
 from ..state import GameState
 from ..utils.messages import _client_messages_to_langchain_messages
 from ..utils.time import _format_game_time_context
@@ -14,13 +15,19 @@ def _get_last_ai_tool_calls(agent_messages: list) -> list:
             return getattr(msg, "tool_calls", []) or []
     return []
 
-def director_node(state: GameState, *, llm=None, tools=None) -> dict:
+def director_node(state: GameState, config: RunnableConfig, *, llm=None, tools=None) -> dict:
     """
     2. Player Director: Maps user intent to YARE event triggers.
+
+    Static cartridge data (``prompt_directives``, ``persona_context``) is
+    read from ``config["configurable"]`` rather than from the graph state.
+    LLM can be provided via build_graph closure or per-request via
+    ``config["configurable"]["llm_clients"]["director"]`` (BYOK).
     """
+    configurable = (config or {}).get("configurable", {})
     loops = state.get("iteration_count", 0) + 1
 
-    c_directives = state.get("prompt_directives", {}).get("director", "") or ""
+    c_directives = configurable.get("prompt_directives", {}).get("director", "") or ""
     formatted_prompt = DIRECTOR_SYSTEM_PROMPT.format(
         retrieved_lore=state.get("retrieved_lore", ""),
         bot_memory=json.dumps(state.get("bot_memory", {})),
@@ -28,22 +35,25 @@ def director_node(state: GameState, *, llm=None, tools=None) -> dict:
         npc_intent_called=state.get("npc_intent_called", False),
         cartridge_directives=c_directives,
     )
-    persona_background = build_persona_background_context(state.get("persona_context", {}))
+    persona_background = build_persona_background_context(configurable.get("persona_context", {}))
     system_content = (
         formatted_prompt
         + persona_background
         + _format_game_time_context(state.get("bot_memory", {}))
     )
 
+    # Resolve LLM: closure arg > config BYOK > None (dry-run)
+    effective_llm = llm or configurable.get("llm_clients", {}).get("director")
+
     result = {"iteration_count": loops, "turn_phase": "player"}
-    if llm is not None:
+    if effective_llm is not None:
         prompt_messages = [SystemMessage(content=system_content)]
         prompt_messages.extend(
             _client_messages_to_langchain_messages(state.get("client_messages", []))
         )
         prompt_messages.extend(state.get("agent_messages", []))
 
-        response = llm.bind_tools(tools or [], parallel_tool_calls=False).invoke(prompt_messages)
+        response = effective_llm.bind_tools(tools or [], parallel_tool_calls=False).invoke(prompt_messages)
         result["agent_messages"] = [response]
 
     return result

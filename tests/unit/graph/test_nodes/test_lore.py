@@ -1,16 +1,18 @@
 from unittest.mock import patch, MagicMock
-from ..shared import make_state
+from ..shared import make_state, make_config
 from MnesOS.graph.nodes.lore import context_retrieval_node
 
 class TestContextRetrievalNode:
     def test_returns_retrieved_lore_key(self):
         state = make_state()
-        result = context_retrieval_node(state)
+        config = make_config()
+        result = context_retrieval_node(state, config)
         assert "retrieved_lore" in result
 
     def test_retrieved_lore_is_string(self):
         state = make_state()
-        result = context_retrieval_node(state)
+        config = make_config()
+        result = context_retrieval_node(state, config)
         assert isinstance(result["retrieved_lore"], str)
 
     def test_location_enriches_query(self):
@@ -18,20 +20,23 @@ class TestContextRetrievalNode:
         state = make_state()
         state["bot_memory"]["current_location"] = "Crossroads"
         state["client_messages"] = [{"role": "user", "content": "I look at the crossroads."}]
-        result = context_retrieval_node(state)
+        config = make_config()
+        result = context_retrieval_node(state, config)
         assert result["retrieved_lore"] != ""
 
     def test_npc_name_enriches_query(self):
         state = make_state()
         state["bot_memory"]["npc"] = {"name": "Goblin"}
         state["client_messages"] = [{"role": "user", "content": "I fight the goblin."}]
-        result = context_retrieval_node(state)
+        config = make_config()
+        result = context_retrieval_node(state, config)
         assert isinstance(result["retrieved_lore"], str)
 
     def test_completely_unrelated_query_returns_empty_or_string(self):
         state = make_state()
         state["client_messages"] = [{"role": "user", "content": "xyzzy frobozz quux zork"}]
-        result = context_retrieval_node(state)
+        config = make_config()
+        result = context_retrieval_node(state, config)
         # Must not raise; may be empty string
         assert isinstance(result["retrieved_lore"], str)
 
@@ -45,7 +50,8 @@ class TestContextRetrievalNode:
         mock_store.query.return_value = ""
 
         with patch("MnesOS.graph.nodes.lore.VectorLoreStore.from_file", return_value=mock_store):
-            context_retrieval_node(state)
+            config = make_config(lore_content="")
+            context_retrieval_node(state, config)
 
         call_args = mock_store.query.call_args
         query_text = call_args[0][0]
@@ -61,7 +67,8 @@ class TestContextRetrievalNode:
         mock_store.query.return_value = ""
 
         with patch("MnesOS.graph.nodes.lore.VectorLoreStore.from_file", return_value=mock_store):
-            context_retrieval_node(state)
+            config = make_config(lore_content="")
+            context_retrieval_node(state, config)
 
         call_args = mock_store.query.call_args
         query_text = call_args[0][0]
@@ -78,7 +85,8 @@ class TestContextRetrievalNode:
         mock_store.query.return_value = ""
 
         with patch("MnesOS.graph.nodes.lore.VectorLoreStore.from_file", return_value=mock_store):
-            context_retrieval_node(state)
+            config = make_config(lore_content="")
+            context_retrieval_node(state, config)
 
         query_text = mock_store.query.call_args[0][0]
         assert "orc" in query_text
@@ -98,7 +106,8 @@ class TestContextRetrievalNode:
         mock_store.query.return_value = ""
 
         with patch("MnesOS.graph.nodes.lore.VectorLoreStore.from_file", return_value=mock_store):
-            context_retrieval_node(state)
+            config = make_config(lore_content="")
+            context_retrieval_node(state, config)
 
         query_text = mock_store.query.call_args[0][0]
         assert "warrior" not in query_text
@@ -109,5 +118,6 @@ class TestContextRetrievalNode:
         state = make_state()
         state["bot_memory"]["npc"] = {"name": "Goblin"}
         state["client_messages"] = [{"role": "user", "content": "Hello."}]
-        result = context_retrieval_node(state)
+        config = make_config()
+        result = context_retrieval_node(state, config)
         assert isinstance(result["retrieved_lore"], str)

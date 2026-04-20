@@ -2,6 +2,7 @@ from datetime import timedelta
 from typing import List
 from langgraph.graph.message import REMOVE_ALL_MESSAGES
 from langchain_core.messages import RemoveMessage
+from langchain_core.runnables import RunnableConfig
 from ..state import GameState
 from ..utils.time import _parse_duration_token, _coerce_game_time_to_datetime
 from ..utils.messages import _client_messages_to_langchain_messages
@@ -54,11 +55,15 @@ def post_tools_node(state: GameState) -> dict:
         
     return result
 
-def cycle_tick_node(state: GameState) -> dict:
+def cycle_tick_node(state: GameState, config: RunnableConfig) -> dict:
     """
     Run any YARE event configured with trigger_on: cycle_tick once per graph cycle.
+
+    ``yare_config`` is read from ``config["configurable"]``.
     """
-    events = state.get("yare_config", {}).get("events", {}) or {}
+    configurable = (config or {}).get("configurable", {})
+    yare_config = configurable.get("yare_config", {})
+    events = yare_config.get("events", {}) or {}
     tick_events = [
         name for name, cfg in events.items()
         if isinstance(cfg, dict) and cfg.get("trigger_on") == "cycle_tick"
@@ -66,7 +71,7 @@ def cycle_tick_node(state: GameState) -> dict:
     if not tick_events:
         return {}
 
-    interpreter = YAREInterpreter(state["yare_config"], state["bot_memory"])
+    interpreter = YAREInterpreter(yare_config, state["bot_memory"])
     new_notes: List[str] = []
     for event_name in tick_events:
         start = len(interpreter.notes)

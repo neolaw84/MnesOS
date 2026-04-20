@@ -5,20 +5,29 @@ Sits between the User Interface, the compiled LangGraph, and the LLM APIs.
 Responsibilities:
   - Load and validate a cartridge directory.
   - Compile the LangGraph, injecting per-role LLM instances.
-  - Maintain the active GameState (conversation history + bot_memory).
-  - Expose process_turn(user_input) as the single-entry core turn loop.
+  - (Stateful mode) Maintain the active GameState in memory.
+  - (Stateless mode) Hydrate state from storage, invoke graph, return result.
+  - Expose process_turn() as the single-entry core turn loop.
   - Catch graph-level errors and issue an internal-system-prompt retry.
+
+Aligned with ``docs/design/0005-interfaces-and-contracts.md`` §3.2:
+  - Stateless ``process_turn`` returns ``{'narrator_text', 'yare_delta'}``
+    and does NOT persist to the database.  The API route handles persistence.
+  - LLMs may be injected per-request via ``llm_clients`` (BYOK pattern).
 """
 
 import copy
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from .cartridge import CartridgeLoader, LoadedCartridge
 from .graph import (
     GameState,
     build_graph,
 )
+from .storage.interface import AbstractStorageComponent
+from .storage.models import TurnLog, TurnActor
+from .storage.hydrator import StateHydrator
 
 logger = logging.getLogger(__name__)
 
@@ -35,24 +44,33 @@ class Orchestrator:
     """
     MVP Orchestrator for the MnesOS YARE engine.
 
-    Usage::
+    Supports two operating modes:
 
-        from langchain_openai import ChatOpenAI
-        from MnesOS import Orchestrator
+    **Stateful mode** (no ``storage``): the orchestrator keeps ``self._state``
+    in memory across ``process_turn`` calls.  This is the legacy CLI /
+    notebook experience.
 
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    **Stateless mode** (``storage`` provided): each ``process_turn`` call
+    receives a ``parent_turn_id``, hydrates state from the turn-log tree,
+    invokes the graph, and returns the result dict.  The orchestrator does
+    NOT persist to the database — the API route handles that.
+
+    Usage (stateful)::
+
+        orch = Orchestrator(cartridge_dir="cartridges/generic-rpg")
+        response = orch.process_turn("I look around.")
+
+    Usage (stateless)::
+
         orch = Orchestrator(
             cartridge_dir="cartridges/generic-rpg",
-            llm_director=llm,
-            llm_npc=ChatOpenAI(model="gpt-4o-mini", temperature=0.5),
-            llm_narrator=ChatOpenAI(model="gpt-4o-mini", temperature=0.8),
+            storage=my_sqlite_store,
         )
-
-        response = orch.process_turn("I arrive at the Crossroads and look around.")
-        print(response)
-
-    All three LLM parameters are optional; omitting them runs the graph in
-    "dry" mode (no LLM calls), which is useful for testing.
+        result = orch.process_turn(
+            "I look around.",
+            parent_turn_id="prev-turn-uuid",
+        )
+        # result == {"narrator_text": "...", "yare_delta": {...}}
     """
 
     def __init__(
@@ -62,23 +80,12 @@ class Orchestrator:
         llm_director=None,
         llm_npc=None,
         llm_narrator=None,
+        storage: Optional[AbstractStorageComponent] = None,
     ) -> None:
-        """
-        Initialize the Orchestrator.
-
-        Args:
-            cartridge_dir: Path to the cartridge directory containing
-                           yare.yaml, bot_lore.md, and optionally
-                           prompt_directives.yaml.
-            llm_director:  LangChain BaseChatModel for the Director node.
-            llm_npc: LangChain BaseChatModel for the NPC Brain node.
-            llm_narrator:  LangChain BaseChatModel for the Narrator node.
-        """
         loader = CartridgeLoader()
         self._cartridge: LoadedCartridge = loader.load(cartridge_dir, persona=persona)
         logger.info("Cartridge loaded from %r", cartridge_dir)
 
-        # Check for separate_npc feature flag
         if self._cartridge.yare_config.get("separate_npc", False):
             raise NotImplementedError(
                 "separate_npc=True is not yet implemented. "
@@ -87,10 +94,14 @@ class Orchestrator:
                 "To use the orchestrator, set separate_npc=False or omit it."
             )
 
+        self._storage = storage
         self._app = self._compile_graph(llm_director, llm_npc, llm_narrator)
         logger.info("Graph compiled. Nodes: %s", list(self._app.get_graph().nodes.keys()))
 
-        self._state: GameState = self._build_initial_state()
+        # Stateful mode keeps an in-memory state; stateless mode does not.
+        self._state: Optional[GameState] = (
+            self._build_initial_state() if storage is None else None
+        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -98,7 +109,12 @@ class Orchestrator:
 
     @property
     def state(self) -> GameState:
-        """The current, live GameState including conversation history."""
+        """The current, live GameState (stateful mode only)."""
+        if self._state is None:
+            raise RuntimeError(
+                "No in-memory state. In stateless mode use "
+                "process_turn(user_input, parent_turn_id=...)."
+            )
         return self._state
 
     @property
@@ -107,36 +123,70 @@ class Orchestrator:
         return self._cartridge
 
     def reset(self) -> None:
-        """Restore the game to its initial state (clears conversation history)."""
+        """Restore the game to its initial state (stateful mode only)."""
         self._state = self._build_initial_state()
         logger.info("Orchestrator state reset to initial cartridge defaults.")
 
-    def process_turn(self, user_input: str) -> str:
+    def process_turn(
+        self,
+        user_input: str,
+        *,
+        parent_turn_id: Optional[str] = None,
+        llm_clients: Optional[Dict[str, Any]] = None,
+    ):
         """
         Execute one game turn.
 
-        Appends *user_input* to the conversation history, invokes the
-        compiled graph, and returns the Narrator's prose response.
+        **Stateful mode** (no ``parent_turn_id``, no ``storage``): appends
+        *user_input* to the in-memory conversation history, invokes the
+        graph, and returns the Narrator's prose response string.
 
-        On a recoverable graph error the orchestrator appends an internal
-        system note and retries once.  If the retry also fails the
-        exception is re-raised.
+        **Stateless mode** (``storage`` provided): hydrates state from the
+        turn-log tree, invokes the graph, and returns a result dict.
+        The Orchestrator does NOT save the turn to the DB; the API route
+        handles that.  (Aligned with 0005 §3.2.)
 
-        Args:
-            user_input: The player's raw text input.
+        Parameters
+        ----------
+        user_input : str
+            The player's raw text input.
+        parent_turn_id : str, optional
+            ID of the previous turn (stateless mode).
+        llm_clients : dict, optional
+            Per-request LLM instances for BYOK. Keys: ``"director"``,
+            ``"narrator"``, ``"npc"``.
 
-        Returns:
-            The Narrator's prose response string (empty string if no
-            narrator response was produced, e.g. in dry-run mode).
+        Returns
+        -------
+        str
+            Stateful mode: Narrator's prose response string.
+        dict
+            Stateless mode: ``{"narrator_text": str, "yare_delta": dict}``.
         """
+        if parent_turn_id is not None or self._storage is not None:
+            return self._process_turn_stateless(
+                user_input,
+                parent_turn_id=parent_turn_id,
+                llm_clients=llm_clients,
+            )
+        return self._process_turn_stateful(user_input)
+
+    # ------------------------------------------------------------------
+    # Stateful turn (legacy / CLI)
+    # ------------------------------------------------------------------
+
+    def _process_turn_stateful(self, user_input: str) -> str:
+        """In-memory stateful turn loop (original behavior)."""
         self._state["client_messages"].append({"role": "user", "content": user_input})
         logger.debug("Player: %s", user_input)
 
+        config = self._build_runnable_config()
+
         for attempt in range(MAX_TURN_RETRIES + 1):
             try:
-                new_state = self._app.invoke(self._state)
+                new_state = self._app.invoke(self._state, config=config)
                 self._state = new_state
-                response = self._extract_narrator_response()
+                response = self._extract_narrator_response(self._state)
                 logger.debug("Narrator: %s", response[:120] if response else "(none)")
                 return response
             except Exception as exc:  # noqa: BLE001
@@ -156,6 +206,56 @@ class Orchestrator:
                     raise
 
     # ------------------------------------------------------------------
+    # Stateless turn (web / API)
+    # ------------------------------------------------------------------
+
+    def _process_turn_stateless(
+        self,
+        user_input: str,
+        *,
+        parent_turn_id: Optional[str] = None,
+        llm_clients: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Hydrate -> invoke -> return result dict (no persistence).
+
+        Returns
+        -------
+        dict
+            ``{"narrator_text": str, "yare_delta": dict}``
+        """
+        if self._storage is None:
+            raise RuntimeError(
+                "Stateless process_turn requires a storage backend. "
+                "Pass storage= to Orchestrator.__init__."
+            )
+
+        # 1. Hydrate state from lineage
+        if parent_turn_id is not None:
+            lineage = self._storage.get_turn_lineage(parent_turn_id)
+        else:
+            lineage = []
+
+        state = StateHydrator.hydrate_state(lineage, self._cartridge.initial_state)
+        state["client_messages"].append({"role": "user", "content": user_input})
+
+        # 2. Invoke graph with static cartridge data + BYOK LLMs via config
+        config = self._build_runnable_config(llm_clients=llm_clients)
+        new_state = self._app.invoke(state, config=config)
+
+        # 3. Extract yare_delta from bot_memory changes
+        yare_delta = self._extract_delta(
+            self._cartridge.initial_state, lineage, new_state
+        )
+
+        # 4. Extract narrator response
+        narrator_text = self._extract_narrator_response(new_state)
+
+        return {
+            "narrator_text": narrator_text,
+            "yare_delta": yare_delta,
+        }
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
@@ -166,16 +266,32 @@ class Orchestrator:
             "agent_messages": [],
             "bot_memory": copy.deepcopy(self._cartridge.initial_state),
             "bot_memory_staging": [],
-            "yare_config": self._cartridge.yare_config,
-            "prompt_directives": self._cartridge.prompt_directives,
-            "lore_path": self._cartridge.lore_path,
-            "lore_content": self._cartridge.lore_content,
-            "persona_context": self._cartridge.persona_context,
             "system_notes": [],
             "retrieved_lore": "",
             "iteration_count": 0,
             "turn_phase": "",
         }
+
+    def _build_runnable_config(
+        self,
+        llm_clients: Optional[Dict[str, Any]] = None,
+    ) -> dict:
+        """Build the ``RunnableConfig`` dict carrying static cartridge data.
+
+        If *llm_clients* is provided the dict is included under
+        ``configurable["llm_clients"]`` so graph nodes can pick them up
+        for BYOK invocations (per 0005 §4.2).
+        """
+        configurable: Dict[str, Any] = {
+            "yare_config": self._cartridge.yare_config,
+            "prompt_directives": self._cartridge.prompt_directives,
+            "lore_path": self._cartridge.lore_path,
+            "lore_content": self._cartridge.lore_content,
+            "persona_context": self._cartridge.persona_context,
+        }
+        if llm_clients:
+            configurable["llm_clients"] = llm_clients
+        return {"configurable": configurable}
 
     def _compile_graph(self, llm_director, llm_npc, llm_narrator):
         """Delegate graph compilation to the build_graph factory in graph.py."""
@@ -184,11 +300,41 @@ class Orchestrator:
             llm_director=llm_director,
             llm_npc=llm_npc,
             llm_narrator=llm_narrator,
+            prompt_directives=self._cartridge.prompt_directives,
         )
 
-    def _extract_narrator_response(self) -> str:
+    @staticmethod
+    def _extract_narrator_response(state: dict) -> str:
         """Return the most recent assistant message from client_messages."""
-        for msg in reversed(self._state.get("client_messages", [])):
+        for msg in reversed(state.get("client_messages", [])):
             if msg.get("role") == "assistant":
                 return msg.get("content", "")
         return ""
+
+    @staticmethod
+    def _extract_delta(
+        initial_state: dict, lineage: list, new_state: dict
+    ) -> dict:
+        """Compute the incremental delta produced by this turn.
+
+        The delta is the difference between the hydrated bot_memory
+        *before* the turn and the bot_memory *after* the graph ran.
+        We store only top-level keys that changed.
+        """
+        from .storage.hydrator import _deep_merge
+
+        # Reconstruct pre-turn bot_memory
+        pre = copy.deepcopy(initial_state)
+        for turn in lineage:
+            delta = turn.yare_delta
+            if isinstance(delta, dict) and delta:
+                pre = _deep_merge(pre, delta)
+
+        post = new_state.get("bot_memory", {})
+
+        # Diff: only include keys whose values actually changed
+        diff: Dict[str, Any] = {}
+        for key in post:
+            if key not in pre or pre[key] != post[key]:
+                diff[key] = copy.deepcopy(post[key])
+        return diff
