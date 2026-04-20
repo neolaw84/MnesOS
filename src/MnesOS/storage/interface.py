@@ -112,10 +112,18 @@ class AbstractStorageComponent(ABC):
         """Persist a new CartridgeVersion and return it with its assigned id."""
 
     @abstractmethod
+    def list_cartridges(self) -> List[Cartridge]:
+        """Return all Cartridge records."""
+
+    @abstractmethod
     def get_cartridge_version(
         self, version_id: str
     ) -> Optional[CartridgeVersion]:
         """Return a CartridgeVersion by primary key, or None if not found."""
+
+    @abstractmethod
+    def list_cartridge_versions(self, cartridge_id: str) -> List[CartridgeVersion]:
+        """Return all CartridgeVersion records for a given Cartridge, ordered by published_at."""
 
     # ------------------------------------------------------------------
     # GameInstance

@@ -10,6 +10,7 @@ Run locally::
 
 from fastapi import FastAPI
 
+from .cartridges import cartridges_router
 from .routes import router
 
 app = FastAPI(
@@ -22,3 +23,4 @@ app = FastAPI(
 )
 
 app.include_router(router, prefix="/api")
+app.include_router(cartridges_router, prefix="/api")

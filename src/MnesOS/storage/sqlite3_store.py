@@ -508,6 +508,22 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
         with conn:
             conn.execute("DELETE FROM cartridges WHERE id=?", (cartridge_id,))
 
+    def list_cartridges(self) -> List[Cartridge]:
+        rows = self._get_conn().execute(
+            "SELECT * FROM cartridges ORDER BY title"
+        ).fetchall()
+        return [
+            Cartridge(
+                id=row["id"],
+                creator_id=row["creator_id"],
+                title=row["title"],
+                description=row["description"],
+                genre=row["genre"],
+                visibility=Visibility(row["visibility"]),
+            )
+            for row in rows
+        ]
+
     # ------------------------------------------------------------------
     # CartridgeVersion
     # ------------------------------------------------------------------
@@ -557,6 +573,25 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
             checksum=row["checksum"],
             published_at=_str_to_ts(row["published_at"]),
         )
+
+    def list_cartridge_versions(self, cartridge_id: str) -> List[CartridgeVersion]:
+        rows = self._get_conn().execute(
+            "SELECT * FROM cartridge_versions WHERE cartridge_id = ? ORDER BY published_at",
+            (cartridge_id,),
+        ).fetchall()
+        return [
+            CartridgeVersion(
+                id=row["id"],
+                cartridge_id=row["cartridge_id"],
+                version_tag=row["version_tag"],
+                yare_spec=self._json_load(row["yare_spec"]),
+                prompt_directives=self._json_load(row["prompt_directives"]),
+                bot_lore=row["bot_lore"],
+                checksum=row["checksum"],
+                published_at=_str_to_ts(row["published_at"]),
+            )
+            for row in rows
+        ]
 
     # ------------------------------------------------------------------
     # GameInstance

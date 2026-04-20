@@ -16,6 +16,9 @@ import type {
   CreateSaveResponse,
   GameSave,
   HydratedStateResponse,
+  Cartridge,
+  CartridgeVersion,
+  CreateCartridgeRequest,
 } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -147,4 +150,108 @@ export async function getGameState(
     `/api/instances/${instanceId}/state${params}`,
     { method: "GET" },
   );
+}
+
+// ---------------------------------------------------------------------------
+// Cartridge Library API
+// ---------------------------------------------------------------------------
+
+/** Create a new cartridge shell. */
+export async function createCartridge(
+  body: CreateCartridgeRequest,
+): Promise<Cartridge> {
+  return apiFetch<Cartridge>("/api/cartridges", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+/** List all available cartridges. */
+export async function listCartridges(): Promise<Cartridge[]> {
+  return apiFetch<Cartridge[]>("/api/cartridges", { method: "GET" });
+}
+
+/** Get a specific cartridge by ID. */
+export async function getCartridge(cartridgeId: string): Promise<Cartridge> {
+  return apiFetch<Cartridge>(`/api/cartridges/${cartridgeId}`, {
+    method: "GET",
+  });
+}
+
+/** Delete a cartridge (cascades to versions). */
+export async function deleteCartridge(cartridgeId: string): Promise<void> {
+  const headers: Record<string, string> = {};
+  const userId = getUserId();
+  if (userId) headers["X-User-Id"] = userId;
+  const response = await fetch(`/api/cartridges/${cartridgeId}`, {
+    method: "DELETE",
+    headers,
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`API ${response.status}: ${text}`);
+  }
+}
+
+/** List all versions of a cartridge. */
+export async function listCartridgeVersions(
+  cartridgeId: string,
+): Promise<CartridgeVersion[]> {
+  return apiFetch<CartridgeVersion[]>(
+    `/api/cartridges/${cartridgeId}/versions`,
+    { method: "GET" },
+  );
+}
+
+/** Get a specific version by ID. */
+export async function getCartridgeVersion(
+  cartridgeId: string,
+  versionId: string,
+): Promise<CartridgeVersion> {
+  return apiFetch<CartridgeVersion>(
+    `/api/cartridges/${cartridgeId}/versions/${versionId}`,
+    { method: "GET" },
+  );
+}
+
+/**
+ * Upload a new cartridge version.
+ * Accepts either a ZIP file or individual yare/lore/directives files.
+ */
+export async function uploadCartridgeVersion(
+  cartridgeId: string,
+  versionTag: string,
+  files: {
+    zipFile?: File;
+    yareFile?: File;
+    loreFile?: File;
+    directivesFile?: File;
+  },
+): Promise<CartridgeVersion> {
+  const formData = new FormData();
+  formData.append("version_tag", versionTag);
+  if (files.zipFile) {
+    formData.append("zip_file", files.zipFile);
+  } else {
+    if (files.yareFile) formData.append("yare_file", files.yareFile);
+    if (files.loreFile) formData.append("lore_file", files.loreFile);
+    if (files.directivesFile)
+      formData.append("directives_file", files.directivesFile);
+  }
+
+  const headers: Record<string, string> = {};
+  const apiKey = getOpenRouterKey();
+  if (apiKey) headers["X-OpenRouter-Key"] = apiKey;
+  const userId = getUserId();
+  if (userId) headers["X-User-Id"] = userId;
+
+  const response = await fetch(
+    `/api/cartridges/${cartridgeId}/versions`,
+    { method: "POST", body: formData, headers },
+  );
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`API ${response.status}: ${text}`);
+  }
+  return response.json() as Promise<CartridgeVersion>;
 }
