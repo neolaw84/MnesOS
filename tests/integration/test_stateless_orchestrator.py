@@ -3,8 +3,12 @@ Integration tests for the stateless Orchestrator flow (MNS-203).
 
 Tests use an in-memory SQLite3 store and the generic-rpg cartridge
 to verify that the Orchestrator can hydrate state, invoke the graph,
-persist deltas, and chain turns via parent_turn_id — all without
-keeping any in-memory state between turns.
+and return result dicts — all without keeping any in-memory state
+between turns.
+
+Per 0005 §3.2 the Orchestrator does NOT persist to the database.
+The API route handles that.  These tests verify persistence is done
+by the test itself (mimicking the API route).
 """
 
 import copy
@@ -23,8 +27,8 @@ from MnesOS.storage import (
     Cartridge,
     CartridgeVersion,
     Visibility,
+    StateHydrator,
 )
-from MnesOS.storage.hydrator import hydrate_state
 
 
 CARTRIDGE_DIR = "cartridges/generic-rpg"
@@ -75,6 +79,21 @@ def instance_id(storage):
     return inst.id
 
 
+def _persist_turn(storage, instance_id, result, user_input, parent_turn_id=None):
+    """Helper mimicking the API route: persist a TurnLog from orchestrator result."""
+    lineage = storage.get_turn_lineage(parent_turn_id) if parent_turn_id else []
+    turn = TurnLog(
+        instance_id=instance_id,
+        turn_index=len(lineage),
+        actor=TurnActor.PLAYER,
+        input_text=user_input,
+        yare_delta=result["yare_delta"],
+        narrator_text=result["narrator_text"],
+        parent_id=parent_turn_id,
+    )
+    return storage.append_turn_log(turn)
+
+
 # ---------------------------------------------------------------------------
 # Core stateless flow
 # ---------------------------------------------------------------------------
@@ -83,45 +102,42 @@ def instance_id(storage):
 class TestStatelessOrchestrator:
     """Core stateless turn-processing tests."""
 
-    def test_first_turn_returns_turn_id(self, storage, instance_id):
+    def test_first_turn_returns_result_dict(self, storage, instance_id):
         orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
-        turn_id = orch.process_turn(
+        result = orch.process_turn(
             "I look around.",
             parent_turn_id=None,
-            instance_id=instance_id,
         )
-        assert isinstance(turn_id, str)
-        assert len(turn_id) > 0
+        assert isinstance(result, dict)
+        assert "narrator_text" in result
+        assert "yare_delta" in result
 
-    def test_persisted_turn_log_exists(self, storage, instance_id):
+    def test_result_narrator_text_is_string(self, storage, instance_id):
         orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
-        turn_id = orch.process_turn(
-            "Hello!",
-            parent_turn_id=None,
-            instance_id=instance_id,
-        )
-        logs = storage.get_turn_logs(instance_id)
-        assert len(logs) == 1
-        assert logs[0].id == turn_id
-        assert logs[0].input_text == "Hello!"
-        assert logs[0].actor == TurnActor.PLAYER
+        result = orch.process_turn("Hello!", parent_turn_id=None)
+        assert isinstance(result["narrator_text"], str)
+
+    def test_result_yare_delta_is_dict(self, storage, instance_id):
+        orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
+        result = orch.process_turn("I attack!", parent_turn_id=None)
+        assert isinstance(result["yare_delta"], dict)
 
     def test_consecutive_turns_chain_via_parent_id(self, storage, instance_id):
         orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
-        t1 = orch.process_turn(
-            "Turn 1", parent_turn_id=None, instance_id=instance_id,
-        )
-        t2 = orch.process_turn(
-            "Turn 2", parent_turn_id=t1, instance_id=instance_id,
-        )
-        t3 = orch.process_turn(
-            "Turn 3", parent_turn_id=t2, instance_id=instance_id,
-        )
+
+        r1 = orch.process_turn("Turn 1", parent_turn_id=None)
+        t1 = _persist_turn(storage, instance_id, r1, "Turn 1")
+
+        r2 = orch.process_turn("Turn 2", parent_turn_id=t1.id)
+        t2 = _persist_turn(storage, instance_id, r2, "Turn 2", parent_turn_id=t1.id)
+
+        r3 = orch.process_turn("Turn 3", parent_turn_id=t2.id)
+        t3 = _persist_turn(storage, instance_id, r3, "Turn 3", parent_turn_id=t2.id)
 
         logs = storage.get_turn_logs(instance_id)
         assert len(logs) == 3
-        assert logs[1].parent_id == t1
-        assert logs[2].parent_id == t2
+        assert logs[1].parent_id == t1.id
+        assert logs[2].parent_id == t2.id
 
     def test_stateless_no_internal_state(self, storage, instance_id):
         """The orchestrator must not hold in-memory state in stateless mode."""
@@ -133,49 +149,55 @@ class TestStatelessOrchestrator:
     def test_orchestrator_can_be_destroyed_and_recreated(self, storage, instance_id):
         """Instantiate, process, destroy, re-instantiate, continue."""
         orch1 = Orchestrator(CARTRIDGE_DIR, storage=storage)
-        t1 = orch1.process_turn(
-            "I look around.", parent_turn_id=None, instance_id=instance_id,
-        )
+        r1 = orch1.process_turn("I look around.", parent_turn_id=None)
+        t1 = _persist_turn(storage, instance_id, r1, "I look around.")
         del orch1  # destroy
 
         # Re-create and continue from where we left off
         orch2 = Orchestrator(CARTRIDGE_DIR, storage=storage)
-        t2 = orch2.process_turn(
-            "I go north.", parent_turn_id=t1, instance_id=instance_id,
-        )
-        assert t2 != t1
+        r2 = orch2.process_turn("I go north.", parent_turn_id=t1.id)
+        t2 = _persist_turn(storage, instance_id, r2, "I go north.", parent_turn_id=t1.id)
+
+        assert t2.id != t1.id
         logs = storage.get_turn_logs(instance_id)
         assert len(logs) == 2
 
     def test_branching_timeline(self, storage, instance_id):
         """Two turns branching from the same parent create separate paths."""
         orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
-        root = orch.process_turn(
-            "Beginning.", parent_turn_id=None, instance_id=instance_id,
-        )
-        branch_a = orch.process_turn(
-            "I go left.", parent_turn_id=root, instance_id=instance_id,
-        )
-        branch_b = orch.process_turn(
-            "I go right.", parent_turn_id=root, instance_id=instance_id,
-        )
-        assert branch_a != branch_b
+        r_root = orch.process_turn("Beginning.", parent_turn_id=None)
+        t_root = _persist_turn(storage, instance_id, r_root, "Beginning.")
 
-        lineage_a = storage.get_turn_lineage(branch_a)
-        lineage_b = storage.get_turn_lineage(branch_b)
+        r_a = orch.process_turn("I go left.", parent_turn_id=t_root.id)
+        t_a = _persist_turn(storage, instance_id, r_a, "I go left.", parent_turn_id=t_root.id)
+
+        r_b = orch.process_turn("I go right.", parent_turn_id=t_root.id)
+        t_b = _persist_turn(storage, instance_id, r_b, "I go right.", parent_turn_id=t_root.id)
+
+        assert t_a.id != t_b.id
+
+        lineage_a = storage.get_turn_lineage(t_a.id)
+        lineage_b = storage.get_turn_lineage(t_b.id)
         # Both lineages share the root
         assert lineage_a[0].id == lineage_b[0].id
         # But diverge at the second node
         assert lineage_a[1].id != lineage_b[1].id
 
+    def test_does_not_persist_to_db(self, storage, instance_id):
+        """Per 0005 §3.2, orchestrator must NOT write to storage."""
+        orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
+        orch.process_turn("Hello", parent_turn_id=None)
+        logs = storage.get_turn_logs(instance_id)
+        assert len(logs) == 0  # Orchestrator did NOT save
+
 
 class TestStatelessOrchestratorErrors:
     """Error handling for stateless mode."""
 
-    def test_missing_instance_id_raises(self, storage):
-        orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
-        with pytest.raises(ValueError, match="instance_id is required"):
-            orch.process_turn("Hi", parent_turn_id=None)
+    def test_no_storage_raises(self):
+        orch = Orchestrator(CARTRIDGE_DIR)  # no storage
+        with pytest.raises(RuntimeError, match="storage backend"):
+            orch.process_turn("Hi", parent_turn_id="some-id")
 
     def test_invalid_parent_turn_id_raises(self, storage, instance_id):
         orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
@@ -183,28 +205,19 @@ class TestStatelessOrchestratorErrors:
             orch.process_turn(
                 "Hi",
                 parent_turn_id="nonexistent-turn-id",
-                instance_id=instance_id,
             )
 
 
 class TestStatelessDeltaPersistence:
-    """Verify that yare_delta is correctly extracted and persisted."""
-
-    def test_delta_is_dict(self, storage, instance_id):
-        orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
-        turn_id = orch.process_turn(
-            "I attack!", parent_turn_id=None, instance_id=instance_id,
-        )
-        logs = storage.get_turn_logs(instance_id)
-        assert isinstance(logs[0].yare_delta, dict)
+    """Verify that yare_delta is correctly extracted."""
 
     def test_hydration_from_persisted_turns_matches_initial_state(self, storage, instance_id):
         """When no YARE events fire (dry-run), hydrated state should match initial."""
         orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
-        t1 = orch.process_turn(
-            "I wait.", parent_turn_id=None, instance_id=instance_id,
-        )
-        lineage = storage.get_turn_lineage(t1)
-        state = hydrate_state(lineage, orch.cartridge.initial_state)
+        r1 = orch.process_turn("I wait.", parent_turn_id=None)
+        t1 = _persist_turn(storage, instance_id, r1, "I wait.")
+
+        lineage = storage.get_turn_lineage(t1.id)
+        state = StateHydrator.hydrate_state(lineage, orch.cartridge.initial_state)
         # In dry-run mode (no LLMs), bot_memory shouldn't change
         assert state["bot_memory"] == orch.cartridge.initial_state

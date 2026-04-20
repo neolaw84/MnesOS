@@ -16,7 +16,7 @@ import copy
 import pytest
 
 from MnesOS.storage.models import TurnLog, TurnActor
-from MnesOS.storage.hydrator import hydrate_state, _deep_merge
+from MnesOS.storage.hydrator import hydrate_state, StateHydrator, _deep_merge
 
 
 # ---------------------------------------------------------------------------
@@ -208,3 +208,25 @@ class TestHydrateState:
         result = hydrate_state([turn], INITIAL_STATE)
         assert len(result["client_messages"]) == 1
         assert result["client_messages"][0]["role"] == "assistant"
+
+
+class TestStateHydratorClass:
+    """Tests for the StateHydrator class interface (per 0005 §3.1)."""
+
+    def test_class_has_static_method(self):
+        assert hasattr(StateHydrator, "hydrate_state")
+        assert callable(StateHydrator.hydrate_state)
+
+    def test_class_produces_same_result_as_function(self):
+        turns = [
+            _make_turn(0, input_text="Hi", narrator_text="Hello.",
+                        yare_delta={"player": {"gold": 10}}),
+        ]
+        from_func = hydrate_state(turns, INITIAL_STATE)
+        from_class = StateHydrator.hydrate_state(turns, INITIAL_STATE)
+        assert from_func == from_class
+
+    def test_class_empty_lineage(self):
+        result = StateHydrator.hydrate_state([], INITIAL_STATE)
+        assert result["bot_memory"] == INITIAL_STATE
+        assert result["client_messages"] == []

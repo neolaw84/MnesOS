@@ -21,6 +21,8 @@ def director_node(state: GameState, config: RunnableConfig, *, llm=None, tools=N
 
     Static cartridge data (``prompt_directives``, ``persona_context``) is
     read from ``config["configurable"]`` rather than from the graph state.
+    LLM can be provided via build_graph closure or per-request via
+    ``config["configurable"]["llm_clients"]["director"]`` (BYOK).
     """
     configurable = (config or {}).get("configurable", {})
     loops = state.get("iteration_count", 0) + 1
@@ -40,15 +42,18 @@ def director_node(state: GameState, config: RunnableConfig, *, llm=None, tools=N
         + _format_game_time_context(state.get("bot_memory", {}))
     )
 
+    # Resolve LLM: closure arg > config BYOK > None (dry-run)
+    effective_llm = llm or configurable.get("llm_clients", {}).get("director")
+
     result = {"iteration_count": loops, "turn_phase": "player"}
-    if llm is not None:
+    if effective_llm is not None:
         prompt_messages = [SystemMessage(content=system_content)]
         prompt_messages.extend(
             _client_messages_to_langchain_messages(state.get("client_messages", []))
         )
         prompt_messages.extend(state.get("agent_messages", []))
 
-        response = llm.bind_tools(tools or [], parallel_tool_calls=False).invoke(prompt_messages)
+        response = effective_llm.bind_tools(tools or [], parallel_tool_calls=False).invoke(prompt_messages)
         result["agent_messages"] = [response]
 
     return result

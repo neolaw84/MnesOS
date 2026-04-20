@@ -14,14 +14,19 @@ def narrator_node(state: GameState, config: RunnableConfig, *, llm=None) -> dict
 
     Static cartridge data (``yare_config``, ``prompt_directives``,
     ``persona_context``) is read from ``config["configurable"]``.
+    LLM can be provided via build_graph closure or per-request via
+    ``config["configurable"]["llm_clients"]["narrator"]`` (BYOK).
     """
     configurable = (config or {}).get("configurable", {})
     yare_config = configurable.get("yare_config", {})
     public_state = get_public_state(state["bot_memory"], yare_config)
 
+    # Resolve LLM: closure arg > config BYOK > None (dry-run)
+    effective_llm = llm or configurable.get("llm_clients", {}).get("narrator")
+
     result: dict = {"iteration_count": 0, "system_notes": [], "retrieved_lore": ""}
 
-    if llm is not None:
+    if effective_llm is not None:
         # Find the Director's final Scene Directive (last AIMessage without tool calls)
         scene_directives = ""
         for msg in reversed(state.get("agent_messages", [])):
@@ -45,7 +50,7 @@ def narrator_node(state: GameState, config: RunnableConfig, *, llm=None) -> dict
         prompt_messages.extend(
             _client_messages_to_langchain_messages(state.get("client_messages", []))
         )
-        response = llm.invoke(prompt_messages)
+        response = effective_llm.invoke(prompt_messages)
         narrative = response.content
         result["narrative"] = narrative
         result["client_messages"] = [{"role": "assistant", "content": narrative}]
