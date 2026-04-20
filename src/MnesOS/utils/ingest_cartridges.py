@@ -1,6 +1,5 @@
-#!/usr/bin/env python3
 """
-scripts/ingest_cartridges.py — CLI tool for bulk cartridge ingestion.
+MnesOS utility: bulk cartridge ingestion.
 
 Iterates subdirectories of a given root directory, validates each as a
 cartridge using CartridgeLoader, and creates/upserts Cartridge +
@@ -8,10 +7,10 @@ CartridgeVersion records via the AbstractStorageComponent interface.
 
 Usage::
 
-    python scripts/ingest_cartridges.py --cartridge-dir cartridges/ \\
+    mnesos-ingest-cartridges --cartridge-dir cartridges/ \\
         --creator-id <user-uuid> [--upsert] [--db-path mnesos.db]
 
-    python scripts/ingest_cartridges.py --cartridge-dir cartridges/generic-rpg \\
+    mnesos-ingest-cartridges --cartridge-dir cartridges/generic-rpg \\
         --creator-id <user-uuid> --version-tag 1.0.0
 
 Options:
@@ -32,16 +31,11 @@ import logging
 import sys
 from pathlib import Path
 
-import yaml
+from ..cartridge import CartridgeLoader
+from ..storage import AbstractStorageComponent, SQLite3PhysicalComponent
+from ..storage.models import Cartridge, CartridgeVersion, Visibility
 
-# Ensure the project src is importable when running from the repo root.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-
-from MnesOS.cartridge import CartridgeLoader
-from MnesOS.storage import AbstractStorageComponent, SQLite3PhysicalComponent
-from MnesOS.storage.models import Cartridge, CartridgeVersion, Visibility
-
-logger = logging.getLogger("ingest_cartridges")
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +216,11 @@ def main() -> None:
             logger.warning("No subdirectories found in %r.", str(root))
             sys.exit(0)
 
-    logger.info("Found %d director%s to process.", len(dirs), "y" if len(dirs) == 1 else "ies")
+    logger.info(
+        "Found %d director%s to process.",
+        len(dirs),
+        "y" if len(dirs) == 1 else "ies",
+    )
 
     success = 0
     failure = 0
@@ -244,8 +242,11 @@ def main() -> None:
                 visibility=visibility,
             )
             success += 1
-        except Exception as exc:  # noqa: BLE001
-            logger.error("Unexpected error processing %r: %s", d.name, exc)
+        except (ValueError, OSError) as exc:
+            logger.error("Error processing %r: %s", d.name, exc)
+            failure += 1
+        except Exception:
+            logger.exception("Unexpected error processing %r", d.name)
             failure += 1
 
     logger.info("Done. %d succeeded, %d failed.", success, failure)
