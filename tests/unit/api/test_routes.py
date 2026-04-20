@@ -238,6 +238,38 @@ class TestGameSaves:
         assert "save_id" in data
         assert "created_at" in data
 
+    def test_list_saves_empty(self, client, instance_id):
+        resp = client.get(f"/api/instances/{instance_id}/saves")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_list_saves_returns_created(self, client, instance_id):
+        # Create a turn, then two saves
+        r1 = client.post(
+            f"/api/instances/{instance_id}/turn",
+            json={"user_input": "Walk"},
+        )
+        turn_id = r1.json()["turn_id"]
+
+        client.post(
+            f"/api/instances/{instance_id}/saves",
+            json={"turn_log_id": turn_id, "label": "Save A"},
+        )
+        client.post(
+            f"/api/instances/{instance_id}/saves",
+            json={"turn_log_id": turn_id, "label": "Save B"},
+        )
+
+        resp = client.get(f"/api/instances/{instance_id}/saves")
+        assert resp.status_code == 200
+        saves = resp.json()
+        assert len(saves) == 2
+        assert saves[0]["label"] == "Save A"
+        assert saves[1]["label"] == "Save B"
+        assert "id" in saves[0]
+        assert "turn_log_id" in saves[0]
+        assert "created_at" in saves[0]
+
 
 # ---------------------------------------------------------------------------
 # §1.4  GET /api/instances/{instance_id}/state

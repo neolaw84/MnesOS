@@ -82,6 +82,16 @@ class CreateSaveResponse(BaseModel):
     created_at: datetime
 
 
+class GameSaveItem(BaseModel):
+    """Single save entry for ``GET /api/instances/{instance_id}/saves``."""
+
+    id: str
+    instance_id: str
+    turn_log_id: str
+    label: str
+    created_at: datetime
+
+
 # ---------------------------------------------------------------------------
 # §1.4 Load Game State (Hydration)
 # ---------------------------------------------------------------------------

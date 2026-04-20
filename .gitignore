@@ -211,3 +211,7 @@ data
 cartridges-nsfw
 # setuptools-scm generated version file
 src/*/_version.py
+
+# Web client (managed by web-client/.gitignore)
+web-client/node_modules/
+web-client/dist/

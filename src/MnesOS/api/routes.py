@@ -11,7 +11,7 @@ Endpoints aligned with ``docs/design/0005-interfaces-and-contracts.md`` §1:
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -32,6 +32,7 @@ from .deps import (
 from .schemas import (
     CreateSaveRequest,
     CreateSaveResponse,
+    GameSaveItem,
     HydratedStateResponse,
     InjectRequest,
     InjectResponse,
@@ -164,6 +165,29 @@ def create_save(
         save_id=saved.id,
         created_at=saved.created_at,
     )
+
+
+@router.get(
+    "/instances/{instance_id}/saves",
+    response_model=List[GameSaveItem],
+    summary="List save bookmarks",
+)
+def list_saves(
+    instance_id: str = Depends(verify_instance_ownership),
+    storage: AbstractStorageComponent = Depends(get_storage),
+) -> List[GameSaveItem]:
+    """Return all save bookmarks for the given game instance."""
+    saves = storage.list_game_saves(instance_id)
+    return [
+        GameSaveItem(
+            id=s.id,
+            instance_id=s.instance_id,
+            turn_log_id=s.turn_log_id,
+            label=s.label,
+            created_at=s.created_at,
+        )
+        for s in saves
+    ]
 
 
 # ---------------------------------------------------------------------------
