@@ -18,6 +18,7 @@ Design notes
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -108,6 +109,7 @@ CREATE TABLE IF NOT EXISTS cartridge_versions (
     yare_spec         TEXT NOT NULL DEFAULT '{}',
     prompt_directives TEXT NOT NULL DEFAULT '{}',
     bot_lore          TEXT NOT NULL DEFAULT '',
+    first_message     TEXT NOT NULL DEFAULT '',
     checksum          TEXT NOT NULL,
     published_at      TEXT NOT NULL
 );
@@ -195,7 +197,7 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
         in-process in-memory database (useful for testing).
     """
 
-    def __init__(self, db_path: str = "mnesos.db") -> None:
+    def __init__(self, db_path: str = os.environ.get("MNESOS_DB_PATH", "artifacts/mnesos.db")) -> None:
         self._db_path = db_path
         self._conn: Optional[sqlite3.Connection] = None
 
@@ -412,6 +414,28 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
             created_at=_str_to_ts(row["created_at"]),
         )
 
+    def list_personas(self, user_id: str) -> List[Persona]:
+        rows = self._get_conn().execute(
+            "SELECT * FROM personas WHERE user_id = ? ORDER BY created_at ASC",
+            (user_id,)
+        ).fetchall()
+        return [
+            Persona(
+                id=row["id"],
+                user_id=row["user_id"],
+                name=row["name"],
+                pronoun_sub=row["pronoun_sub"],
+                pronoun_obj=row["pronoun_obj"],
+                pronoun_poss=row["pronoun_poss"],
+                pronoun_poss_obj=row["pronoun_poss_obj"],
+                appearance=row["appearance"],
+                background=row["background"],
+                personality=row["personality"],
+                created_at=_str_to_ts(row["created_at"]),
+            )
+            for row in rows
+        ]
+
     def update_persona(self, persona: Persona) -> Persona:
         conn = self._get_conn()
         with conn:
@@ -539,8 +563,8 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                 """
                 INSERT INTO cartridge_versions
                     (id, cartridge_id, version_tag, yare_spec, prompt_directives,
-                     bot_lore, checksum, published_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                     bot_lore, first_message, checksum, published_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     version.id,
@@ -549,6 +573,7 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                     self._json_dump(version.yare_spec),
                     self._json_dump(version.prompt_directives),
                     version.bot_lore,
+                    version.first_message,
                     version.checksum,
                     _ts_to_str(version.published_at),
                 ),
@@ -570,6 +595,7 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
             yare_spec=self._json_load(row["yare_spec"]),
             prompt_directives=self._json_load(row["prompt_directives"]),
             bot_lore=row["bot_lore"],
+            first_message=row["first_message"],
             checksum=row["checksum"],
             published_at=_str_to_ts(row["published_at"]),
         )
@@ -587,11 +613,15 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                 yare_spec=self._json_load(row["yare_spec"]),
                 prompt_directives=self._json_load(row["prompt_directives"]),
                 bot_lore=row["bot_lore"],
+                first_message=row["first_message"],
                 checksum=row["checksum"],
                 published_at=_str_to_ts(row["published_at"]),
             )
-            for row in rows
-        ]
+            for row in rows]
+    def delete_cartridge_version(self, version_id: str) -> None:
+        conn = self._get_conn()
+        with conn:
+            conn.execute("DELETE FROM cartridge_versions WHERE id = ?", (version_id,))
 
     # ------------------------------------------------------------------
     # GameInstance
@@ -650,6 +680,20 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
             )
         return instance
 
+    def list_game_instances(self, user_id: str) -> List[GameInstance]:
+        rows = self._get_conn().execute(
+            "SELECT * FROM game_instances WHERE user_id = ? ORDER BY created_at DESC",
+            (user_id,)
+        ).fetchall()
+        return [self._row_to_game_instance(row) for row in rows]
+
+    def delete_game_instance(self, instance_id: str) -> None:
+        conn = self._get_conn()
+        with conn:
+            conn.execute("DELETE FROM game_saves WHERE instance_id = ?", (instance_id,))
+            conn.execute("DELETE FROM turn_logs WHERE instance_id = ?", (instance_id,))
+            conn.execute("DELETE FROM game_instances WHERE id = ?", (instance_id,))
+
     def get_game_instance_context(
         self, instance_id: str
     ) -> Optional[Dict[str, Any]]:
@@ -688,6 +732,7 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                 cv.yare_spec     AS cv_yare_spec,
                 cv.prompt_directives AS cv_prompt_directives,
                 cv.bot_lore      AS cv_bot_lore,
+                cv.first_message AS cv_first_message,
                 cv.checksum      AS cv_checksum,
                 cv.published_at  AS cv_published_at
 
@@ -731,6 +776,7 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
             yare_spec=self._json_load(row["cv_yare_spec"]),
             prompt_directives=self._json_load(row["cv_prompt_directives"]),
             bot_lore=row["cv_bot_lore"],
+            first_message=row["cv_first_message"],
             checksum=row["cv_checksum"],
             published_at=_str_to_ts(row["cv_published_at"]),
         )
@@ -796,6 +842,19 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
         rows = self._get_conn().execute(sql, params).fetchall()
         return [self._row_to_turn_log(row) for row in rows]
 
+    def get_turn_log(self, turn_id: str) -> Optional[TurnLog]:
+        row = self._get_conn().execute(
+            "SELECT * FROM turn_logs WHERE id = ?", (turn_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        return self._row_to_turn_log(row)
+
+    def delete_turn_log(self, turn_id: str) -> None:
+        conn = self._get_conn()
+        with conn:
+            conn.execute("DELETE FROM turn_logs WHERE id = ?", (turn_id,))
+
     def get_turn_lineage(self, turn_id: str) -> List[TurnLog]:
         """
         Walk up the ``parent_id`` chain from *turn_id* to the root and
@@ -854,6 +913,19 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
         if row is None:
             return None
         return self._row_to_game_save(row)
+
+    def update_game_save(self, save: GameSave) -> GameSave:
+        conn = self._get_conn()
+        with conn:
+            conn.execute(
+                """
+                UPDATE game_saves
+                SET label = ?
+                WHERE id = ?
+                """,
+                (save.label, save.id),
+            )
+        return save
 
     def list_game_saves(self, instance_id: str) -> List[GameSave]:
         rows = self._get_conn().execute(

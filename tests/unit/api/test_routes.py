@@ -69,7 +69,7 @@ def instance_id(storage):
     ver = storage.create_cartridge_version(
         CartridgeVersion(
             cartridge_id=cart.id, version_tag="1.0",
-            yare_spec={}, prompt_directives={}, bot_lore="", checksum="abc",
+            yare_spec={}, prompt_directives={}, bot_lore="", first_message="", checksum="abc",
         )
     )
     inst = storage.create_game_instance(
@@ -308,7 +308,7 @@ class TestGetGameState:
 
 
 class TestAuth:
-    def test_missing_user_header_returns_401(self, storage):
+    def test_missing_user_header_returns_401(self, storage, instance_id):
         """Without the auth override, the raw header check kicks in."""
         app.dependency_overrides[get_storage] = lambda: storage
         app.dependency_overrides[get_llm_clients] = lambda: None
@@ -316,8 +316,10 @@ class TestAuth:
         app.dependency_overrides.pop(get_current_user, None)
 
         raw_client = TestClient(app)
+        # Use a real instance_id so the 404-from-orchestrator doesn't fire
+        # before FastAPI validates the missing required header.
         resp = raw_client.post(
-            "/api/instances/fake-id/turn",
+            f"/api/instances/{instance_id}/turn",
             json={"user_input": "Hello"},
         )
         assert resp.status_code == 422  # Missing required header

@@ -6,7 +6,7 @@ from ...context import VectorLoreStore
 def _build_lore_store(config: RunnableConfig) -> VectorLoreStore:
     configurable = (config or {}).get("configurable", {})
     lore_content = configurable.get("lore_content")
-    if lore_content:
+    if lore_content is not None:
         return VectorLoreStore(lore_content)
     return VectorLoreStore.from_file(configurable.get("lore_path", ""))
 

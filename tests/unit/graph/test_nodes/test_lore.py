@@ -16,13 +16,21 @@ class TestContextRetrievalNode:
         assert isinstance(result["retrieved_lore"], str)
 
     def test_location_enriches_query(self):
-        """Including a known location term should return non-empty lore."""
+        """Including a known location term should appear in the lore query."""
         state = make_state()
         state["bot_memory"]["current_location"] = "Crossroads"
         state["client_messages"] = [{"role": "user", "content": "I look at the crossroads."}]
-        config = make_config()
-        result = context_retrieval_node(state, config)
+
+        mock_store = MagicMock()
+        mock_store.query.return_value = "Crossroads lore snippet."
+
+        with patch("MnesOS.graph.nodes.lore.VectorLoreStore.from_file", return_value=mock_store):
+            config = make_config(lore_content=None)
+            result = context_retrieval_node(state, config)
+
         assert result["retrieved_lore"] != ""
+        query_text = mock_store.query.call_args[0][0]
+        assert "Crossroads" in query_text
 
     def test_npc_name_enriches_query(self):
         state = make_state()
@@ -50,7 +58,7 @@ class TestContextRetrievalNode:
         mock_store.query.return_value = ""
 
         with patch("MnesOS.graph.nodes.lore.VectorLoreStore.from_file", return_value=mock_store):
-            config = make_config(lore_content="")
+            config = make_config(lore_content=None)
             context_retrieval_node(state, config)
 
         call_args = mock_store.query.call_args
@@ -67,7 +75,7 @@ class TestContextRetrievalNode:
         mock_store.query.return_value = ""
 
         with patch("MnesOS.graph.nodes.lore.VectorLoreStore.from_file", return_value=mock_store):
-            config = make_config(lore_content="")
+            config = make_config(lore_content=None)
             context_retrieval_node(state, config)
 
         call_args = mock_store.query.call_args
@@ -85,7 +93,7 @@ class TestContextRetrievalNode:
         mock_store.query.return_value = ""
 
         with patch("MnesOS.graph.nodes.lore.VectorLoreStore.from_file", return_value=mock_store):
-            config = make_config(lore_content="")
+            config = make_config(lore_content=None)
             context_retrieval_node(state, config)
 
         query_text = mock_store.query.call_args[0][0]
@@ -106,7 +114,7 @@ class TestContextRetrievalNode:
         mock_store.query.return_value = ""
 
         with patch("MnesOS.graph.nodes.lore.VectorLoreStore.from_file", return_value=mock_store):
-            config = make_config(lore_content="")
+            config = make_config(lore_content=None)
             context_retrieval_node(state, config)
 
         query_text = mock_store.query.call_args[0][0]

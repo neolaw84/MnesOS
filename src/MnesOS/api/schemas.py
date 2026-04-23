@@ -11,6 +11,65 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+# ---------------------------------------------------------------------------
+# UserAccount schemas
+# ---------------------------------------------------------------------------
+
+class UserAccountResponse(BaseModel):
+    id: str
+    username: str
+    email: str
+    role: str
+    created_at: Optional[datetime]
+
+class CreateUserAccountRequest(BaseModel):
+    username: str = Field(..., min_length=1)
+    email: str
+    password: str = Field(..., min_length=6)
+    role: str = Field(default="PLAYER")
+
+class UpdateUserAccountRequest(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+
+# ---------------------------------------------------------------------------
+# Persona schemas
+# ---------------------------------------------------------------------------
+
+class PersonaResponse(BaseModel):
+    id: str
+    user_id: str
+    name: str
+    pronoun_sub: str
+    pronoun_obj: str
+    pronoun_poss: str
+    pronoun_poss_obj: str
+    appearance: str
+    background: str
+    personality: str
+    created_at: Optional[datetime]
+
+class CreatePersonaRequest(BaseModel):
+    name: str
+    pronoun_sub: str
+    pronoun_obj: str
+    pronoun_poss: str
+    pronoun_poss_obj: str
+    appearance: str
+    background: str
+    personality: str
+
+class UpdatePersonaRequest(BaseModel):
+    name: Optional[str] = None
+    pronoun_sub: Optional[str] = None
+    pronoun_obj: Optional[str] = None
+    pronoun_poss: Optional[str] = None
+    pronoun_poss_obj: Optional[str] = None
+    appearance: Optional[str] = None
+    background: Optional[str] = None
+    personality: Optional[str] = None
+
 
 # ---------------------------------------------------------------------------
 # §1.1 Process Turn
@@ -37,6 +96,17 @@ class TurnResponse(BaseModel):
     turn_id: str
     narrator_response: str
     yare_delta: Dict[str, Any]
+
+class TurnLogResponse(BaseModel):
+    id: str
+    instance_id: str
+    turn_index: int
+    actor: str
+    input_text: str
+    yare_delta: Any
+    narrator_text: str
+    parent_id: Optional[str]
+    timestamp: Optional[datetime]
 
 
 # ---------------------------------------------------------------------------
@@ -68,6 +138,34 @@ class InjectResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class CreateInstanceRequest(BaseModel):
+    """``POST /api/instances`` request body."""
+
+    version_id: str
+    persona_id: str
+
+
+class CreateInstanceResponse(BaseModel):
+    """``POST /api/instances`` response body."""
+
+    instance_id: str
+    turn_id: Optional[str] = None
+
+class GameInstanceResponse(BaseModel):
+    id: str
+    user_id: str
+    persona_id: str
+    version_id: str
+    status: str
+    created_at: Optional[datetime]
+    last_played_at: Optional[datetime]
+
+class UpdateGameInstanceRequest(BaseModel):
+    status: Optional[str] = None
+
+
+
+
 class CreateSaveRequest(BaseModel):
     """``POST /api/instances/{instance_id}/saves`` request body."""
 
@@ -90,6 +188,9 @@ class GameSaveItem(BaseModel):
     turn_log_id: str
     label: str
     created_at: datetime
+
+class UpdateGameSaveRequest(BaseModel):
+    label: str
 
 
 # ---------------------------------------------------------------------------
@@ -117,6 +218,12 @@ class CreateCartridgeRequest(BaseModel):
     genre: str = Field(default="")
     visibility: str = Field(default="PUBLIC", description="PUBLIC or PRIVATE")
 
+class UpdateCartridgeRequest(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    genre: Optional[str] = None
+    visibility: Optional[str] = Field(None, description="PUBLIC or PRIVATE")
+
 
 class CartridgeResponse(BaseModel):
     """Cartridge entity response."""
@@ -143,5 +250,6 @@ class CartridgeVersionResponse(BaseModel):
     yare_spec: Dict[str, Any]
     prompt_directives: Dict[str, Any]
     bot_lore: str
+    first_message: str
     checksum: str
     published_at: Optional[datetime]

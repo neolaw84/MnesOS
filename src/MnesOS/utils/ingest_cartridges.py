@@ -8,7 +8,7 @@ CartridgeVersion records via the AbstractStorageComponent interface.
 Usage::
 
     mnesos-ingest-cartridges --cartridge-dir cartridges/ \\
-        --creator-id <user-uuid> [--upsert] [--db-path mnesos.db]
+        --creator-id <user-uuid> [--upsert] [--db-path artifacts/mnesos.db]
 
     mnesos-ingest-cartridges --cartridge-dir cartridges/generic-rpg \\
         --creator-id <user-uuid> --version-tag 1.0.0
@@ -16,7 +16,7 @@ Usage::
 Options:
     --cartridge-dir PATH  Root directory to scan (required).
     --creator-id ID       User UUID to use as the creator for new records (required).
-    --db-path PATH        Path to the SQLite3 database file [default: mnesos.db].
+    --db-path PATH        Path to the SQLite3 database file [default: artifacts/mnesos.db].
     --version-tag TAG     Override the version tag for all ingested versions [default: 1.0.0].
     --upsert              If a cartridge with the same title already exists, add a new
                           version to it instead of creating a duplicate cartridge record.
@@ -117,6 +117,7 @@ def _ingest_directory(
             yare_spec=loaded.yare_config,
             prompt_directives=loaded.prompt_directives,
             bot_lore=loaded.lore_content,
+            first_message=loaded.first_message,
             checksum=checksum,
         )
     )
@@ -154,9 +155,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--db-path",
-        default="mnesos.db",
+        default="artifacts/mnesos.db",
         metavar="PATH",
-        help="Path to the SQLite3 database file [default: mnesos.db].",
+        help="Path to the SQLite3 database file [default: artifacts/mnesos.db].",
     )
     parser.add_argument(
         "--version-tag",

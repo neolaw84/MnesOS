@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple
 
 class VectorLoreStore:
     """
-    A file-based Vector RAG system for lore retrieval.
+    A Vector RAG system for lore retrieval.
     Chunks Markdown content and uses a local vector similarity search (TF-IDF based for sandbox purity).
     """
     

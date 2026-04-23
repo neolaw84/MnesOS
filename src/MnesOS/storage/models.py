@@ -126,6 +126,7 @@ class CartridgeVersion:
     yare_spec: Any          # dict — serialized to/from JSON
     prompt_directives: Any  # dict — serialized to/from JSON
     bot_lore: str
+    first_message: str
     checksum: str
     id: Optional[str] = None
     published_at: Optional[datetime] = None

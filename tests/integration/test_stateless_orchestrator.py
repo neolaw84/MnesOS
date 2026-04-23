@@ -67,7 +67,7 @@ def instance_id(storage):
     ver = storage.create_cartridge_version(
         CartridgeVersion(
             cartridge_id=cart.id, version_tag="1.0",
-            yare_spec={}, prompt_directives={}, bot_lore="", checksum="abc",
+            yare_spec={}, prompt_directives={}, bot_lore="", first_message="", checksum="abc",
         )
     )
     inst = storage.create_game_instance(

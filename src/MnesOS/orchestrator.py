@@ -63,7 +63,8 @@ class Orchestrator:
     Usage (stateless)::
 
         orch = Orchestrator(
-            cartridge_dir="cartridges/generic-rpg",
+            cartridge_version=my_cartridge_version,
+            persona=my_persona,
             storage=my_sqlite_store,
         )
         result = orch.process_turn(
@@ -75,7 +76,8 @@ class Orchestrator:
 
     def __init__(
         self,
-        cartridge_dir: str,
+        cartridge_dir: Optional[str] = None,
+        cartridge_version: Optional[Any] = None,
         persona: Any = None,
         llm_director=None,
         llm_npc=None,
@@ -83,8 +85,14 @@ class Orchestrator:
         storage: Optional[AbstractStorageComponent] = None,
     ) -> None:
         loader = CartridgeLoader()
-        self._cartridge: LoadedCartridge = loader.load(cartridge_dir, persona=persona)
-        logger.info("Cartridge loaded from %r", cartridge_dir)
+        if cartridge_version:
+            self._cartridge: LoadedCartridge = loader.load_from_version(cartridge_version, persona=persona)
+            logger.info("Cartridge loaded from DB version %s", cartridge_version.id)
+        elif cartridge_dir:
+            self._cartridge: LoadedCartridge = loader.load(cartridge_dir, persona=persona)
+            logger.info("Cartridge loaded from %r", cartridge_dir)
+        else:
+            raise ValueError("Must provide either cartridge_dir or cartridge_version.")
 
         if self._cartridge.yare_config.get("separate_npc", False):
             raise NotImplementedError(
