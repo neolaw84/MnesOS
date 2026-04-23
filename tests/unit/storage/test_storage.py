@@ -115,6 +115,7 @@ def sample_version(store, sample_cartridge):
         yare_spec={"state_schema": {"player": {"hp": {"type": "int", "default": 100}}}},
         prompt_directives={"narrator": "Speak in a grand epic tone."},
         bot_lore="The world of Middle Earth...",
+        first_message="",
         checksum="abc123",
     )
     return store.create_cartridge_version(version)
@@ -998,3 +999,58 @@ class TestSchemaWithNewTables:
         }
         for m in required:
             assert m in abstract_methods, f"{m!r} must be abstract"
+
+
+class TestAdditionalStorageMethods:
+    def test_list_cartridge_versions(self, store, sample_cartridge, sample_version):
+        versions = store.list_cartridge_versions(sample_cartridge.id)
+        assert len(versions) == 1
+        assert versions[0].id == sample_version.id
+
+    def test_delete_cartridge_version(self, store, sample_version):
+        store.delete_cartridge_version(sample_version.id)
+        assert store.get_cartridge_version(sample_version.id) is None
+
+    def test_list_game_instances(self, store, sample_user, sample_instance):
+        instances = store.list_game_instances(sample_user.id)
+        assert len(instances) == 1
+        assert instances[0].id == sample_instance.id
+
+    def test_delete_game_instance(self, store, sample_instance):
+        store.delete_game_instance(sample_instance.id)
+        assert store.get_game_instance(sample_instance.id) is None
+
+    def test_get_turn_logs_with_limit(self, store, sample_instance):
+        for i in range(5):
+            store.append_turn_log(TurnLog(
+                instance_id=sample_instance.id, turn_index=i, actor=TurnActor.PLAYER, input_text=str(i), yare_delta={}
+            ))
+        logs = store.get_turn_logs(sample_instance.id, limit=2)
+        assert len(logs) == 2
+        assert logs[0].turn_index == 0
+        assert logs[1].turn_index == 1
+
+    def test_get_turn_log_by_id(self, store, sample_instance):
+        log = store.append_turn_log(TurnLog(
+            instance_id=sample_instance.id, turn_index=0, actor=TurnActor.PLAYER, input_text="hi", yare_delta={}
+        ))
+        fetched = store.get_turn_log(log.id)
+        assert fetched is not None
+        assert fetched.id == log.id
+
+    def test_delete_turn_log(self, store, sample_instance):
+        log = store.append_turn_log(TurnLog(
+            instance_id=sample_instance.id, turn_index=0, actor=TurnActor.PLAYER, input_text="bye", yare_delta={}
+        ))
+        store.delete_turn_log(log.id)
+        assert store.get_turn_log(log.id) is None
+
+    def test_update_game_save_label(self, store, sample_instance):
+        log = store.append_turn_log(TurnLog(
+            instance_id=sample_instance.id, turn_index=0, actor=TurnActor.SYSTEM, input_text="init", yare_delta={}
+        ))
+        save = store.create_game_save(GameSave(instance_id=sample_instance.id, turn_log_id=log.id, label="Old"))
+        save.label = "New"
+        updated = store.update_game_save(save)
+        assert updated.label == "New"
+        assert store.get_game_save(save.id).label == "New"

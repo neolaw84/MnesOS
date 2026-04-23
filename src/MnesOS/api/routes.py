@@ -22,6 +22,9 @@ from ..storage import (
     TurnLog,
     TurnActor,
     GameSave,
+    Persona,
+    GameInstance,
+    GameStatus,
 )
 from .deps import (
     get_current_user,
@@ -32,6 +35,8 @@ from .deps import (
 from .schemas import (
     CreateSaveRequest,
     CreateSaveResponse,
+    CreateInstanceRequest,
+    CreateInstanceResponse,
     GameSaveItem,
     HydratedStateResponse,
     InjectRequest,
@@ -47,10 +52,18 @@ _CARTRIDGE_DIR = os.environ.get("MNESOS_CARTRIDGE_DIR", "cartridges/generic-rpg"
 
 
 def _get_orchestrator(
+    instance_id: str,
     storage: AbstractStorageComponent = Depends(get_storage),
 ) -> Orchestrator:
-    """Build a stateless Orchestrator (no LLMs at build time — BYOK via config)."""
-    return Orchestrator(cartridge_dir=_CARTRIDGE_DIR, storage=storage)
+    """Build a stateless Orchestrator using the game instance's CartridgeVersion and Persona."""
+    instance = storage.get_game_instance(instance_id)
+    if not instance:
+        raise HTTPException(status_code=404, detail="Instance not found for orchestrator.")
+    version = storage.get_cartridge_version(instance.version_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="CartridgeVersion not found.")
+    persona = storage.get_persona(instance.persona_id)
+    return Orchestrator(cartridge_version=version, persona=persona, storage=storage)
 
 
 # ---------------------------------------------------------------------------
@@ -139,8 +152,11 @@ def inject_state(
 
 
 # ---------------------------------------------------------------------------
-# §1.3  POST /instances/{instance_id}/saves
+# §1.3 Game Saves & Instances
 # ---------------------------------------------------------------------------
+
+
+
 
 
 @router.post(

@@ -37,7 +37,7 @@ def get_storage() -> AbstractStorageComponent:
     """
     global _storage_instance
     if _storage_instance is None:
-        db_path = os.environ.get("MNESOS_DB_PATH", "mnesos.db")
+        db_path = os.environ.get("MNESOS_DB_PATH", "artifacts/mnesos.db")
         _storage_instance = SQLite3PhysicalComponent(db_path=db_path)
         _storage_instance.initialize()
     return _storage_instance

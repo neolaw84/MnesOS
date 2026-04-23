@@ -80,6 +80,7 @@ class LoadedCartridge:
     prompt_directives: Dict[str, str]
     lore_path: str
     lore_content: str
+    first_message: str = ""
     persona_context: Dict[str, str] = field(default_factory=dict)
     initial_state: Dict[str, Any] = field(default_factory=dict)
 
@@ -493,6 +494,14 @@ class CartridgeLoader:
             lore_path.read_text(encoding="utf-8"), persona_tokens
         )
 
+        # ── first-message.md (optional) ───────────────────────────────────
+        fm_path = base / "first-message.md"
+        first_message = ""
+        if fm_path.exists():
+            first_message = _compile_persona_macros(
+                fm_path.read_text(encoding="utf-8"), persona_tokens
+            )
+
         # ── derive initial state from schema defaults ─────────────────────
         initial_state = _build_initial_state(yare_config.get("state_schema", {}))
 
@@ -501,6 +510,7 @@ class CartridgeLoader:
             prompt_directives=prompt_directives,
             lore_path=str(lore_path),
             lore_content=lore_content,
+            first_message=first_message,
             persona_context={
                 "appearance": persona_tokens.get("appearance", ""),
                 "background": persona_tokens.get("background", ""),
@@ -508,3 +518,46 @@ class CartridgeLoader:
             },
             initial_state=initial_state,
         )
+
+    def load_from_version(self, version: Any, persona: Optional[Any] = None) -> LoadedCartridge:
+        """Load a cartridge directly from a CartridgeVersion DB record."""
+        persona_tokens = _extract_persona_tokens(persona)
+
+        yare_config = version.yare_spec
+        _validate_yare(yare_config)
+        logger.info("yare_spec validated from CartridgeVersion %s", version.id)
+
+        prompt_directives = {
+            key: _compile_persona_macros(value, persona_tokens)
+            for key, value in version.prompt_directives.items()
+        }
+        logger.info(
+            "prompt_directives validated from CartridgeVersion %s (keys: %s)",
+            version.id,
+            list(prompt_directives.keys()),
+        )
+
+        lore_content = _compile_persona_macros(
+            version.bot_lore, persona_tokens
+        )
+
+        first_message = _compile_persona_macros(
+            getattr(version, "first_message", ""), persona_tokens
+        )
+
+        initial_state = _build_initial_state(yare_config.get("state_schema", {}))
+
+        return LoadedCartridge(
+            yare_config=yare_config,
+            prompt_directives=prompt_directives,
+            lore_path=f"db://{version.id}",
+            lore_content=lore_content,
+            first_message=first_message,
+            persona_context={
+                "appearance": persona_tokens.get("appearance", ""),
+                "background": persona_tokens.get("background", ""),
+                "personality": persona_tokens.get("personality", ""),
+            },
+            initial_state=initial_state,
+        )
+

@@ -74,6 +74,10 @@ class AbstractStorageComponent(ABC):
         """Return a Persona by primary key, or None if not found."""
 
     @abstractmethod
+    def list_personas(self, user_id: str) -> List[Persona]:
+        """Return all Personas for a given user."""
+
+    @abstractmethod
     def update_persona(self, persona: Persona) -> Persona:
         """Persist changes to an existing Persona and return it."""
 
@@ -125,6 +129,10 @@ class AbstractStorageComponent(ABC):
     def list_cartridge_versions(self, cartridge_id: str) -> List[CartridgeVersion]:
         """Return all CartridgeVersion records for a given Cartridge, ordered by published_at."""
 
+    @abstractmethod
+    def delete_cartridge_version(self, version_id: str) -> None:
+        """Remove a CartridgeVersion by primary key."""
+
     # ------------------------------------------------------------------
     # GameInstance
     # ------------------------------------------------------------------
@@ -138,8 +146,16 @@ class AbstractStorageComponent(ABC):
         """Return a GameInstance by primary key, or None if not found."""
 
     @abstractmethod
+    def list_game_instances(self, user_id: str) -> List[GameInstance]:
+        """Return all GameInstance records for a given UserAccount."""
+
+    @abstractmethod
     def update_game_instance(self, instance: GameInstance) -> GameInstance:
         """Persist changes to an existing GameInstance and return it."""
+
+    @abstractmethod
+    def delete_game_instance(self, instance_id: str) -> None:
+        """Remove a GameInstance by primary key."""
 
     @abstractmethod
     def get_game_instance_context(
@@ -170,6 +186,14 @@ class AbstractStorageComponent(ABC):
         """
 
     @abstractmethod
+    def get_turn_log(self, turn_id: str) -> Optional[TurnLog]:
+        """Return a TurnLog by primary key, or None if not found."""
+
+    @abstractmethod
+    def delete_turn_log(self, turn_id: str) -> None:
+        """Remove a TurnLog by primary key."""
+
+    @abstractmethod
     def get_turn_logs(
         self, instance_id: str, limit: Optional[int] = None
     ) -> List[TurnLog]:
@@ -196,6 +220,10 @@ class AbstractStorageComponent(ABC):
     @abstractmethod
     def get_game_save(self, save_id: str) -> Optional[GameSave]:
         """Return a GameSave by primary key, or None if not found."""
+
+    @abstractmethod
+    def update_game_save(self, save: GameSave) -> GameSave:
+        """Persist changes to an existing GameSave and return it."""
 
     @abstractmethod
     def list_game_saves(self, instance_id: str) -> List[GameSave]:

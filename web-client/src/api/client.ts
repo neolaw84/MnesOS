@@ -12,6 +12,8 @@ import type {
   TurnResponse,
   InjectRequest,
   InjectResponse,
+  CreateInstanceRequest,
+  CreateInstanceResponse,
   CreateSaveRequest,
   CreateSaveResponse,
   GameSave,
@@ -19,6 +21,11 @@ import type {
   Cartridge,
   CartridgeVersion,
   CreateCartridgeRequest,
+  UpdateCartridgeRequest,
+  Persona,
+  CreatePersonaRequest,
+  UpdatePersonaRequest,
+  GameInstanceResponse,
 } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -119,6 +126,34 @@ export async function injectState(
   );
 }
 
+/** Bootstrap Instance */
+export async function createGameInstance(
+  body: CreateInstanceRequest,
+): Promise<CreateInstanceResponse> {
+  return apiFetch<CreateInstanceResponse>(
+    `/api/instances`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export async function listInstances(): Promise<GameInstanceResponse[]> {
+  return apiFetch<GameInstanceResponse[]>(`/api/instances`, { method: "GET" });
+}
+
+export async function deleteInstance(instanceId: string): Promise<void> {
+  const headers: Record<string, string> = {};
+  const userId = getUserId();
+  if (userId) headers["X-User-Id"] = userId;
+  const response = await fetch(`/api/instances/${instanceId}`, {
+    method: "DELETE",
+    headers,
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`API ${response.status}: ${text}`);
+  }
+}
+
 /** §1.3 Create Save */
 export async function createSave(
   instanceId: string,
@@ -193,6 +228,17 @@ export async function deleteCartridge(cartridgeId: string): Promise<void> {
   }
 }
 
+/** Update a cartridge */
+export async function updateCartridge(
+  cartridgeId: string,
+  body: UpdateCartridgeRequest,
+): Promise<Cartridge> {
+  return apiFetch<Cartridge>(`/api/cartridges/${cartridgeId}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
 /** List all versions of a cartridge. */
 export async function listCartridgeVersions(
   cartridgeId: string,
@@ -254,4 +300,44 @@ export async function uploadCartridgeVersion(
     throw new Error(`API ${response.status}: ${text}`);
   }
   return response.json() as Promise<CartridgeVersion>;
+}
+
+// ---------------------------------------------------------------------------
+// Persona API
+// ---------------------------------------------------------------------------
+
+export async function listPersonas(): Promise<Persona[]> {
+  return apiFetch<Persona[]>("/api/personas", { method: "GET" });
+}
+
+export async function createPersona(body: CreatePersonaRequest): Promise<Persona> {
+  return apiFetch<Persona>("/api/personas", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function getPersona(personaId: string): Promise<Persona> {
+  return apiFetch<Persona>(`/api/personas/${personaId}`, { method: "GET" });
+}
+
+export async function updatePersona(personaId: string, body: UpdatePersonaRequest): Promise<Persona> {
+  return apiFetch<Persona>(`/api/personas/${personaId}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deletePersona(personaId: string): Promise<void> {
+  const headers: Record<string, string> = {};
+  const userId = getUserId();
+  if (userId) headers["X-User-Id"] = userId;
+  const response = await fetch(`/api/personas/${personaId}`, {
+    method: "DELETE",
+    headers,
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`API ${response.status}: ${text}`);
+  }
 }

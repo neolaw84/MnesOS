@@ -32,8 +32,28 @@ export interface InjectResponse {
 }
 
 // ---------------------------------------------------------------------------
-// §1.3 Game Saves
+// §1.3 Game Saves & Instances
 // ---------------------------------------------------------------------------
+
+export interface CreateInstanceRequest {
+  version_id: string;
+  persona_id: string;
+}
+
+export interface CreateInstanceResponse {
+  instance_id: string;
+  turn_id?: string;
+}
+
+export interface GameInstanceResponse {
+  id: string;
+  user_id: string;
+  persona_id: string;
+  version_id: string;
+  status: string;
+  created_at: string;
+  last_played_at?: string;
+}
 
 export interface CreateSaveRequest {
   turn_log_id: string;
@@ -89,6 +109,13 @@ export interface Cartridge {
   visibility: "PUBLIC" | "PRIVATE";
 }
 
+export interface UpdateCartridgeRequest {
+  title?: string;
+  description?: string;
+  genre?: string;
+  visibility?: "PUBLIC" | "PRIVATE";
+}
+
 export interface CartridgeVersion {
   id: string;
   cartridge_id: string;
@@ -96,6 +123,7 @@ export interface CartridgeVersion {
   yare_spec: Record<string, unknown>;
   prompt_directives: Record<string, unknown>;
   bot_lore: string;
+  first_message: string;
   checksum: string;
   published_at: string | null;
 }
@@ -105,5 +133,45 @@ export interface CreateCartridgeRequest {
   description: string;
   genre: string;
   visibility: "PUBLIC" | "PRIVATE";
+}
+
+// ---------------------------------------------------------------------------
+// Persona types
+// ---------------------------------------------------------------------------
+
+export interface Persona {
+  id: string;
+  user_id: string;
+  name: string;
+  pronoun_sub: string;
+  pronoun_obj: string;
+  pronoun_poss: string;
+  pronoun_poss_obj: string;
+  appearance: string;
+  background: string;
+  personality: string;
+  created_at?: string;
+}
+
+export interface CreatePersonaRequest {
+  name: string;
+  pronoun_sub: string;
+  pronoun_obj: string;
+  pronoun_poss: string;
+  pronoun_poss_obj: string;
+  appearance: string;
+  background: string;
+  personality: string;
+}
+
+export interface UpdatePersonaRequest {
+  name?: string;
+  pronoun_sub?: string;
+  pronoun_obj?: string;
+  pronoun_poss?: string;
+  pronoun_poss_obj?: string;
+  appearance?: string;
+  background?: string;
+  personality?: string;
 }
 

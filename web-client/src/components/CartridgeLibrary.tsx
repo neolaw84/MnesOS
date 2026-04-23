@@ -24,17 +24,35 @@ import {
 
 interface CreateCartridgeModalProps {
   open: boolean;
+  cartridge?: Cartridge | null;
   onClose: () => void;
-  onCreated: (c: Cartridge) => void;
+  onSaved: (c: Cartridge) => void;
 }
 
-function CreateCartridgeModal({ open, onClose, onCreated }: CreateCartridgeModalProps) {
+function CreateCartridgeModal({ open, cartridge, onClose, onSaved }: CreateCartridgeModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [genre, setGenre] = useState("");
   const [visibility, setVisibility] = useState<"PUBLIC" | "PRIVATE">("PUBLIC");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      if (cartridge) {
+        setTitle(cartridge.title);
+        setDescription(cartridge.description);
+        setGenre(cartridge.genre);
+        setVisibility(cartridge.visibility);
+      } else {
+        setTitle("");
+        setDescription("");
+        setGenre("");
+        setVisibility("PUBLIC");
+      }
+      setError(null);
+    }
+  }, [open, cartridge]);
 
   if (!open) return null;
 
@@ -46,21 +64,28 @@ function CreateCartridgeModal({ open, onClose, onCreated }: CreateCartridgeModal
     }
     setLoading(true);
     try {
-      const body: CreateCartridgeRequest = {
-        title: title.trim(),
-        description: description.trim(),
-        genre: genre.trim(),
-        visibility,
-      };
-      const created = await createCartridge(body);
-      onCreated(created);
+      if (cartridge) {
+        const { updateCartridge } = await import("../api/client");
+        const updated = await updateCartridge(cartridge.id, {
+          title: title.trim(),
+          description: description.trim(),
+          genre: genre.trim(),
+          visibility,
+        });
+        onSaved(updated);
+      } else {
+        const body: CreateCartridgeRequest = {
+          title: title.trim(),
+          description: description.trim(),
+          genre: genre.trim(),
+          visibility,
+        };
+        const created = await createCartridge(body);
+        onSaved(created);
+      }
       onClose();
-      setTitle("");
-      setDescription("");
-      setGenre("");
-      setVisibility("PUBLIC");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to create cartridge.");
+      setError(e instanceof Error ? e.message : "Failed to save cartridge.");
     } finally {
       setLoading(false);
     }
@@ -69,7 +94,7 @@ function CreateCartridgeModal({ open, onClose, onCreated }: CreateCartridgeModal
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <h2>📦 Create Cartridge</h2>
+        <h2>{cartridge ? "✏️ Edit Cartridge" : "📦 Create Cartridge"}</h2>
 
         {error && <div className="error-banner"><span>{error}</span></div>}
 
@@ -123,7 +148,7 @@ function CreateCartridgeModal({ open, onClose, onCreated }: CreateCartridgeModal
             Cancel
           </button>
           <button className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
-            {loading ? "Creating…" : "Create"}
+            {loading ? "Saving…" : "Save"}
           </button>
         </div>
       </div>
@@ -303,20 +328,26 @@ interface CartridgeDetailProps {
   cartridge: Cartridge;
   onDeleted: (id: string) => void;
   onBack: () => void;
+  onUpdated?: (c: Cartridge) => void;
 }
 
-function CartridgeDetail({ cartridge, onDeleted, onBack }: CartridgeDetailProps) {
+function CartridgeDetail({ cartridge, onDeleted, onBack, onUpdated }: CartridgeDetailProps) {
   const [versions, setVersions] = useState<CartridgeVersion[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
-    listCartridgeVersions(cartridge.id)
-      .then(setVersions)
-      .catch((e: unknown) =>
-        setError(e instanceof Error ? e.message : "Failed to load versions."),
-      );
+    const fetchVersions = async () => {
+      try {
+        const data = await listCartridgeVersions(cartridge.id);
+        setVersions(data);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Failed to load versions.");
+      }
+    };
+    fetchVersions();
   }, [cartridge.id]);
 
   const handleDeleted = async () => {
@@ -362,23 +393,12 @@ function CartridgeDetail({ cartridge, onDeleted, onBack }: CartridgeDetailProps)
       )}
 
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+        <button className="btn btn-primary" onClick={() => setEditing(true)}>
+          ✏️ Edit Cartridge
+        </button>
         <button className="btn btn-primary" onClick={() => setUploading(true)}>
           ⬆️ Upload Version
         </button>
-        {!confirmDelete ? (
-          <button className="btn btn-secondary" onClick={() => setConfirmDelete(true)}>
-            🗑 Delete Cartridge
-          </button>
-        ) : (
-          <>
-            <button className="btn btn-primary" onClick={handleDeleted} style={{ background: "#c33" }}>
-              Confirm Delete
-            </button>
-            <button className="btn btn-secondary" onClick={() => setConfirmDelete(false)}>
-              Cancel
-            </button>
-          </>
-        )}
       </div>
 
       <h3>Versions ({versions.length})</h3>
@@ -417,6 +437,14 @@ function CartridgeDetail({ cartridge, onDeleted, onBack }: CartridgeDetailProps)
         onClose={() => setUploading(false)}
         onUploaded={(v) => setVersions((prev) => [...prev, v])}
       />
+      <CreateCartridgeModal
+        open={editing}
+        cartridge={cartridge}
+        onClose={() => setEditing(false)}
+        onSaved={(updated) => {
+          if (onUpdated) onUpdated(updated);
+        }}
+      />
     </div>
   );
 }
@@ -450,6 +478,10 @@ export default function CartridgeLibrary() {
           setSelected(null);
         }}
         onBack={() => setSelected(null)}
+        onUpdated={(updated) => {
+          setCartridges((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+          setSelected(updated);
+        }}
       />
     );
   }

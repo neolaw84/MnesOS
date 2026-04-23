@@ -33,6 +33,7 @@ export interface GameSession {
   loadCheckpoint: (save: GameSave) => Promise<void>;
   refreshSaves: () => Promise<void>;
   clearError: () => void;
+  resetSession: (initialTurnId?: string) => Promise<void>;
 }
 
 export function useGameSession(): GameSession {
@@ -224,6 +225,41 @@ export function useGameSession(): GameSession {
     }
   }, []);
 
+  // -----------------------------------------------------------------------
+  // Reset session
+  // -----------------------------------------------------------------------
+  const resetSession = useCallback(async (initialTurnId?: string | null) => {
+    const instanceId = getInstanceId();
+    if (instanceId) {
+      setLoading(true);
+      try {
+        const state: HydratedStateResponse = await getGameState(
+          instanceId,
+          initialTurnId || undefined,
+        );
+        const displayMsgs: DisplayMessage[] = state.client_messages.map(
+          (m) => ({ role: m.role as "user" | "assistant", content: m.content, turnId: m.role === "assistant" ? initialTurnId || undefined : undefined }),
+        );
+        setMessages(displayMsgs);
+        setBotMemory(state.bot_memory);
+        setCurrentTurnId(initialTurnId || null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      setMessages([]);
+      setBotMemory({});
+      setCurrentTurnId(null);
+      setLoading(false);
+      setError(null);
+      setSaves([]);
+      setLastParentTurnId(null);
+      setLastUserInput("");
+    }
+  }, []);
+
   return {
     messages,
     botMemory,
@@ -237,5 +273,7 @@ export function useGameSession(): GameSession {
     loadCheckpoint,
     refreshSaves,
     clearError,
+    resetSession,
   };
 }
+
