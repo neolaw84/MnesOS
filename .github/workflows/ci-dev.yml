@@ -12,6 +12,15 @@ on:
   pull_request:
     branches:
       - dev
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+# One run per PR at a time.
+concurrency:
+  group: ci-dev-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   test-and-coverage:
@@ -21,11 +30,20 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify version tag is reachable
+        run: |
+          if ! git describe --tags --abbrev=0 2>/dev/null; then
+            echo "::error::No reachable git tag found. Create an initial tag: git tag v0.1.0"
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: "pip"
 
       - name: Install project + dev dependencies

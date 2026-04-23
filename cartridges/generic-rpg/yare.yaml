@@ -1,0 +1,117 @@
+version: "1.0"
+bot_name: "generic-rpg"
+
+npc_templates:
+  # Name Mode: a specific, unique character
+  "Mr_XYZ":
+    type: "name"
+    description: "CEO of Evil Corp."
+
+  # Tag Mode: reusable archetypes that can be combined
+  "goblin":
+    type: "tag"
+    description: "Small, green, cowardly creature."
+  "thug":
+    type: "tag"
+    description: "Aggressive, relies on physical intimidation."
+
+state_schema:
+  player:
+    npc_visibility: true
+    visibility: public
+    hp: { type: int, default: 100, min: 0 }
+    mana: { type: int, default: 50, min: 0 }
+    level: { type: int, default: 1 }
+    gold: { type: int, default: 0, min: 0 }
+  npc:
+    npc_visibility: true
+    visibility: public
+    name: { type: string, default: "Goblin" }
+    hp: { type: int, default: 20, min: 0 }
+    strength: { type: int, default: 5 }
+  current_location: { type: string, default: "Crossroads", npc_visibility: true, visibility: public }
+  inventory: { type: list, default: [], npc_visibility: true, visibility: public }
+
+events:
+  combat_strike:
+    inputs:
+      attacker: { type: string, default: "player", enum: ["player", "npc"], description: "Who is attacking" }
+      defender: { type: string, default: "npc",    enum: ["player", "npc"], description: "Who is being attacked" }
+      power:    { type: int,    default: 0,         description: "Bonus added to the d20 roll" }
+    steps:
+      - action: set
+        var: temp.roll
+        value: "@ roll(1d20) + inputs.power"
+      - action: branch
+        conditions:
+          - if: "@ temp.roll >= 10"
+            steps:
+              - action: mutate
+                var: "@ 'state.' + inputs.defender + '.hp'"
+                op: sub
+                value: 8
+              - action: note
+                message: "{inputs.attacker} strikes {inputs.defender} successfully for 8 damage! (Rolled {temp.roll})"
+          - else:
+            steps:
+              - action: note
+                message: "{inputs.attacker} swung at {inputs.defender} and missed! (Rolled {temp.roll})"
+              
+  cast_spell:
+    inputs:
+      spell_name: { type: string, description: "Name of the spell being cast" }
+      mana_cost:  { type: int,    default: 10, description: "Mana to deduct from player.mana" }
+    steps:
+      - action: branch
+        conditions:
+          - if: "@ state.player.mana >= inputs.mana_cost"
+            steps:
+              - action: mutate
+                var: state.player.mana
+                op: sub
+                value: "@ inputs.mana_cost"
+              - action: mutate
+                var: state.npc.hp
+                op: sub
+                value: 15
+              - action: note
+                message: "Player casts {inputs.spell_name}! It consumes {inputs.mana_cost} mana and deals 15 damage."
+          - else:
+            steps:
+              - action: note
+                message: "Player attempted to cast {inputs.spell_name} but lacked the mana."
+
+  flee:
+    steps:
+      - action: branch
+        conditions:
+          - if: "@ roll(1d20) >= 15"
+            steps:
+              - action: note
+                message: "Player successfully fled the encounter!"
+              - action: set
+                var: state.current_location
+                value: "'Safe Haven'"
+          - else:
+            steps:
+              - action: note
+                message: "Player failed to escape. The enemy blocks the path."
+
+  generic_check:
+    inputs:
+      stat:       { type: string, description: "Which stat is being tested" }
+      difficulty: { type: int,    description: "Target number to meet or beat" }
+    steps:
+      - action: set
+        var: temp.roll
+        value: "@ roll(1d20) + state.player.level"
+      - action: branch
+        conditions:
+          - if: "@ temp.roll >= inputs.difficulty"
+            steps:
+              - action: note
+                message: "Action Succeeded! (Rolled {temp.roll} vs {inputs.difficulty})"
+          - else:
+            steps:
+              - action: note
+                message: "Action Failed! (Rolled {temp.roll} vs {inputs.difficulty})"

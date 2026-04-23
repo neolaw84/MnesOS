@@ -1,0 +1,27 @@
+# prompt_directives.yaml — Generic RPG cartridge
+#
+# This file contains NARRATIVE tone directives only. It is kept separate from
+# yare.yaml so that procedural rules and narrative style never mix.
+#
+# Rules:
+#   - Only keys "director", "narrator", and "npc" are allowed.
+#   - Each directive is a plain string (max 500 chars).
+#   - Total combined text must not exceed 1000 chars.
+#   - Do NOT include instructions that override engine behaviour,
+#     impersonate system roles, or contain URLs.
+
+director: >
+  This is a classic sword-and-sorcery fantasy setting.
+  Prefer calling "combat_strike" for any physical attack and "flee" when
+  the player mentions retreat. Reserve "generic_check" for unconventional
+  actions such as persuasion or acrobatics.
+
+narrator: >
+  Write in the style of a campfire storyteller — vivid but unhurried.
+  Describe wounds and exhaustion in physical terms. When the player
+  succeeds dramatically, hint at growing legend and reputation.
+
+npc: >
+  Goblins act in packs and prioritize swarming weakened targets.
+  They retreat when outnumbered or when their morale breaks.
+  Play them as cowardly but opportunistic.
