@@ -88,28 +88,54 @@ class YAREEvaluator:
                 return self._eval_node(node.orelse, context)
 
         if isinstance(node, ast.Attribute):
-            parts = []
-            curr = node
-            while isinstance(curr, ast.Attribute):
-                parts.append(curr.attr)
-                curr = curr.value
-            if isinstance(curr, ast.Name):
-                parts.append(curr.id)
-            parts.reverse()
-            
-            root = parts[0]
-            if root == "macros":
-                return self.evaluate(self.store.config.get("macros", {}).get(parts[1], ""))
-            
-            path = ".".join(parts)
-            if root == "inputs":
-                data = context
-                for part in parts[1:]:
-                    if not isinstance(data, dict): return None
-                    data = data.get(part)
-                return data
+            # Special-case macros: macros.NAME -> evaluate macro string
+            if isinstance(node.value, ast.Name) and node.value.id == "macros":
+                macro_name = node.attr
+                return self.evaluate(self.store.config.get("macros", {}).get(macro_name, ""))
 
-            return self.store.get_path(path)
+            # Evaluate the base expression and then access attribute/key
+            base = self._eval_node(node.value, context)
+            if isinstance(base, dict):
+                return base.get(node.attr)
+            if isinstance(base, list):
+                # attribute access on list is unsupported
+                return None
+            # Fallback to attribute access on objects
+            try:
+                return getattr(base, node.attr)
+            except Exception:
+                return None
+
+        if isinstance(node, ast.Subscript):
+            container = self._eval_node(node.value, context)
+            # node.slice may be an expression; evaluate it
+            try:
+                index = self._eval_node(node.slice, context)
+            except AttributeError:
+                # older ASTs may wrap slice in ast.Index
+                index = self._eval_node(node.slice.value, context)
+            if isinstance(container, dict):
+                return container.get(index)
+            if isinstance(container, list):
+                try:
+                    idx = int(index)
+                except Exception:
+                    return None
+                if idx < 0 or idx >= len(container):
+                    return None
+                return container[idx]
+            return None
+
+        if isinstance(node, ast.Dict):
+            result = {}
+            for k, v in zip(node.keys, node.values):
+                key = self._eval_node(k, context) if k is not None else None
+                val = self._eval_node(v, context)
+                result[key] = val
+            return result
+
+        if isinstance(node, ast.List):
+            return [self._eval_node(el, context) for el in node.elts]
 
         if isinstance(node, ast.Name):
             if node.id in context:
