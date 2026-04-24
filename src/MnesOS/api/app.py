@@ -9,6 +9,9 @@ Run locally::
 """
 
 from fastapi import FastAPI
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 from .cartridges import cartridges_router
 from .routes import router

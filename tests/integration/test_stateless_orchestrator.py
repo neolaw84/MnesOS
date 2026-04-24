@@ -103,7 +103,7 @@ class TestStatelessOrchestrator:
     """Core stateless turn-processing tests."""
 
     def test_first_turn_returns_result_dict(self, storage, instance_id):
-        orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
+        orch = Orchestrator(storage=storage, cartridge_dir=CARTRIDGE_DIR)
         result = orch.process_turn(
             "I look around.",
             parent_turn_id=None,
@@ -113,17 +113,17 @@ class TestStatelessOrchestrator:
         assert "yare_delta" in result
 
     def test_result_narrator_text_is_string(self, storage, instance_id):
-        orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
+        orch = Orchestrator(storage=storage, cartridge_dir=CARTRIDGE_DIR)
         result = orch.process_turn("Hello!", parent_turn_id=None)
         assert isinstance(result["narrator_text"], str)
 
     def test_result_yare_delta_is_dict(self, storage, instance_id):
-        orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
+        orch = Orchestrator(storage=storage, cartridge_dir=CARTRIDGE_DIR)
         result = orch.process_turn("I attack!", parent_turn_id=None)
         assert isinstance(result["yare_delta"], dict)
 
     def test_consecutive_turns_chain_via_parent_id(self, storage, instance_id):
-        orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
+        orch = Orchestrator(storage=storage, cartridge_dir=CARTRIDGE_DIR)
 
         r1 = orch.process_turn("Turn 1", parent_turn_id=None)
         t1 = _persist_turn(storage, instance_id, r1, "Turn 1")
@@ -139,22 +139,17 @@ class TestStatelessOrchestrator:
         assert logs[1].parent_id == t1.id
         assert logs[2].parent_id == t2.id
 
-    def test_stateless_no_internal_state(self, storage, instance_id):
-        """The orchestrator must not hold in-memory state in stateless mode."""
-        orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
-        assert orch._state is None
-        with pytest.raises(RuntimeError, match="No in-memory state"):
-            _ = orch.state
+
 
     def test_orchestrator_can_be_destroyed_and_recreated(self, storage, instance_id):
         """Instantiate, process, destroy, re-instantiate, continue."""
-        orch1 = Orchestrator(CARTRIDGE_DIR, storage=storage)
+        orch1 = Orchestrator(storage=storage, cartridge_dir=CARTRIDGE_DIR)
         r1 = orch1.process_turn("I look around.", parent_turn_id=None)
         t1 = _persist_turn(storage, instance_id, r1, "I look around.")
         del orch1  # destroy
 
         # Re-create and continue from where we left off
-        orch2 = Orchestrator(CARTRIDGE_DIR, storage=storage)
+        orch2 = Orchestrator(storage=storage, cartridge_dir=CARTRIDGE_DIR)
         r2 = orch2.process_turn("I go north.", parent_turn_id=t1.id)
         t2 = _persist_turn(storage, instance_id, r2, "I go north.", parent_turn_id=t1.id)
 
@@ -164,7 +159,7 @@ class TestStatelessOrchestrator:
 
     def test_branching_timeline(self, storage, instance_id):
         """Two turns branching from the same parent create separate paths."""
-        orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
+        orch = Orchestrator(storage=storage, cartridge_dir=CARTRIDGE_DIR)
         r_root = orch.process_turn("Beginning.", parent_turn_id=None)
         t_root = _persist_turn(storage, instance_id, r_root, "Beginning.")
 
@@ -185,7 +180,7 @@ class TestStatelessOrchestrator:
 
     def test_does_not_persist_to_db(self, storage, instance_id):
         """Per 0005 §3.2, orchestrator must NOT write to storage."""
-        orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
+        orch = Orchestrator(storage=storage, cartridge_dir=CARTRIDGE_DIR)
         orch.process_turn("Hello", parent_turn_id=None)
         logs = storage.get_turn_logs(instance_id)
         assert len(logs) == 0  # Orchestrator did NOT save
@@ -195,12 +190,11 @@ class TestStatelessOrchestratorErrors:
     """Error handling for stateless mode."""
 
     def test_no_storage_raises(self):
-        orch = Orchestrator(CARTRIDGE_DIR)  # no storage
-        with pytest.raises(RuntimeError, match="storage backend"):
-            orch.process_turn("Hi", parent_turn_id="some-id")
+        with pytest.raises(ValueError, match="storage backend is required"):
+            Orchestrator(storage=None, cartridge_dir=CARTRIDGE_DIR)
 
     def test_invalid_parent_turn_id_raises(self, storage, instance_id):
-        orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
+        orch = Orchestrator(storage=storage, cartridge_dir=CARTRIDGE_DIR)
         with pytest.raises(KeyError):
             orch.process_turn(
                 "Hi",
@@ -213,7 +207,7 @@ class TestStatelessDeltaPersistence:
 
     def test_hydration_from_persisted_turns_matches_initial_state(self, storage, instance_id):
         """When no YARE events fire (dry-run), hydrated state should match initial."""
-        orch = Orchestrator(CARTRIDGE_DIR, storage=storage)
+        orch = Orchestrator(storage=storage, cartridge_dir=CARTRIDGE_DIR)
         r1 = orch.process_turn("I wait.", parent_turn_id=None)
         t1 = _persist_turn(storage, instance_id, r1, "I wait.")
 

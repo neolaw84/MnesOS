@@ -178,7 +178,7 @@ class TestHydrateState:
         expected_keys = {
             "client_messages", "agent_messages", "bot_memory",
             "bot_memory_staging", "system_notes", "retrieved_lore",
-            "iteration_count", "turn_phase", "npc_intent_called",
+            "iteration_count", "turn_phase", "npc_intent_calls",
         }
         assert set(result.keys()) == expected_keys
 
@@ -194,7 +194,7 @@ class TestHydrateState:
         assert result["retrieved_lore"] == ""
         assert result["iteration_count"] == 0
         assert result["turn_phase"] == ""
-        assert result["npc_intent_called"] is False
+        assert result["npc_intent_calls"] == 0
 
     def test_turn_without_narrator_text_skips_assistant_message(self):
         turn = _make_turn(0, input_text="I arrive.", narrator_text="")

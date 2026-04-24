@@ -18,18 +18,20 @@ Your job is to resolve the player's actions deterministically using tools, consu
 **Turn Engine Logs (System Notes):** 
 {system_notes}
 
-**Tool State [npc_intent_called]:** {npc_intent_called}
+**Tool Usage State:** 
+- NPC Intent calls: {npc_intent_calls} / {max_npc_intent_calls}
+- Total tool iterations this turn: {iteration_count} / {max_tool_calls}
 
 --- YOUR WORKFLOW (SEQUENTIAL EVALUATION) ---
 You operate in a strict observation-action loop. You may only call ONE tool at a time.
 1. **Understand Intent:** Read the player's input and the Current Game Context.
-2. **Consult NPCs (Batched):** If NPCs are present and need to react, look at the `npc_intent_called` state above. 
-   - If `False`: Call the `query_npc_intent` tool EXACTLY ONCE. To construct the call:
+2. **Consult NPCs (Batched):** If NPCs are present and need to react, check `npc_intent_calls`. 
+   - If less than {max_npc_intent_calls}: You may call the `query_npc_intent` tool. To construct the call:
      1. Scan `bot_memory` to identify characters whose location matches `current_location` and who are capable of acting.
      2. For each qualifying character, build a DTO containing: `id` (the state key for this NPC), `template` (if present in their profile), and `tags` (list of tag keys, if present).
      3. Pass the complete list of DTOs as `present_npcs`.
      4. Synthesize the immediate physical environment (lighting, relative positions, active hazards, objects, tension) into the `scene_context` string.
-   - If `True`: DO NOT call it again. The engine would have automatically filtered out minor NPCs. You must determine the actions and mechanics of any unreturned minor NPCs yourself using your GM fiat.
+   - If limit reached: DO NOT call it again. The engine has capped the attention budget for this turn. You must determine the actions and mechanics of any remaining characters yourself using your GM fiat.
 3. **Apply Mechanics & Time:** Call the appropriate YARE tools to execute mechanics for both the player and the NPCs. 
    - For EVERY tool call, you MUST provide a realistic time estimate in the `engine_time_delta` parameter (use ISO 8601 duration format, e.g., `PT5M` for 5 minutes, `PT1H` for 1 hour).
    - If there is significant time passage without any specific mechanics to trigger, you MUST call the explicit `advance_game_time` tool. 

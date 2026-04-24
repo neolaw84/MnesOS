@@ -4,6 +4,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 
 from .state import GameState
+from ..constants import MAX_TOOL_CALL, MAX_NPC_INTENT_CALL
 from .nodes.system import (
     reset_agent_messages_node,
     cleanup_agent_messages_node,
@@ -18,12 +19,12 @@ from .tools.yare import build_yare_event_tools
 from .tools.time import advance_game_time
 from .tools.npc import build_npc_intent_tool
 
-MAX_ITERATIONS = 3
+
 
 def route_director(state: GameState) -> Literal["PreTools", "Narrator"]:
     """Route from Director based on tool calls."""
     calls = _get_last_ai_tool_calls(state.get("agent_messages", []))
-    if calls and state.get("iteration_count", 0) < MAX_ITERATIONS:
+    if calls and state.get("iteration_count", 0) < MAX_TOOL_CALL:
         return "PreTools"
     return "Narrator"
 

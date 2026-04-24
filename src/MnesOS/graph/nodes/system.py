@@ -11,7 +11,7 @@ from .director import _get_last_ai_tool_calls
 
 def reset_agent_messages_node(state: GameState) -> dict:
     """Clear any stale agent-side messages at the start of a top-level invoke."""
-    return {"agent_messages": [RemoveMessage(id=REMOVE_ALL_MESSAGES)], "npc_intent_called": False}
+    return {"agent_messages": [RemoveMessage(id=REMOVE_ALL_MESSAGES)], "npc_intent_calls": 0}
 
 def cleanup_agent_messages_node(state: GameState) -> dict:
     """Remove agent-side messages before returning state to the client."""

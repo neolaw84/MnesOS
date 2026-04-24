@@ -71,7 +71,7 @@ class StateHydrator:
             A dict with the keys expected by :class:`GameState`:
             ``client_messages``, ``agent_messages``, ``bot_memory``,
             ``bot_memory_staging``, ``system_notes``, ``retrieved_lore``,
-            ``iteration_count``, ``turn_phase``, ``npc_intent_called``.
+            ``iteration_count``, ``turn_phase``, ``npc_intent_calls``.
         """
         bot_memory: Dict[str, Any] = copy.deepcopy(initial_bot_memory)
         client_messages: List[Dict[str, str]] = []
@@ -103,7 +103,7 @@ class StateHydrator:
             "retrieved_lore": "",
             "iteration_count": 0,
             "turn_phase": "",
-            "npc_intent_called": False,
+            "npc_intent_calls": 0,
         }
 
 

@@ -76,7 +76,7 @@ class TestBuildNpcIntentTool:
             state=state,
         )
         assert isinstance(result, Command)
-        assert result.update["npc_intent_called"] is True
+        assert result.update["npc_intent_calls"] == 1
         msg = result.update["agent_messages"][0]
         parsed = json.loads(msg.content)
         assert parsed["intents"][0]["dialogue"] == "Halt!"
@@ -336,16 +336,16 @@ class TestNpcIntentCalledFlag:
         """reset_agent_messages_node must reset npc_intent_called to False each turn."""
         from MnesOS.graph.nodes.system import reset_agent_messages_node
         state = make_state()
-        state["npc_intent_called"] = True
+        state["npc_intent_calls"] = 2
         result = reset_agent_messages_node(state)
-        assert result["npc_intent_called"] is False
+        assert result["npc_intent_calls"] == 0
 
     def test_npc_intent_called_reset_even_when_previously_false(self):
         from MnesOS.graph.nodes.system import reset_agent_messages_node
         state = make_state()
-        state["npc_intent_called"] = False
+        state["npc_intent_calls"] = 0
         result = reset_agent_messages_node(state)
-        assert result["npc_intent_called"] is False
+        assert result["npc_intent_calls"] == 0
 
     def test_query_npc_intent_sets_npc_intent_called_true(self):
         """Invoking query_npc_intent must update npc_intent_called to True via the Command."""
@@ -366,7 +366,7 @@ class TestNpcIntentCalledFlag:
         )
 
         assert isinstance(result, Command)
-        assert result.update["npc_intent_called"] is True
+        assert result.update["npc_intent_calls"] == 1
 
     def test_no_qualifying_npcs_does_not_set_npc_intent_called(self):
         """When no NPCs pass the threshold, npc_intent_called must NOT be set to True."""
@@ -387,6 +387,6 @@ class TestNpcIntentCalledFlag:
         )
 
         assert isinstance(result, Command)
-        assert "npc_intent_called" not in result.update
+        assert "npc_intent_calls" not in result.update
         # LLM must not have been invoked
         mock_llm.with_structured_output.return_value.invoke.assert_not_called()

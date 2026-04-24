@@ -5,6 +5,7 @@ from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 from langchain_core.messages import SystemMessage, ToolMessage
 from ..state import NPCPresentation, BatchedNPCIntent, get_npc_visible_state
+from ...constants import MAX_NPC_INTENT_CALL
 from ..utils.messages import _client_messages_to_langchain_messages
 from ...prompts import NPC_SYSTEM_PROMPT
 
@@ -33,6 +34,14 @@ def build_npc_intent_tool(npc_llm, yare_config: Dict[str, Any] = None, prompt_di
         scene_context is a brief synthesis of the immediate physical environment.
         """
         state = state or {}
+        npc_intent_calls = state.get("npc_intent_calls", 0)
+        if npc_intent_calls >= MAX_NPC_INTENT_CALL:
+            return Command(
+                update={
+                    "agent_messages": [ToolMessage(content=f"ERROR: Maximum NPC intent calls ({MAX_NPC_INTENT_CALL}) reached for this turn.", tool_call_id=tool_call_id)],
+                }
+            )
+
         bot_memory: Dict[str, Any] = state.get("bot_memory", {})
         npc_templates: Dict[str, Any] = _yare_config.get("npc_templates", {})
 
@@ -120,7 +129,7 @@ def build_npc_intent_tool(npc_llm, yare_config: Dict[str, Any] = None, prompt_di
 
         return Command(
             update={
-                "npc_intent_called": True,
+                "npc_intent_calls": npc_intent_calls + 1,
                 "agent_messages": [ToolMessage(content=result.model_dump_json(), tool_call_id=tool_call_id)],
             }
         )
