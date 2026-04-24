@@ -65,6 +65,10 @@ class YAREEvaluator:
         if isinstance(node, ast.BinOp):
             left  = self._eval_node(node.left,  context)
             right = self._eval_node(node.right, context)
+            if isinstance(node.op, ast.Add):
+                if isinstance(left, str) or isinstance(right, str):
+                    return str(left) + str(right)
+            
             if type(node.op) in (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod):
                 if isinstance(left, (int, float)) or isinstance(right, (int, float)):
                     left  = self.store.to_numeric(left)

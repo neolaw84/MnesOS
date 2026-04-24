@@ -57,13 +57,25 @@ state_schema:
 
 events:
   deal_damage:
+    inputs:
+      target_id: { type: string }
+      amount: { type: int }
     steps:
       - action: mutate
-        var: state.npc.hp
+        var: "@ 'state.npc.' + inputs.target_id + '.hp'"
         op: sub
-        value: 10
+        value: "@ inputs.amount"
       - action: note
-        message: "Player deals 10 damage."
+        message: "Dealt {inputs.amount} damage to {inputs.target_id}."
+        
+  spawn_npc:
+    inputs:
+      npc_id: { type: string }
+    steps:
+      - action: dict_set
+        var: state.npc
+        key: "@ inputs.npc_id"
+        value: "@ {'hp': 20, 'status': 'neutral'}"
 ```
 
 ### `prompt_directives.yaml`

@@ -11,7 +11,7 @@ MnesOS combines four concerns into a single turn pipeline:
 
 - `VectorLoreStore` retrieves relevant lore from `bot_lore.md`
 - the Director LLM maps player intent to YARE events
-- `YAREInterpreter` applies deterministic state changes
+- `YAREInterpreter` applies deterministic state changes, natively supporting advanced object/array expressions.
 - the Director can query NPC intents via the `query_npc_intent` tool
 - the Narrator LLM reacts to the resolved turn
 The engine state is explicit. The caller passes a `GameState` into `app.invoke(...)` and receives the updated state back.
