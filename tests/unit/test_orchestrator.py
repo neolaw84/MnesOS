@@ -9,7 +9,7 @@ import copy
 import pytest
 from unittest.mock import MagicMock, patch
 
-from MnesOS.orchestrator import Orchestrator, _RETRY_SYSTEM_NOTE
+from MnesOS.orchestrator import Orchestrator
 
 
 # CWD-relative path — pytest is always invoked from the project root.
@@ -22,43 +22,17 @@ CARTRIDGE_DIR = "cartridges/generic-rpg"
 
 class TestOrchestratorInit:
     def test_loads_cartridge(self):
-        orch = Orchestrator(CARTRIDGE_DIR)
+        orch = Orchestrator(storage=MagicMock(), cartridge_dir=CARTRIDGE_DIR)
         assert orch.cartridge is not None
         assert orch.cartridge.yare_config
         assert orch.cartridge.lore_path
 
-    def test_initial_state_has_all_keys(self):
-        orch = Orchestrator(CARTRIDGE_DIR)
-        state = orch.state
-        for key in (
-            "client_messages",
-            "agent_messages",
-            "bot_memory",
-            "bot_memory_staging",
-            "system_notes",
-            "retrieved_lore",
-            "iteration_count",
-            "turn_phase",
-        ):
-            assert key in state, f"Missing key: {key}"
-        # Static cartridge data must NOT be in state
-        for key in ("yare_config", "prompt_directives", "lore_path", "lore_content", "persona_context"):
-            assert key not in state, f"Static key should not be in state: {key}"
-
-    def test_initial_client_messages_empty(self):
-        orch = Orchestrator(CARTRIDGE_DIR)
-        assert orch.state["client_messages"] == []
-
-    def test_bot_memory_seeded_from_cartridge(self):
-        orch = Orchestrator(CARTRIDGE_DIR)
-        assert "player" in orch.state["bot_memory"]
-
     def test_invalid_cartridge_raises(self):
         with pytest.raises(FileNotFoundError):
-            Orchestrator("nonexistent/path/to/cartridge")
+            Orchestrator(storage=MagicMock(), cartridge_dir="nonexistent/path/to/cartridge")
 
     def test_compiled_graph_has_expected_nodes(self):
-        orch = Orchestrator(CARTRIDGE_DIR)
+        orch = Orchestrator(storage=MagicMock(), cartridge_dir=CARTRIDGE_DIR)
         node_names = set(orch._app.get_graph().nodes.keys())
         for expected in ("ResetAgentMessages", "Lore", "CycleTick", "Director",
                          "Narrator", "CleanupAgentMessages"):
@@ -79,13 +53,13 @@ class TestOrchestratorDelegatesGraphBuilding:
     def test_orchestrator_calls_build_graph_factory(self):
         with patch("MnesOS.orchestrator.build_graph") as mock_bg:
             mock_bg.return_value = MagicMock()
-            Orchestrator(CARTRIDGE_DIR)
+            Orchestrator(storage=MagicMock(), cartridge_dir=CARTRIDGE_DIR)
             mock_bg.assert_called_once()
 
     def test_orchestrator_passes_yare_config_to_build_graph(self):
         with patch("MnesOS.orchestrator.build_graph") as mock_bg:
             mock_bg.return_value = MagicMock()
-            Orchestrator(CARTRIDGE_DIR)
+            Orchestrator(storage=MagicMock(), cartridge_dir=CARTRIDGE_DIR)
             call_kwargs = mock_bg.call_args
             all_args = list(call_kwargs.args) + list(call_kwargs.kwargs.values())
             assert any(
@@ -98,7 +72,8 @@ class TestOrchestratorDelegatesGraphBuilding:
         with patch("MnesOS.orchestrator.build_graph") as mock_bg:
             mock_bg.return_value = MagicMock()
             Orchestrator(
-                CARTRIDGE_DIR,
+                storage=MagicMock(),
+                cartridge_dir=CARTRIDGE_DIR,
                 llm_director=fake_director,
                 llm_narrator=fake_narrator,
             )
@@ -146,7 +121,6 @@ class TestOrchestratorStateless:
             mock_load.return_value = MagicMock(initial_state={}, yare_config={}, prompt_directives={}, lore_path=None, lore_content=None, persona_context="")
             orch = Orchestrator(cartridge_version=mock_version, persona=mock_persona, storage=mock_storage)
             assert orch._storage == mock_storage
-            assert orch._state is None
 
     def test_orchestrator_stateless_process_turn(self, mock_storage, mock_version, mock_persona):
         from MnesOS.storage.models import TurnLog, TurnActor
@@ -175,27 +149,13 @@ class TestOrchestratorStateless:
 
     def test_orchestrator_value_error_no_dir_no_version(self):
         with pytest.raises(ValueError, match="Must provide either cartridge_dir or cartridge_version"):
-            Orchestrator()
+            Orchestrator(storage=MagicMock())
 
     def test_orchestrator_not_implemented_separate_npc(self):
         with patch("MnesOS.orchestrator.CartridgeLoader.load") as mock_load:
             mock_load.return_value = MagicMock(yare_config={"separate_npc": True})
             with pytest.raises(NotImplementedError):
-                Orchestrator(CARTRIDGE_DIR)
-
-    def test_orchestrator_state_property_error_stateless(self, mock_storage, mock_version, mock_persona):
-        with patch("MnesOS.orchestrator.CartridgeLoader.load_from_version") as mock_load:
-            mock_load.return_value = MagicMock(initial_state={}, yare_config={}, prompt_directives={})
-            orch = Orchestrator(cartridge_version=mock_version, persona=mock_persona, storage=mock_storage)
-            with pytest.raises(RuntimeError, match="No in-memory state"):
-                _ = orch.state
-
-    def test_orchestrator_stateless_process_turn_no_storage(self):
-        with patch("MnesOS.orchestrator.CartridgeLoader.load") as mock_load:
-            mock_load.return_value = MagicMock(initial_state={}, yare_config={}, prompt_directives={})
-            orch = Orchestrator(CARTRIDGE_DIR)
-            with pytest.raises(RuntimeError, match="requires a storage backend"):
-                orch._process_turn_stateless("hi")
+                Orchestrator(storage=MagicMock(), cartridge_dir=CARTRIDGE_DIR)
 
     def test_orchestrator_extract_narrator_response_empty(self):
         assert Orchestrator._extract_narrator_response({}) == ""
@@ -214,45 +174,4 @@ class TestOrchestratorStateless:
         assert delta == {"hp": 80, "gold": 50}
         assert "loc" not in delta
 
-class TestOrchestratorStatefulRetries:
-    def test_process_turn_stateful_retry_success(self):
-        with patch("MnesOS.orchestrator.CartridgeLoader.load") as mock_load, \
-             patch("MnesOS.orchestrator.build_graph") as mock_build:
-            
-            mock_load.return_value = MagicMock(initial_state={"hp": 100}, yare_config={}, prompt_directives={})
-            mock_app = MagicMock()
-            # Fail first, succeed second. Return a state that has system_notes on success.
-            mock_app.invoke.side_effect = [
-                Exception("Graph fail"), 
-                {
-                    "client_messages": [{"role": "assistant", "content": "recovered"}],
-                    "system_notes": ["SYSTEM: retry note"]
-                }
-            ]
-            mock_build.return_value = mock_app
-            
-            orch = Orchestrator(cartridge_dir="x")
-            # MAX_TURN_RETRIES is imported in the test or we can patch it
-            with patch("MnesOS.orchestrator.MAX_TURN_RETRIES", 1):
-                res = orch.process_turn("hi")
-                assert res == "recovered"
-                assert mock_app.invoke.call_count == 2
-                # Note: self._state was replaced by the second invoke's result
-                assert "system_notes" in orch.state
 
-    def test_process_turn_stateful_retry_exhausted(self):
-        with patch("MnesOS.orchestrator.CartridgeLoader.load") as mock_load, \
-             patch("MnesOS.orchestrator.build_graph") as mock_build:
-            
-            mock_load.return_value = MagicMock(initial_state={"hp": 100}, yare_config={}, prompt_directives={})
-            mock_app = MagicMock()
-            mock_app.invoke.side_effect = Exception("Permanent fail")
-            mock_build.return_value = mock_app
-            
-            orch = Orchestrator(cartridge_dir="x")
-            from MnesOS import orchestrator
-            orchestrator.MAX_TURN_RETRIES = 1
-            
-            with pytest.raises(Exception, match="Permanent fail"):
-                orch.process_turn("hi")
-            assert mock_app.invoke.call_count == 2

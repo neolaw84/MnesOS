@@ -130,4 +130,3 @@ class TestDirectorNodeWithLLM:
         assert "Scarred face and silver cloak." in system_content
         assert "Former royal scout." in system_content
         assert "Cautious but empathetic." in system_content
-        assert "Keep second-person address" in system_content

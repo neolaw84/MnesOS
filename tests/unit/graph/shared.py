@@ -89,7 +89,7 @@ def make_state(**overrides) -> dict:
         "retrieved_lore": "",
         "iteration_count": 0,
         "turn_phase": "",
-        "npc_intent_called": False,
+        "npc_intent_calls": 0,
     }
     base.update(overrides)
     return base

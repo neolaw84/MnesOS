@@ -48,10 +48,10 @@ class TestResetAgentMessagesNode:
         result = reset_agent_messages_node(state)
         assert any(isinstance(m, RemoveMessage) for m in result["agent_messages"])
     
-    def test_resets_npc_intent_called(self):
-        state = make_state(npc_intent_called=True)
+    def test_resets_npc_intent_calls(self):
+        state = make_state(npc_intent_calls=2)
         result = reset_agent_messages_node(state)
-        assert result["npc_intent_called"] is False
+        assert result["npc_intent_calls"] == 0
 
 class TestCleanupAgentMessagesNode:
     def test_clears_agent_messages(self):

@@ -139,8 +139,8 @@ class TestActionForeach:
                     {
                         "action": "branch",
                         "conditions": [
-                            {"if": "@ inputs.item.rare == True", "steps": [{"action": "note", "message": "Rare: {inputs.item.name}"}]},
-                            {"else": True, "steps": [{"action": "note", "message": "Common: {inputs.item.name}"}]},
+                            {"if": "@ item.rare == True", "steps": [{"action": "note", "message": "Rare: {item.name}"}]},
+                            {"else": True, "steps": [{"action": "note", "message": "Common: {item.name}"}]},
                         ],
                     }
                 ],

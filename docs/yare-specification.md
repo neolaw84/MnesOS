@@ -30,10 +30,17 @@ Available roots:
 
 Supported operators in the current interpreter:
 
-- arithmetic: `+`, `-`, `*`, `/`, `//`, `%`
+- arithmetic: `+`, `-`, `*`, `/`, `//`, `%` (Note: `+` supports string concatenation even if one operand is a number, e.g. `'npc_' + 1` -> `'npc_1'`)
 - comparison: `==`, `!=`, `<`, `<=`, `>`, `>=`
 - boolean: `and`, `or`, `not`
 - unary: unary `+` and unary `-`
+
+Supported structures:
+
+- **Dictionary literals**: `@ {'key': 'value', 'num': 42}`
+- **List literals**: `@ ['item1', 'item2']`
+- **Attribute access**: `@ dict_var.key` (natively evaluates dictionary key access)
+- **Bracket subscription**: `@ list_var[inputs.index]` or `@ dict_var[inputs.key]`
 
 Supported built-ins in the current interpreter:
 

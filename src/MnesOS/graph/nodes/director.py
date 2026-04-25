@@ -3,6 +3,7 @@ from typing import Dict, Any, List
 from langchain_core.messages import SystemMessage, AIMessage
 from langchain_core.runnables import RunnableConfig
 from ..state import GameState
+from ...constants import MAX_TOOL_CALL, MAX_NPC_INTENT_CALL
 from ..utils.messages import _client_messages_to_langchain_messages
 from ..utils.time import _format_game_time_context
 from ..utils.persona import build_persona_background_context
@@ -32,8 +33,12 @@ def director_node(state: GameState, config: RunnableConfig, *, llm=None, tools=N
         retrieved_lore=state.get("retrieved_lore", ""),
         bot_memory=json.dumps(state.get("bot_memory", {})),
         system_notes="\n".join(state.get("system_notes", [])),
-        npc_intent_called=state.get("npc_intent_called", False),
+        npc_intent_calls=state.get("npc_intent_calls", 0),
+        max_npc_intent_calls=MAX_NPC_INTENT_CALL,
+        max_tool_calls=MAX_TOOL_CALL,
+        iteration_count=loops,
         cartridge_directives=c_directives,
+        turn_start_time=state.get("turn_start_time", ""),
     )
     persona_background = build_persona_background_context(configurable.get("persona_context", {}))
     system_content = (

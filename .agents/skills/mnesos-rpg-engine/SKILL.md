@@ -16,13 +16,14 @@ This skill enables you to work with the MnesOS Agentic Role Play Game (RPG) Engi
 *   **Stateless Core:** The core gameplay loop is in `src/MnesOS/graph.py`. It is designed to be stateless and static.
 *   **Game Cartridges:** All game-specific content is stored in "cartridges" located in the `cartridges/` directory. Each cartridge is a self-contained game.
 *   **Deterministic Limits**: The engine allows a maximum of 3 tool calls per turn (`MAX_ITERATIONS = 3`), and LLMs do not invoke parallel tool calls. Keep complex procedural steps encapsulated via `call` steps inside `yare.yaml` events rather than assuming the LLM can resolve the turn through excessive tool-call recursion.
+*   **Modernized YARE Evaluator**: The engine's `YAREEvaluator` natively supports advanced evaluation natively, meaning cartridge developers can use bracket access (`array[index]`), object attribute access (`dict.key`), dictionary/list literals, and string concatenation without needing backend engine changes.
 
 ## Cartridge Structure
 
 A game cartridge is a directory inside `cartridges/` with the following structure:
 
 *   `cartridges/<game-name>/`:
-    *   `prompt_directives.yaml`: Contains the story direction and high-level prompts for the agent.
+    *   `prompt_directives.yaml`: Contains the story direction and high-level prompts for the agent. **Important:** When referring to the game state here, use the term `bot_memory` (e.g., `If bot_memory['player']['hp'] < 10`), not `state`.
     *   `bot_lore.md`: The lore and background information for the game world and characters.
     *   `yare.yaml`: Defines the deterministic game logic, rules, and state transitions using the YARE specification.
 

@@ -63,11 +63,34 @@ def _find_existing_cartridge(
     return None
 
 
+def _get_next_version_tag(
+    storage: AbstractStorageComponent,
+    cartridge_id: str,
+    base_tag: str = "1.0.0",
+) -> str:
+    """Detect the latest version and increment the patch number (e.g. 1.0.0 -> 1.0.1)."""
+    versions = storage.list_cartridge_versions(cartridge_id)
+    if not versions:
+        return base_tag
+
+    # Take the latest version (list is ordered by published_at)
+    latest = versions[-1].version_tag
+    try:
+        parts = latest.split(".")
+        if len(parts) == 3:
+            major, minor, patch = map(int, parts)
+            return f"{major}.{minor}.{patch + 1}"
+    except (ValueError, TypeError):
+        pass
+    
+    return latest + ".1"  # Fallback
+
+
 def _ingest_directory(
     cartridge_dir: Path,
     storage: AbstractStorageComponent,
     creator_id: str,
-    version_tag: str,
+    version_tag: str | None,
     upsert: bool,
     visibility: Visibility,
 ) -> None:
@@ -82,14 +105,26 @@ def _ingest_directory(
         logger.error("  Validation failed for %r: %s", title, exc)
         return
 
-    logger.info("  ✓ Validated (yare keys: %s)", list(loaded.yare_config.keys()))
+    # ── Compute checksum ──────────────────────────────────────────────────
+    yare_path = cartridge_dir / "yare.yaml"
+    lore_path = cartridge_dir / "bot_lore.md"
+    directives_path = cartridge_dir / "prompt_directives.yaml"
+    checksum = _compute_checksum(yare_path, lore_path, directives_path)
 
     # ── Resolve parent Cartridge ──────────────────────────────────────────
     cartridge: Cartridge | None = None
     if upsert:
         cartridge = _find_existing_cartridge(storage, title)
         if cartridge:
+            # Check for identical checksum in existing versions
+            versions = storage.list_cartridge_versions(cartridge.id)
+            if any(v.checksum == checksum for v in versions):
+                logger.info("  ↩ Skip: identical checksum already exists for %r (%s)", title, cartridge.id)
+                return
+            
             logger.info("  ↩ Upsert: found existing cartridge %r (%s)", title, cartridge.id)
+            if version_tag is None:
+                version_tag = _get_next_version_tag(storage, cartridge.id)
 
     if cartridge is None:
         cartridge = storage.create_cartridge(
@@ -102,12 +137,8 @@ def _ingest_directory(
             )
         )
         logger.info("  + Created cartridge %r (%s)", title, cartridge.id)
-
-    # ── Compute checksum ──────────────────────────────────────────────────
-    yare_path = cartridge_dir / "yare.yaml"
-    lore_path = cartridge_dir / "bot_lore.md"
-    directives_path = cartridge_dir / "prompt_directives.yaml"
-    checksum = _compute_checksum(yare_path, lore_path, directives_path)
+        if version_tag is None:
+            version_tag = "1.0.0"
 
     # ── Create CartridgeVersion ───────────────────────────────────────────
     version = storage.create_cartridge_version(
@@ -161,9 +192,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--version-tag",
-        default="1.0.0",
+        default=None,
         metavar="TAG",
-        help="Version tag applied to all ingested CartridgeVersion records [default: 1.0.0].",
+        help="Version tag applied to all ingested CartridgeVersion records [default: auto-bump].",
     )
     parser.add_argument(
         "--upsert",

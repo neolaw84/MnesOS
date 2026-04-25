@@ -57,18 +57,32 @@ state_schema:
 
 events:
   deal_damage:
+    inputs:
+      target_id: { type: string }
+      amount: { type: int }
     steps:
       - action: mutate
-        var: state.npc.hp
+        var: "@ 'state.npc.' + inputs.target_id + '.hp'"
         op: sub
-        value: 10
+        value: "@ inputs.amount"
       - action: note
-        message: "Player deals 10 damage."
+        message: "Dealt {inputs.amount} damage to {inputs.target_id}."
+        
+  spawn_npc:
+    inputs:
+      npc_id: { type: string }
+    steps:
+      - action: dict_set
+        var: state.npc
+        key: "@ inputs.npc_id"
+        value: "@ {'hp': 20, 'status': 'neutral'}"
 ```
 
 ### `prompt_directives.yaml`
 
 Use this file only for short per-role LLM steering.
+
+**Important Note on State Access**: When instructing the LLMs to check the game state, you MUST refer to it as `bot_memory` (e.g., `If bot_memory['player']['hp'] < 10...`). The `state.` prefix is only used inside `yare.yaml`.
 
 Allowed keys:
 
@@ -79,7 +93,7 @@ Allowed keys:
 Example:
 
 ```yaml
-director: "Prefer explicit mechanical events over narration-only turns."
+director: "If bot_memory['player']['is_bleeding'] is true, prioritize checking for damage before resolving other actions."
 npc: "Escalate only when the NPC has a clear advantage."
 narrator: "Keep the prose terse and grounded."
 ```

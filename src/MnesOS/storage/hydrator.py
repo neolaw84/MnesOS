@@ -52,6 +52,7 @@ class StateHydrator:
     def hydrate_state(
         turn_lineage: List[TurnLog],
         initial_bot_memory: Dict[str, Any],
+        first_message: str = "",
     ) -> Dict[str, Any]:
         """Reconstruct a ``GameState``-shaped dict from a lineage of turns.
 
@@ -64,6 +65,9 @@ class StateHydrator:
         initial_bot_memory:
             The ``bot_memory`` defaults derived from the cartridge's
             ``yare_config.state_schema``.
+        first_message:
+            The optional intro message from the cartridge (first-message.md).
+            This is prepended to the history as the "Genesis" message.
 
         Returns
         -------
@@ -71,10 +75,17 @@ class StateHydrator:
             A dict with the keys expected by :class:`GameState`:
             ``client_messages``, ``agent_messages``, ``bot_memory``,
             ``bot_memory_staging``, ``system_notes``, ``retrieved_lore``,
-            ``iteration_count``, ``turn_phase``, ``npc_intent_called``.
+            ``iteration_count``, ``turn_phase``, ``npc_intent_calls``.
         """
         bot_memory: Dict[str, Any] = copy.deepcopy(initial_bot_memory)
         client_messages: List[Dict[str, str]] = []
+
+        # Prepend the cartridge's first message if provided
+        if first_message:
+            client_messages.append({
+                "role": "assistant",
+                "content": first_message,
+            })
 
         for turn in turn_lineage:
             # Apply yare_delta to bot_memory
@@ -94,6 +105,10 @@ class StateHydrator:
                     "content": turn.narrator_text,
                 })
 
+        # Engine-managed defaults: ensure game_time exists in bot_memory
+        if "game_time" not in bot_memory:
+            bot_memory["game_time"] = "2026-04-01T00:00:00"
+
         return {
             "client_messages": client_messages,
             "agent_messages": [],
@@ -103,7 +118,8 @@ class StateHydrator:
             "retrieved_lore": "",
             "iteration_count": 0,
             "turn_phase": "",
-            "npc_intent_called": False,
+            "npc_intent_calls": 0,
+            "turn_start_time": bot_memory["game_time"],
         }
 
 
@@ -111,6 +127,7 @@ class StateHydrator:
 def hydrate_state(
     turn_lineage: List[TurnLog],
     cartridge_initial_state: Dict[str, Any],
+    first_message: str = "",
 ) -> Dict[str, Any]:
     """Module-level convenience wrapper around :meth:`StateHydrator.hydrate_state`."""
-    return StateHydrator.hydrate_state(turn_lineage, cartridge_initial_state)
+    return StateHydrator.hydrate_state(turn_lineage, cartridge_initial_state, first_message)
