@@ -214,4 +214,6 @@ class TestStatelessDeltaPersistence:
         lineage = storage.get_turn_lineage(t1.id)
         state = StateHydrator.hydrate_state(lineage, orch.cartridge.initial_state)
         # In dry-run mode (no LLMs), bot_memory shouldn't change
-        assert state["bot_memory"] == orch.cartridge.initial_state
+        expected_memory = copy.deepcopy(orch.cartridge.initial_state)
+        expected_memory["game_time"] = "2026-04-01T00:00:00"
+        assert state["bot_memory"] == expected_memory

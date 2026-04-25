@@ -60,9 +60,6 @@ In your `Factual Outcomes` section, you must translate hidden mechanics into pla
 *   *Translated Fact:* "The player's sword strikes deep into the goblin's shoulder. The goblin panics and drops its weapon to flee."
 Never reveal exact numbers, hidden stats, or underlying code to the Narrator.
 
---- CARTRIDGE/RULEBOOK DIRECTIVES (OBEY STRICTLY) ---
-{cartridge_directives}
-
 --- REQUIRED OUTPUT SCHEMA (SCENE DIRECTIVES) ---
 When you are finished using tools, your final output MUST exactly follow this Markdown format. Do not output anything else.
 
@@ -85,6 +82,9 @@ When you are finished using tools, your final output MUST exactly follow this Ma
 
 ### 6. Pacing and style notes (Optional)
 - [Stylistic instructions for the prose. E.g., "Fast-paced action," or "Slow, tense horror."]
+
+--- CARTRIDGE/RULEBOOK DIRECTIVES ---
+{cartridge_directives}
 """
 
 NARRATOR_SYSTEM_PROMPT = """

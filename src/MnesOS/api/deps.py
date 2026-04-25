@@ -133,7 +133,7 @@ def get_llm_clients(
     base_url = os.environ.get(
         "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
     )
-    model_name = os.environ.get("MNESOS_DEFAULT_MODEL", "openai/gpt-4o-mini")
+    model_name = os.environ.get("MNESOS_DEFAULT_MODEL", "google/gemini-2.5-flash-lite")
 
     director = ChatOpenAI(
         model=model_name, api_key=x_openrouter_key,

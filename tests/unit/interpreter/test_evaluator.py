@@ -89,7 +89,7 @@ class TestEvaluateAccess:
 
     def test_inputs_access(self):
         interp = make_interp()
-        assert interp.evaluate("@ inputs.difficulty", context={"difficulty": 12}) == 12
+        assert interp.evaluate("@ inputs.difficulty", context={"inputs": {"difficulty": 12}}) == 12
 
     def test_macro_access(self):
         config = {"macros": {"power_bonus": "@ 3 + 1"}}
@@ -161,3 +161,32 @@ class TestComplexYAREOperators:
     def test_conditional_truthiness(self):
         interp = make_interp(state={"player": {"hp": 0}})
         assert interp.evaluate("@ 'Alive' if state.player.hp > 0 else 'Dead'") == "Dead"
+
+class TestComplexExpressions:
+    def test_multi_term_addition_with_dice_and_vars(self):
+        # Formula: roll(3d6) + NPC skill + PC speed bonus
+        state = {"active_npcs": {"npc_1": {"skill_mod": 10}}}
+        interp = make_interp(state=state)
+        interp.temp["pc_speed_bonus"] = 5
+        
+        with patch("random.randint", side_effect=[2, 4, 6]): # Sum = 12
+            expr = "@ roll(3d6) + state.active_npcs.npc_1.skill_mod + temp.pc_speed_bonus"
+            assert interp.evaluate(expr) == 27 # 12 + 10 + 5
+
+    def test_nested_ternary_speed_bonuses(self):
+        # SFW logic: fast (5), slow (1), normal (2), expert (1)
+        expr = "@ (5 if 'fast' in temp.speed else (1 if 'slow' in temp.speed else (2 if 'normal' in temp.speed else (1 if 'expert' in temp.speed else 0))))"
+        
+        interp = make_interp()
+        
+        # Case 1: Fast
+        interp.temp["speed"] = "speed_fast"
+        assert interp.evaluate(expr) == 5
+        
+        # Case 2: Slow
+        interp.temp["speed"] = "speed_slow"
+        assert interp.evaluate(expr) == 1
+        
+        # Case 3: Fallback
+        interp.temp["speed"] = "idle"
+        assert interp.evaluate(expr) == 0

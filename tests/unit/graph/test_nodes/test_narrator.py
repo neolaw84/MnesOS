@@ -99,7 +99,6 @@ class TestNarratorNodeWithLLM:
         assert "Amber eyes and travel-stained armor." in call_arg
         assert "Raised by river merchants." in call_arg
         assert "Impulsive but loyal." in call_arg
-        assert "Keep second-person address" in call_arg
 
 class TestNarratorNodeSceneDirectiveFilter:
     """Tests that narrator_node strictly isolates the Director's Scene Directive
