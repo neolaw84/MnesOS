@@ -30,7 +30,7 @@ Each cartridge lives under `cartridges/<name>/` and contains:
 
 - `yare.yaml`: procedural rules and state schema
 - `bot_lore.md`: markdown lore used for retrieval
-- `prompt_directives.yaml`: optional LLM directives for `director`, `npc`, and `narrator`
+- `prompt_directives.yaml`: optional LLM directives for `director`, `npc`, and `narrator` (Note: refer to the game state as `bot_memory` in these directives)
 
 `prompt_directives` must not be embedded in `yare.yaml`; the loader rejects that configuration.
 

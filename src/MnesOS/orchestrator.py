@@ -152,14 +152,25 @@ class Orchestrator:
         else:
             lineage = []
 
-        state = StateHydrator.hydrate_state(lineage, self._cartridge.initial_state)
+        state = StateHydrator.hydrate_state(
+            lineage, 
+            self._cartridge.initial_state, 
+            self._cartridge.first_message
+        )
         state["client_messages"].append({"role": "user", "content": user_input})
 
         # 2. Invoke graph with static cartridge data + BYOK LLMs via config
         config = self._build_runnable_config(llm_clients=llm_clients)
-        logger.debug("INVOKING GRAPH with hydrated state: %s", json.dumps(state, indent=2, default=str) if state else "None")
+        
+        # Log a filtered version of the state to avoid message noise
+        log_state = {k: v for k, v in state.items() if k not in ["client_messages", "agent_messages"]}
+        logger.debug("INVOKING GRAPH with hydrated state (filtered): %s", json.dumps(log_state, indent=2, default=str))
+
         new_state = self._app.invoke(state, config=config)
-        logger.debug("GRAPH RESULT: %s", json.dumps(new_state, indent=2, default=str) if new_state else "None")
+
+        # Log a filtered version of the result
+        log_new_state = {k: v for k, v in new_state.items() if k not in ["client_messages", "agent_messages"]}
+        logger.debug("GRAPH RESULT (filtered): %s", json.dumps(log_new_state, indent=2, default=str))
 
         # 3. Extract yare_delta from bot_memory changes
         yare_delta = self._extract_delta(

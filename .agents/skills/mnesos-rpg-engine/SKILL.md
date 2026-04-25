@@ -23,7 +23,7 @@ This skill enables you to work with the MnesOS Agentic Role Play Game (RPG) Engi
 A game cartridge is a directory inside `cartridges/` with the following structure:
 
 *   `cartridges/<game-name>/`:
-    *   `prompt_directives.yaml`: Contains the story direction and high-level prompts for the agent.
+    *   `prompt_directives.yaml`: Contains the story direction and high-level prompts for the agent. **Important:** When referring to the game state here, use the term `bot_memory` (e.g., `If bot_memory['player']['hp'] < 10`), not `state`.
     *   `bot_lore.md`: The lore and background information for the game world and characters.
     *   `yare.yaml`: Defines the deterministic game logic, rules, and state transitions using the YARE specification.
 

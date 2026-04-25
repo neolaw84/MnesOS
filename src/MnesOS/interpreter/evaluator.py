@@ -14,6 +14,7 @@ class YAREEvaluator:
         ast.Eq: operator.eq, ast.NotEq: operator.ne, ast.Lt: operator.lt,
         ast.LtE: operator.le, ast.Gt: operator.gt, ast.GtE: operator.ge,
         ast.And: lambda a, b: a and b, ast.Or: lambda a, b: a or b, ast.Not: operator.not_,
+        ast.In: lambda a, b: a in b, ast.NotIn: lambda a, b: a not in b,
     }
 
     def __init__(self, store):

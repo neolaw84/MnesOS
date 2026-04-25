@@ -32,6 +32,11 @@ def narrator_node(state: GameState, config: RunnableConfig, *, llm=None) -> dict
         for msg in reversed(state.get("agent_messages", [])):
             if isinstance(msg, AIMessage) and msg.content and not getattr(msg, "tool_calls", None):
                 scene_directives = msg.content
+                import logging
+                logging.getLogger("MnesOS.graph.nodes.narrator").info(
+                    "\n--- DIRECTOR SCENE DIRECTIVES ---\n%s\n---------------------------------", 
+                    scene_directives
+                )
                 break
 
         c_directives = configurable.get("prompt_directives", {}).get("narrator", "") or ""

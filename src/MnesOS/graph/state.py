@@ -22,6 +22,7 @@ class GameState(TypedDict):
     iteration_count: int
     turn_phase: str
     npc_intent_calls: int  # tracks how many times query_npc_intent was called this turn
+    turn_start_time: str  # the game_time at the beginning of the user turn
 
 class NPCPresentation(TypedDict):
     """DTO carrying the identifying information for a single NPC.

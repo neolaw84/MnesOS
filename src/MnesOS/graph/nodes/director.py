@@ -38,6 +38,7 @@ def director_node(state: GameState, config: RunnableConfig, *, llm=None, tools=N
         max_tool_calls=MAX_TOOL_CALL,
         iteration_count=loops,
         cartridge_directives=c_directives,
+        turn_start_time=state.get("turn_start_time", ""),
     )
     persona_background = build_persona_background_context(configurable.get("persona_context", {}))
     system_content = (
