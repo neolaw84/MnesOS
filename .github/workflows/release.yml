@@ -71,6 +71,10 @@ jobs:
             echo "::error::src/MnesOS/api/static is missing or empty after frontend build."
             exit 1
           fi
+          if [ ! -f "src/MnesOS/api/static/index.html" ]; then
+            echo "::error::src/MnesOS/api/static/index.html not found — frontend build may be incomplete."
+            exit 1
+          fi
           echo "Frontend assets present in src/MnesOS/api/static ✓"
 
       # ── Determine bump type from PR labels ────────────────────────────────
