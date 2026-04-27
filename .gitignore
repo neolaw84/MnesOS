@@ -218,5 +218,8 @@ src/*/_version.py
 web-client/node_modules/
 web-client/dist/
 
+# Frontend build output copied into the Python package (generated at build time)
+src/MnesOS/api/static/
+
 # MnesOS local database
 

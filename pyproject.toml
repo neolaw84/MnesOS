@@ -58,8 +58,14 @@ docs = [
 mnesos-ingest-cartridges = "MnesOS.utils.ingest_cartridges:main"
 mnesos-create-creator = "MnesOS.utils.create_creator:main"
 
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"MnesOS.api" = ["static/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

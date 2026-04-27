@@ -8,7 +8,10 @@ Run locally::
     uvicorn MnesOS.api.app:app --reload
 """
 
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -37,3 +40,9 @@ app.include_router(personas_router, prefix="/api")
 app.include_router(instances_router, prefix="/api")
 app.include_router(saves_router, prefix="/api")
 app.include_router(turns_router, prefix="/api")
+
+# Serve the compiled React frontend when the static directory is present.
+# The directory is populated by the web-client build script (`npm run build`).
+_static_dir = Path(__file__).parent / "static"
+if _static_dir.exists():
+    app.mount("/", StaticFiles(directory=str(_static_dir), html=True), name="ui")

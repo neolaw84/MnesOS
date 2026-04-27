@@ -2,9 +2,11 @@
 # Gate-keep every pull request targeting the `dev` branch.
 #
 # Rules enforced:
-#   • All unit-tests must pass.
-#   • Coverage must be ≥ 80% when src contains > 1 000 lines of Python,
+#   • Backend: all unit-tests must pass when src/** or tests/** change.
+#     Coverage must be ≥ 80% when src contains > 1 000 lines of Python,
 #     otherwise ≥ 60%.
+#   • Frontend: vitest must pass with ≥ 80% coverage when web-client/src/**
+#     changes.
 # ──────────────────────────────────────────────────────────────────────────────
 name: CI – PR to dev
 
@@ -16,6 +18,10 @@ on:
       - opened
       - synchronize
       - reopened
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "web-client/src/**"
 
 # One run per PR at a time.
 concurrency:
@@ -23,8 +29,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ── Detect which areas of the codebase changed ────────────────────────────
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'src/**'
+              - 'tests/**'
+            frontend:
+              - 'web-client/src/**'
+
+  # ── Backend: Python tests & coverage ──────────────────────────────────────
   test-and-coverage:
-    name: Tests & Coverage
+    name: Backend Tests & Coverage
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -73,9 +101,9 @@ jobs:
             echo "Threshold: 60% (src LOC ≤ 1 000)"
           fi
 
-      # ── Run pytest with coverage ───────────────────────────────────────────
+      # ── Run pytest (options from pyproject.toml) ───────────────────────────
       - name: Run tests
-        run: pytest --cov=src --cov-report=xml --cov-report=term-missing
+        run: pytest
 
       # ── Enforce threshold ──────────────────────────────────────────────────
       - name: Check coverage threshold
@@ -101,6 +129,40 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
+          name: backend-coverage-report
           path: coverage.xml
+          retention-days: 7
+
+  # ── Frontend: Vitest unit tests & 80 % coverage gate ─────────────────────
+  frontend-test:
+    name: Frontend Tests & Coverage
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: web-client/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web-client
+        run: npm ci
+
+      - name: Run tests with coverage
+        working-directory: web-client
+        run: npm test
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage-report
+          path: web-client/coverage/
           retention-days: 7
