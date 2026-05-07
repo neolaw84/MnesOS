@@ -34,9 +34,10 @@ class TestOrchestratorInit:
     def test_compiled_graph_has_expected_nodes(self):
         orch = Orchestrator(storage=MagicMock(), cartridge_dir=CARTRIDGE_DIR)
         node_names = set(orch._app.get_graph().nodes.keys())
-        for expected in ("ResetAgentMessages", "Lore", "CycleTick", "Director",
+        for expected in ("ResetAgentMessages", "CycleTick", "Director",
                          "Narrator", "CleanupAgentMessages"):
             assert expected in node_names, f"Missing node: {expected}"
+        assert "Lore" not in node_names, "Lore pre-node replaced by multi_lore_lookup tool"
         assert "NPC_Brain" not in node_names, "NPC_Brain should not exist in monolithic mode"
 
 

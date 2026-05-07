@@ -100,6 +100,8 @@ def process_turn(
         body.user_input,
         parent_turn_id=body.parent_turn_id,
         llm_clients=llm_clients,
+        player_settings=body.player_settings or {},
+        request_overrides=body.request_overrides or {},
     )
 
     # 2. Persist TurnLog (API route responsibility per 0005 §3.2)

@@ -250,12 +250,25 @@ class Orchestrator:
 
     def _compile_graph(self, llm_director, llm_npc, llm_narrator):
         """Delegate graph compilation to the build_graph factory in graph.py."""
+        from .graph.tools.lore_batch import VectorLoreSearchService
+
+        lore_content = self._cartridge.lore_content or ""
+        if not lore_content and self._cartridge.lore_path:
+            try:
+                with open(self._cartridge.lore_path, "r", encoding="utf-8") as fh:
+                    lore_content = fh.read()
+            except (FileNotFoundError, OSError):
+                pass
+
+        lore_service = VectorLoreSearchService(lore_content)
+
         return build_graph(
             yare_config=self._cartridge.yare_config,
             llm_director=llm_director,
             llm_npc=llm_npc,
             llm_narrator=llm_narrator,
             prompt_directives=self._cartridge.prompt_directives,
+            lore_service=lore_service,
         )
 
     @staticmethod

@@ -38,24 +38,30 @@ def test_verify_instance_ownership_forbidden():
     assert exc.value.status_code == 403
 
 def test_get_llm_clients_none():
-    assert get_llm_clients(None) is None
+    from unittest.mock import MagicMock
+    mock_request = MagicMock()
+    mock_request.headers = {}  # no provider, no key
+    # LocalAuthProvider doesn't implement LLMAuthValidator → returns None
+    result = get_llm_clients(mock_request)
+    assert result is None
 
-def test_get_llm_clients_with_key():
-    # Mock ChatOpenAI
-    try:
-        from unittest.mock import MagicMock
-        import sys
-        mock_langchain = MagicMock()
-        sys.modules["langchain_openai"] = mock_langchain
-        
-        clients = get_llm_clients("test-key")
-        assert clients is not None
-        assert "director" in clients
-        assert "narrator" in clients
-        assert "npc" in clients
-    finally:
-        if "langchain_openai" in sys.modules:
-            del sys.modules["langchain_openai"]
+def test_get_llm_clients_with_openrouter_key():
+    from unittest.mock import MagicMock
+    mock_request = MagicMock()
+    mock_request.headers = {
+        "x-provider": "openrouter",
+        "x-openrouter-key": "sk-test-key",
+    }
+    result = get_llm_clients(mock_request)
+    assert result is not None
+    assert result.get("openrouter_key") == "sk-test-key"
+
+def test_get_llm_clients_missing_key_returns_none():
+    from unittest.mock import MagicMock
+    mock_request = MagicMock()
+    mock_request.headers = {"x-provider": "openrouter"}  # no key header
+    result = get_llm_clients(mock_request)
+    assert result is None
 
 def test_get_storage_initialization():
     # We test it doesn't crash and returns a component

@@ -4,8 +4,9 @@ FastAPI dependency-injection aspects for MnesOS Alpha.
 Aligned with ``docs/design/0005-interfaces-and-contracts.md`` §5:
   - **get_current_user** — resolve identity via :class:`~MnesOS.auth.AuthFactory`.
   - **verify_instance_ownership** — ensure the requesting user owns the game.
-  - **get_llm_clients** — BYOK: read the ``X-OpenRouter-Key`` header and
-    instantiate per-request LangChain models via :class:`~MnesOS.llm.LLMFactory`.
+  - **get_llm_clients** — BYOK: extract raw provider keys via
+    :class:`~MnesOS.auth.LLMAuthValidator`; LangChain clients are built later
+    inside the graph nodes via :class:`~MnesOS.llm.LLMFactory`.
   - **get_storage** — provide the storage singleton.
   - **get_orchestrator** — provide an Orchestrator bound to a cartridge.
 """
@@ -15,18 +16,13 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
-from fastapi import Depends, Header, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 
-from ..auth import AuthContext, AuthFactory
-from ..config import LLMRoleConfig
-from ..llm import build_default_factory
+from ..auth import AuthContext, AuthFactory, LLMAuthValidator
 from ..storage import (
     AbstractStorageComponent,
     SQLite3PhysicalComponent,
 )
-
-# Application-wide LLMFactory instance — populated with all built-in providers.
-_llm_factory = build_default_factory()
 
 # ---------------------------------------------------------------------------
 # Storage singleton
@@ -114,44 +110,28 @@ def verify_instance_ownership(
 # ---------------------------------------------------------------------------
 
 
-def get_llm_clients(
-    x_openrouter_key: Optional[str] = Header(
-        None,
-        description="OpenRouter API key for BYOK. Optional.",
-    ),
-) -> Optional[Dict[str, Any]]:
-    """Instantiate per-request LangChain chat models using the caller's key.
+def get_llm_clients(request: Request) -> Optional[Dict[str, Any]]:
+    """Extract per-request LLM provider keys for BYOK.
 
-    If no key is provided, returns ``None`` — the graph runs in dry-run
-    mode (no LLM calls).
+    Returns a raw keys dictionary (e.g. ``{"openrouter_key": "sk-…"}``), or
+    ``None`` when no credentials are present (dry-run mode).
 
-    Delegates to the application-wide :class:`~MnesOS.llm.LLMFactory` so
-    that the model instantiation logic is centralised in one place and any
-    provider can be swapped without touching this function.
+    Key extraction is delegated to the provider's
+    :class:`~MnesOS.auth.LLMAuthValidator` interface, keeping provider-specific
+    header names out of this function.  The :class:`~MnesOS.llm.LLMFactory`
+    is then invoked later by the orchestrator/graph nodes using the
+    ``MnesOSRuntimeConfig`` to build the actual LangChain clients.
     """
-    if not x_openrouter_key:
+    headers = dict(request.headers)
+    try:
+        provider = AuthFactory.create(headers)
+    except ValueError:
         return None
 
-    model_name = os.environ.get("MNESOS_DEFAULT_MODEL", "google/gemini-2.5-flash-lite")
-    keys = {"openrouter_key": x_openrouter_key}
+    if not isinstance(provider, LLMAuthValidator):
+        return None
 
     try:
-        director = _llm_factory.create_chat_client(
-            LLMRoleConfig(provider="openrouter", model_name=model_name, temperature=0.0),
-            keys,
-        )
-        narrator = _llm_factory.create_chat_client(
-            LLMRoleConfig(provider="openrouter", model_name=model_name, temperature=0.8),
-            keys,
-        )
-        npc = _llm_factory.create_chat_client(
-            LLMRoleConfig(provider="openrouter", model_name=model_name, temperature=0.5),
-            keys,
-        )
-    except ImportError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail=str(exc),
-        ) from exc
-
-    return {"director": director, "narrator": narrator, "npc": npc}
+        return provider.validate_provider_keys(headers)
+    except ValueError:
+        return None
