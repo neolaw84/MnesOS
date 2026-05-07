@@ -31,7 +31,7 @@ import json
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -54,7 +54,7 @@ class AuthContext(BaseModel):
 
     user_id: str
     is_local: bool = False
-    metadata: Dict[str, Any] = {}
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("user_id")
     @classmethod

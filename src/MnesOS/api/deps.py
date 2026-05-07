@@ -67,7 +67,7 @@ def get_current_user(request: Request) -> str:
     try:
         provider = AuthFactory.create(headers)
         ctx: AuthContext = provider.resolve_identity(headers)
-    except (ValueError, Exception) as exc:
+    except ValueError as exc:
         # Fall back to legacy X-User-Id header for backward compatibility
         x_user_id = request.headers.get("x-user-id", "").strip()
         if x_user_id:
