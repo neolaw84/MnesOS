@@ -14,6 +14,9 @@ from .graph import GameState, build_graph
 from .interpreter import YAREInterpreter
 from .orchestrator import Orchestrator
 from .prompts import DIRECTOR_SYSTEM_PROMPT, NARRATOR_SYSTEM_PROMPT, NPC_SYSTEM_PROMPT
+from .api.auth import AuthSession, AuthValidator, AuthProvider, AuthFactory
+from .engine.llm_provider import LLMProvider, MnesOSRuntimeConfig
+from .graph.tools.rag import MultiLoreLookupInput, MultiLoreLookupOutput
 
 __all__ = [
     "CartridgeLoader",
@@ -26,4 +29,12 @@ __all__ = [
     "DIRECTOR_SYSTEM_PROMPT",
     "NARRATOR_SYSTEM_PROMPT",
     "NPC_SYSTEM_PROMPT",
+    "AuthSession",
+    "AuthValidator",
+    "AuthProvider",
+    "AuthFactory",
+    "LLMProvider",
+    "MnesOSRuntimeConfig",
+    "MultiLoreLookupInput",
+    "MultiLoreLookupOutput",
 ]
