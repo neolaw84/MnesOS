@@ -327,7 +327,7 @@ class TestMultiLoreLookupToolBehaviour:
 
     def test_empty_queries_still_calls_search_batch(self):
         """Even an empty query list must invoke search_batch (graceful handling)."""
-        tool, mock_svc = self._make_tool(lore_result="")
+        tool, mock_svc = self._make_tool(expected_lore="")
         self._invoke_tool(tool, [])
         mock_svc.search_batch.assert_called_once()
 

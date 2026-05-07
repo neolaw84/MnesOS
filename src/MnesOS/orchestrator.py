@@ -228,19 +228,22 @@ class Orchestrator:
         ``configurable["llm_clients"]`` so graph nodes can pick them up
         for BYOK invocations (per 0005 §4.2).
         """
-        rc = runtime_config
+        # Use runtime_config fields when available; fall back to cartridge defaults.
+        # Both MnesOSRuntimeConfig and LoadedCartridge expose yare_config and
+        # prompt_directives, so the same attribute access works for both.
+        cfg_src = runtime_config if runtime_config is not None else self._cartridge
         configurable: Dict[str, Any] = {
-            "yare_config": rc.yare_config if rc is not None else self._cartridge.yare_config,
-            "prompt_directives": rc.prompt_directives if rc is not None else self._cartridge.prompt_directives,
+            "yare_config": cfg_src.yare_config,
+            "prompt_directives": cfg_src.prompt_directives,
             "lore_path": self._cartridge.lore_path,
             "lore_content": self._cartridge.lore_content,
             "persona_context": self._cartridge.persona_context,
         }
-        if rc is not None:
-            configurable["director_llm"] = rc.director_llm.model_dump()
-            configurable["narrator_llm"] = rc.narrator_llm.model_dump()
-            configurable["npc_llm"] = rc.npc_llm.model_dump()
-            configurable["embedding_llm"] = rc.embedding_llm.model_dump()
+        if runtime_config is not None:
+            configurable["director_llm"] = runtime_config.director_llm.model_dump()
+            configurable["narrator_llm"] = runtime_config.narrator_llm.model_dump()
+            configurable["npc_llm"] = runtime_config.npc_llm.model_dump()
+            configurable["embedding_llm"] = runtime_config.embedding_llm.model_dump()
         if llm_clients:
             configurable["llm_clients"] = llm_clients
         return {"configurable": configurable}

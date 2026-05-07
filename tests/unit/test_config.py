@@ -3,37 +3,74 @@ Unit tests for MnesOS.config — LLMRoleConfig, MnesOSRuntimeConfig, ConfigMerge
 """
 
 import pytest
-from MnesOS.config import ConfigMerger, LLMRoleConfig, MnesOSRuntimeConfig, _deep_update
+from MnesOS.config import ConfigMerger, LLMRoleConfig, MnesOSRuntimeConfig
 
 
 # ---------------------------------------------------------------------------
-# _deep_update helper
+# Merge behaviour (via ConfigMerger public interface)
 # ---------------------------------------------------------------------------
 
-class TestDeepUpdate:
-    def test_simple_override(self):
-        result = _deep_update({"a": 1, "b": 2}, {"b": 3, "c": 4})
-        assert result == {"a": 1, "b": 3, "c": 4}
+class TestDeepMergeBehaviour:
+    """ConfigMerger.merge must deep-merge layers in the correct precedence order."""
+
+    def test_simple_scalar_override(self):
+        """A scalar in an upper layer replaces the lower-layer value."""
+        cartridge = {"director_llm": {"provider": "openrouter", "temperature": 0.5}}
+        request = {"director_llm": {"temperature": 0.9}}
+        cfg = ConfigMerger.merge(cartridge, {}, request)
+        assert cfg.director_llm.temperature == 0.9
 
     def test_nested_dict_merged_not_replaced(self):
-        base = {"role": {"provider": "openrouter", "temperature": 0.7}}
-        override = {"role": {"temperature": 0.9}}
-        result = _deep_update(base, override)
-        assert result["role"]["provider"] == "openrouter"
-        assert result["role"]["temperature"] == 0.9
+        """Overriding one LLM field must preserve other fields from the lower layer."""
+        cartridge = {"director_llm": {"provider": "openrouter", "temperature": 0.7}}
+        request = {"director_llm": {"temperature": 0.9}}
+        cfg = ConfigMerger.merge(cartridge, {}, request)
+        assert cfg.director_llm.provider == "openrouter"
+        assert cfg.director_llm.temperature == 0.9
 
-    def test_non_dict_value_replaces_nested(self):
-        base = {"role": {"nested": {"x": 1}}}
-        override = {"role": "flat_value"}
-        result = _deep_update(base, override)
-        assert result["role"] == "flat_value"
+    def test_player_layer_overrides_cartridge(self):
+        """A player setting overrides the cartridge default."""
+        cartridge = {"narrator_llm": {"provider": "openrouter", "model_name": "base"}}
+        player = {"narrator_llm": {"model_name": "player_model"}}
+        cfg = ConfigMerger.merge(cartridge, player, {})
+        assert cfg.narrator_llm.model_name == "player_model"
+        assert cfg.narrator_llm.provider == "openrouter"
 
-    def test_does_not_mutate_inputs(self):
-        base = {"a": {"x": 1}}
-        override = {"a": {"y": 2}}
-        _deep_update(base, override)
-        assert "y" not in base["a"]
+    def test_request_layer_overrides_player_layer(self):
+        """A request override wins over both player and cartridge."""
+        cartridge = {"npc_llm": {"provider": "openrouter", "temperature": 0.5}}
+        player = {"npc_llm": {"temperature": 0.6}}
+        request = {"npc_llm": {"temperature": 0.9}}
+        cfg = ConfigMerger.merge(cartridge, player, request)
+        assert cfg.npc_llm.temperature == 0.9
 
+    def test_unrelated_keys_in_lower_layer_preserved(self):
+        """Keys not present in upper layers must survive the merge."""
+        cartridge = {"embedding_llm": {"provider": "openrouter", "model_name": "embed"}}
+        player = {"embedding_llm": {"temperature": 0.3}}
+        cfg = ConfigMerger.merge(cartridge, player, {})
+        assert cfg.embedding_llm.model_name == "embed"
+        assert cfg.embedding_llm.temperature == 0.3
+
+    def test_empty_upper_layers_do_not_erase_lower(self):
+        """Passing empty dicts must not erase values from a lower layer."""
+        cartridge = {
+            "director_llm": {"provider": "gemini", "model_name": "flash"},
+            "prompt_directives": {"director": "be concise"},
+        }
+        cfg = ConfigMerger.merge(cartridge, {}, {})
+        assert cfg.director_llm.provider == "gemini"
+        assert cfg.prompt_directives["director"] == "be concise"
+
+    def test_merge_does_not_mutate_input_dicts(self):
+        """ConfigMerger.merge must not modify any of its input arguments."""
+        cartridge = {"director_llm": {"provider": "openrouter"}}
+        player: dict = {}
+        request = {"director_llm": {"temperature": 0.1}}
+        ConfigMerger.merge(cartridge, player, request)
+        # Neither input should be modified
+        assert "temperature" not in cartridge["director_llm"]
+        assert player == {}
 
 # ---------------------------------------------------------------------------
 # LLMRoleConfig schema
