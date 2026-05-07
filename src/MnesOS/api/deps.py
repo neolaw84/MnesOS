@@ -2,7 +2,7 @@
 FastAPI dependency-injection aspects for MnesOS Alpha.
 
 Aligned with ``docs/design/0005-interfaces-and-contracts.md`` §5:
-  - **get_current_user** — mock basic-auth for Alpha.
+  - **get_current_user** — resolve identity via :class:`~MnesOS.auth.AuthFactory`.
   - **verify_instance_ownership** — ensure the requesting user owns the game.
   - **get_llm_clients** — BYOK: read the ``X-OpenRouter-Key`` header and
     instantiate per-request LangChain models via :class:`~MnesOS.llm.LLMFactory`.
@@ -15,8 +15,9 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 
+from ..auth import AuthContext, AuthFactory
 from ..config import LLMRoleConfig
 from ..llm import build_default_factory
 from ..storage import (
@@ -53,23 +54,29 @@ def get_storage() -> AbstractStorageComponent:
 # ---------------------------------------------------------------------------
 
 
-def get_current_user(
-    x_user_id: str = Header(
-        ...,
-        description="Mock user ID header (Alpha auth).",
-    ),
-) -> str:
-    """Extract and return the current user ID from the request header.
+def get_current_user(request: Request) -> str:
+    """Resolve the current user identity via :class:`~MnesOS.auth.AuthFactory`.
 
-    In the Alpha release this is a simple header-based mock.  Replace
-    with JWT / OAuth in production.
+    The ``X-Provider`` header (default: ``openrouter``) selects the auth strategy.
+    The resolved :class:`~MnesOS.auth.AuthContext` ``user_id`` is returned so
+    downstream code can use it without knowing which provider was active.
+
+    Raises HTTP 401 if identity cannot be resolved.
     """
-    if not x_user_id:
+    headers = dict(request.headers)
+    try:
+        provider = AuthFactory.create(headers)
+        ctx: AuthContext = provider.resolve_identity(headers)
+    except (ValueError, Exception) as exc:
+        # Fall back to legacy X-User-Id header for backward compatibility
+        x_user_id = request.headers.get("x-user-id", "").strip()
+        if x_user_id:
+            return x_user_id
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing X-User-Id header.",
-        )
-    return x_user_id
+            detail=f"Authentication failed: {exc}",
+        ) from exc
+    return ctx.user_id
 
 
 # ---------------------------------------------------------------------------
