@@ -336,7 +336,6 @@ function CartridgeDetail({ cartridge, onDeleted, onBack, onUpdated }: CartridgeD
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     const fetchVersions = async () => {
@@ -349,15 +348,6 @@ function CartridgeDetail({ cartridge, onDeleted, onBack, onUpdated }: CartridgeD
     };
     fetchVersions();
   }, [cartridge.id]);
-
-  const handleDeleted = async () => {
-    try {
-      await deleteCartridge(cartridge.id);
-      onDeleted(cartridge.id);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Delete failed.");
-    }
-  };
 
   return (
     <div>
@@ -398,6 +388,19 @@ function CartridgeDetail({ cartridge, onDeleted, onBack, onUpdated }: CartridgeD
         </button>
         <button className="btn btn-primary" onClick={() => setUploading(true)}>
           ⬆️ Upload Version
+        </button>
+        <button
+          className="btn btn-danger"
+          onClick={async () => {
+            try {
+              await deleteCartridge(cartridge.id);
+              onDeleted(cartridge.id);
+            } catch (e: unknown) {
+              setError(e instanceof Error ? e.message : "Delete failed.");
+            }
+          }}
+        >
+          🗑️ Delete
         </button>
       </div>
 
@@ -551,7 +554,7 @@ export default function CartridgeLibrary() {
       <CreateCartridgeModal
         open={creating}
         onClose={() => setCreating(false)}
-        onCreated={(c) => {
+        onSaved={(c) => {
           setCartridges((prev) => [...prev, c]);
           setSelected(c);
         }}

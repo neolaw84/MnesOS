@@ -49,6 +49,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install build
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: web-client/package-lock.json
+
       # ── Determine bump type from PR labels ────────────────────────────────
       - name: Determine bump type
         id: bump
@@ -94,6 +101,22 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "${TAG}" -m "Release ${TAG}"
           git push origin "${TAG}"
+
+      # ── Build web-client and stage into Python package ────────────────────
+      # This MUST happen after the version tag is created (setuptools-scm needs
+      # the tag) and before `python -m build` (so package-data picks it up).
+      - name: Install web-client dependencies
+        working-directory: web-client
+        run: npm ci
+
+      - name: Build web-client
+        working-directory: web-client
+        run: npm run build
+
+      - name: Stage frontend into Python package
+        run: |
+          rm -rf src/MnesOS/static
+          cp -r web-client/dist src/MnesOS/static
 
       # ── Build distributions ────────────────────────────────────────────────
       - name: Build wheel and sdist

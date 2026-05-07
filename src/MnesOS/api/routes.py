@@ -67,6 +67,16 @@ def _get_orchestrator(
 
 
 # ---------------------------------------------------------------------------
+# Health check
+# ---------------------------------------------------------------------------
+
+@router.get("/health", summary="Health check", include_in_schema=False)
+def health_check() -> dict:
+    """Returns 200 OK. Used by CI and Playwright to confirm the server is ready."""
+    return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
 # §1.1  POST /instances/{instance_id}/turn
 # ---------------------------------------------------------------------------
 
