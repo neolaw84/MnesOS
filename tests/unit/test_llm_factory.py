@@ -162,12 +162,18 @@ class TestLLMFactoryRegistry:
         mod = _import_llm()
 
         class Provider1(mod.LLMProvider):
-            def get_chat_model(self, config, keys): return MagicMock()
-            def get_embeddings_model(self, config, keys): return MagicMock()
+            def get_chat_model(self, config, keys):
+                return MagicMock()
+
+            def get_embeddings_model(self, config, keys):
+                return MagicMock()
 
         class Provider2(mod.LLMProvider):
-            def get_chat_model(self, config, keys): return MagicMock()
-            def get_embeddings_model(self, config, keys): return MagicMock()
+            def get_chat_model(self, config, keys):
+                return MagicMock()
+
+            def get_embeddings_model(self, config, keys):
+                return MagicMock()
 
         factory = mod.LLMFactory()
         factory.register_provider("p1", Provider1())
@@ -179,8 +185,11 @@ class TestLLMFactoryRegistry:
         mod = _import_llm()
 
         class Prov(mod.LLMProvider):
-            def get_chat_model(self, config, keys): return MagicMock()
-            def get_embeddings_model(self, config, keys): return MagicMock()
+            def get_chat_model(self, config, keys):
+                return MagicMock()
+
+            def get_embeddings_model(self, config, keys):
+                return MagicMock()
 
         factory = mod.LLMFactory()
         p1 = Prov()
@@ -193,8 +202,11 @@ class TestLLMFactoryRegistry:
         mod = _import_llm()
 
         class FakeProv(mod.LLMProvider):
-            def get_chat_model(self, config, keys): return MagicMock()
-            def get_embeddings_model(self, config, keys): return MagicMock()
+            def get_chat_model(self, config, keys):
+                return MagicMock()
+
+            def get_embeddings_model(self, config, keys):
+                return MagicMock()
 
         f1 = mod.LLMFactory()
         f2 = mod.LLMFactory()

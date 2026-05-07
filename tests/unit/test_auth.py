@@ -236,6 +236,16 @@ class TestLLMAuthValidatorABC:
 class TestOpenRouterPKCE:
     """OpenRouterPKCE is a concrete AuthProvider using JWT bearer tokens."""
 
+    @staticmethod
+    def _make_fake_jwt(sub: str) -> str:
+        """Build a minimal fake JWT with ``sub`` claim for testing."""
+        import base64
+        import json
+        payload = base64.urlsafe_b64encode(
+            json.dumps({"sub": sub}).encode()
+        ).rstrip(b"=").decode()
+        return f"header.{payload}.signature"
+
     def test_importable(self):
         mod = _import_auth()
         assert hasattr(mod, "OpenRouterPKCE"), (
@@ -255,12 +265,7 @@ class TestOpenRouterPKCE:
         """JWT bearer token in Authorization header should yield an AuthContext."""
         mod = _import_auth()
         provider = mod.OpenRouterPKCE()
-        # Provide a minimal base64-encoded JWT payload {"sub": "user-123"}
-        import base64, json
-        payload = base64.urlsafe_b64encode(
-            json.dumps({"sub": "user-123"}).encode()
-        ).rstrip(b"=").decode()
-        fake_jwt = f"header.{payload}.signature"
+        fake_jwt = self._make_fake_jwt("user-123")
         headers = {"authorization": f"Bearer {fake_jwt}"}
         ctx = provider.resolve_identity(headers)
         assert isinstance(ctx, mod.AuthContext)
@@ -289,11 +294,7 @@ class TestOpenRouterPKCE:
         """OpenRouter identity is never local."""
         mod = _import_auth()
         provider = mod.OpenRouterPKCE()
-        import base64, json
-        payload = base64.urlsafe_b64encode(
-            json.dumps({"sub": "u99"}).encode()
-        ).rstrip(b"=").decode()
-        headers = {"authorization": f"Bearer header.{payload}.sig"}
+        headers = {"authorization": f"Bearer {self._make_fake_jwt('u99')}"}
         ctx = provider.resolve_identity(headers)
         assert ctx.is_local is False
 

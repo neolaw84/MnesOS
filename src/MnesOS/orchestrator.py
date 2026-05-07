@@ -228,26 +228,19 @@ class Orchestrator:
         ``configurable["llm_clients"]`` so graph nodes can pick them up
         for BYOK invocations (per 0005 §4.2).
         """
+        rc = runtime_config
         configurable: Dict[str, Any] = {
-            "yare_config": (
-                runtime_config.yare_config
-                if runtime_config is not None
-                else self._cartridge.yare_config
-            ),
-            "prompt_directives": (
-                runtime_config.prompt_directives
-                if runtime_config is not None
-                else self._cartridge.prompt_directives
-            ),
+            "yare_config": rc.yare_config if rc is not None else self._cartridge.yare_config,
+            "prompt_directives": rc.prompt_directives if rc is not None else self._cartridge.prompt_directives,
             "lore_path": self._cartridge.lore_path,
             "lore_content": self._cartridge.lore_content,
             "persona_context": self._cartridge.persona_context,
         }
-        if runtime_config is not None:
-            configurable["director_llm"] = runtime_config.director_llm.model_dump()
-            configurable["narrator_llm"] = runtime_config.narrator_llm.model_dump()
-            configurable["npc_llm"] = runtime_config.npc_llm.model_dump()
-            configurable["embedding_llm"] = runtime_config.embedding_llm.model_dump()
+        if rc is not None:
+            configurable["director_llm"] = rc.director_llm.model_dump()
+            configurable["narrator_llm"] = rc.narrator_llm.model_dump()
+            configurable["npc_llm"] = rc.npc_llm.model_dump()
+            configurable["embedding_llm"] = rc.embedding_llm.model_dump()
         if llm_clients:
             configurable["llm_clients"] = llm_clients
         return {"configurable": configurable}

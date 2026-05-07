@@ -236,10 +236,10 @@ class TestBuildMultiLoreLookupTool:
 class TestMultiLoreLookupToolBehaviour:
     """The tool must invoke LoreSearchService, update GameState, and confirm to LLM."""
 
-    def _make_tool(self, lore_result: str = "## Lore\nSome lore text."):
+    def _make_tool(self, expected_lore: str = "## Lore\nSome lore text."):
         mod = _import_lore_batch()
         mock_svc = MagicMock(spec=mod.LoreSearchService)
-        mock_svc.search_batch.return_value = lore_result
+        mock_svc.search_batch.return_value = expected_lore
         tool = mod.build_multi_lore_lookup_tool(mock_svc)
         return tool, mock_svc
 
@@ -265,7 +265,7 @@ class TestMultiLoreLookupToolBehaviour:
 
     def test_returns_command_that_updates_retrieved_lore(self):
         lore = "## The Dragon\nAncient and terrible."
-        tool, _ = self._make_tool(lore_result=lore)
+        tool, _ = self._make_tool(expected_lore=lore)
         result = self._invoke_tool(tool, ["dragon lore"])
         # LangGraph Command carries an .update dict
         from langgraph.types import Command
@@ -280,7 +280,7 @@ class TestMultiLoreLookupToolBehaviour:
     def test_retrieved_lore_replaces_previous_value(self):
         """retrieved_lore should be replaced by the new batch result."""
         new_lore = "## New Section\nFresh lore."
-        tool, _ = self._make_tool(lore_result=new_lore)
+        tool, _ = self._make_tool(expected_lore=new_lore)
         state = _make_tool_state(retrieved_lore="old lore content")
         result = self._invoke_tool(tool, ["fresh query"], state=state)
         from langgraph.types import Command
@@ -332,7 +332,7 @@ class TestMultiLoreLookupToolBehaviour:
         mock_svc.search_batch.assert_called_once()
 
     def test_empty_lore_result_stored_as_empty_string(self):
-        tool, _ = self._make_tool(lore_result="")
+        tool, _ = self._make_tool(expected_lore="")
         result = self._invoke_tool(tool, ["q"])
         from langgraph.types import Command
         assert isinstance(result, Command)
