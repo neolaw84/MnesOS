@@ -48,14 +48,16 @@ The `GameState` was identified as containing redundant static data. To optimize 
 ---
 
 ## 4. Four-Tier Physical Deployment Model
-The application is designed to be physically decoupled into four layers, supporting both localhost "Alpha" installs and cloud-hosted web services.
+The application is designed to be physically decoupled into four layers. Notably, the **App Server (Tier 2)** can run as a **Bundled Backend (Local Sidecar)** on Desktop/Mobile for full anonymity, or on the Cloud.
 
 | Layer | Component | Physical Location |
 | :--- | :--- | :--- |
-| **Tier 1: Client** | UI (Vue/React/Mobile) | User's Device |
-| **Tier 2: App Server** | FastAPI / Orchestrator | Localhost or Cloud VM |
-| **Tier 3: Persistence** | SQLite / PostgreSQL | Disk or Managed DB |
-| **Tier 4: Cognitive** | LLM API (OpenRouter/OpenAI) | External SaaS |
+| **Tier 1: Client** | UI (Web/React/Mobile/Desktop) | User's Device |
+| **Tier 2: App Server** | FastAPI / Orchestrator | Localhost (Sidecar) or Cloud VM |
+| **Tier 3: Persistence** | SQLite / PostgreSQL | Local Disk or Managed Server DB |
+| **Tier 4: Cognitive** | LLM Provider Factory | Remote API (OpenRouter / MnesOS Proxied) or Local LLM |
+
+*Note: MnesOS Credits are treated symmetrically as just another LLM Provider at Tier 4. When a Local Sidecar uses MnesOS Credits, it calls a protected MnesOS Server endpoint for atomic credit deduction.*
 
 ---
 
@@ -63,7 +65,7 @@ The application is designed to be physically decoupled into four layers, support
 By making the Orchestrator stateless, we can apply "Aspects" (Middleware/DI) to handle cross-cutting concerns before the game logic fires.
 
 - **Authorization Aspect:** Ensures `request.user_id == target_save.user_id`. Players cannot view or modify turns in trees they do not own.
-- **Accounting Aspect:** Checks credit balance or "BYOK" (Bring Your Own Key) status via PKCE (OpenRouter) before invoking the LLM nodes.
+- **Accounting Aspect:** Uses a **Side-by-Side Auth** model. The identity token (MnesOS DB Auth) and the LLM provider credential (e.g., OpenRouter PKCE token) are passed "in-flight" via headers and resolved *before* graph execution via a Registry Pattern. LLM Keys are never persisted server-side.
 - **Cheat-Friendly Policy:** We embrace user-driven state manipulation. Since the system is event-sourced, "cheating" is simply the injection of a `SYSTEM` actor turn with a custom `yare_delta`. The engine handles this natively without breaking the timeline.
 
 ---

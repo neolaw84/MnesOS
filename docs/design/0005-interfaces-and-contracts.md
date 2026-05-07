@@ -4,7 +4,9 @@ This document defines the strict boundaries, data models, and API contracts betw
 
 ## 1. REST API Contracts (Tier 1 <-> Tier 2)
 
-This boundary defines how the Web Client (React/Vue) communicates with the FastAPI Server. All endpoints require the client to pass their BYOK token or authentication credential via headers.
+This boundary defines how the Unified Client (Web/Mobile/Desktop) communicates with the FastAPI Server (which may run locally or remotely). 
+
+We use a **Side-by-Side Auth** approach. All endpoints require the client to pass **both** their identity credential (e.g., MnesOS JWT or Local Mock ID) and their LLM Provider configuration/PKCE token "in-flight" via headers. These are never stored persistently on the backend.
 
 ### 1.1 Process Turn (Standard Gameplay)
 
@@ -198,7 +200,7 @@ class Orchestrator:
         # DOES NOT maintain self._state.
         pass
 
-    def process_turn(self, parent_turn_id: Optional[str], user_input: str, llm_clients: dict) -> Dict[str, Any]:
+    def process_turn(self, parent_turn_id: Optional[str], user_input: str, request_config: Dict[str, Any]) -> Dict[str, Any]:
         """
         1. Calls `storage.get_turn_lineage(parent_turn_id)`
         2. Calls `StateHydrator.hydrate_state()`
@@ -252,10 +254,11 @@ Nodes access this via the secondary `config` parameter provided by LangGraph.
     "lore_path": str,                     # Path to bot_lore.md
     "lore_content": str,                  # Content of bot_lore.md
     "persona_context": Dict[str, str],    # Rendered player persona text
-    "llm_clients": {                      # Injected by the API Aspect (AuthZ/BYOK)
+    "llm_clients": {                      # Resolved dynamically per-request via LLMFactory using presets/custom mapping
         "director": BaseChatModel,
         "narrator": BaseChatModel,
-        "npc": BaseChatModel
+        "npc": BaseChatModel,
+        "embedding": Embeddings           # For Lore Retrieval
     }
 }
 ```
