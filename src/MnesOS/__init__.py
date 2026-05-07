@@ -9,6 +9,7 @@ __author__ = "neolaw84"
 __email__ = "neolaw@gmail.com"
 
 from .cartridge import CartridgeLoader, LoadedCartridge
+from .config import ConfigMerger, LLMRoleConfig, MnesOSRuntimeConfig
 from .context import VectorLoreStore
 from .graph import GameState, build_graph
 from .interpreter import YAREInterpreter
@@ -18,6 +19,9 @@ from .prompts import DIRECTOR_SYSTEM_PROMPT, NARRATOR_SYSTEM_PROMPT, NPC_SYSTEM_
 __all__ = [
     "CartridgeLoader",
     "LoadedCartridge",
+    "ConfigMerger",
+    "LLMRoleConfig",
+    "MnesOSRuntimeConfig",
     "VectorLoreStore",
     "GameState",
     "build_graph",

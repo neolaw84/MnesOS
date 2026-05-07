@@ -2,10 +2,10 @@
 FastAPI dependency-injection aspects for MnesOS Alpha.
 
 Aligned with ``docs/design/0005-interfaces-and-contracts.md`` §5:
-  - **get_current_user** — mock basic-auth for Alpha.
+  - **get_current_user** — resolve identity via :class:`~MnesOS.auth.AuthFactory`.
   - **verify_instance_ownership** — ensure the requesting user owns the game.
   - **get_llm_clients** — BYOK: read the ``X-OpenRouter-Key`` header and
-    instantiate per-request LangChain models.
+    instantiate per-request LangChain models via :class:`~MnesOS.llm.LLMFactory`.
   - **get_storage** — provide the storage singleton.
   - **get_orchestrator** — provide an Orchestrator bound to a cartridge.
 """
@@ -15,12 +15,18 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 
+from ..auth import AuthContext, AuthFactory
+from ..config import LLMRoleConfig
+from ..llm import build_default_factory
 from ..storage import (
     AbstractStorageComponent,
     SQLite3PhysicalComponent,
 )
+
+# Application-wide LLMFactory instance — populated with all built-in providers.
+_llm_factory = build_default_factory()
 
 # ---------------------------------------------------------------------------
 # Storage singleton
@@ -48,23 +54,29 @@ def get_storage() -> AbstractStorageComponent:
 # ---------------------------------------------------------------------------
 
 
-def get_current_user(
-    x_user_id: str = Header(
-        ...,
-        description="Mock user ID header (Alpha auth).",
-    ),
-) -> str:
-    """Extract and return the current user ID from the request header.
+def get_current_user(request: Request) -> str:
+    """Resolve the current user identity via :class:`~MnesOS.auth.AuthFactory`.
 
-    In the Alpha release this is a simple header-based mock.  Replace
-    with JWT / OAuth in production.
+    The ``X-Provider`` header (default: ``openrouter``) selects the auth strategy.
+    The resolved :class:`~MnesOS.auth.AuthContext` ``user_id`` is returned so
+    downstream code can use it without knowing which provider was active.
+
+    Raises HTTP 401 if identity cannot be resolved.
     """
-    if not x_user_id:
+    headers = dict(request.headers)
+    try:
+        provider = AuthFactory.create(headers)
+        ctx: AuthContext = provider.resolve_identity(headers)
+    except ValueError as exc:
+        # Fall back to legacy X-User-Id header for backward compatibility
+        x_user_id = request.headers.get("x-user-id", "").strip()
+        if x_user_id:
+            return x_user_id
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing X-User-Id header.",
-        )
-    return x_user_id
+            detail=f"Authentication failed: {exc}",
+        ) from exc
+    return ctx.user_id
 
 
 # ---------------------------------------------------------------------------
@@ -113,38 +125,33 @@ def get_llm_clients(
     If no key is provided, returns ``None`` — the graph runs in dry-run
     mode (no LLM calls).
 
-    Uses ``langchain_openai.ChatOpenAI`` pointed at the OpenRouter base
-    URL so any model available on OpenRouter can be used.
+    Delegates to the application-wide :class:`~MnesOS.llm.LLMFactory` so
+    that the model instantiation logic is centralised in one place and any
+    provider can be swapped without touching this function.
     """
     if not x_openrouter_key:
         return None
 
+    model_name = os.environ.get("MNESOS_DEFAULT_MODEL", "google/gemini-2.5-flash-lite")
+    keys = {"openrouter_key": x_openrouter_key}
+
     try:
-        from langchain_openai import ChatOpenAI
-    except ImportError:
+        director = _llm_factory.create_chat_client(
+            LLMRoleConfig(provider="openrouter", model_name=model_name, temperature=0.0),
+            keys,
+        )
+        narrator = _llm_factory.create_chat_client(
+            LLMRoleConfig(provider="openrouter", model_name=model_name, temperature=0.8),
+            keys,
+        )
+        npc = _llm_factory.create_chat_client(
+            LLMRoleConfig(provider="openrouter", model_name=model_name, temperature=0.5),
+            keys,
+        )
+    except ImportError as exc:
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail=(
-                "langchain_openai is not installed. "
-                "Install it to enable BYOK LLM support."
-            ),
-        )
+            detail=str(exc),
+        ) from exc
 
-    base_url = os.environ.get(
-        "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
-    )
-    model_name = os.environ.get("MNESOS_DEFAULT_MODEL", "google/gemini-2.5-flash-lite")
-
-    director = ChatOpenAI(
-        model=model_name, api_key=x_openrouter_key,
-        base_url=base_url, temperature=0,
-    )
-    narrator = ChatOpenAI(
-        model=model_name, api_key=x_openrouter_key,
-        base_url=base_url, temperature=0.8,
-    )
-    npc = ChatOpenAI(
-        model=model_name, api_key=x_openrouter_key,
-        base_url=base_url, temperature=0.5,
-    )
     return {"director": director, "narrator": narrator, "npc": npc}

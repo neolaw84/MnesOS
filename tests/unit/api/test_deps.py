@@ -15,7 +15,11 @@ class MockStorage:
         return self.instance
 
 def test_get_current_user_valid():
-    assert get_current_user("user-123") == "user-123"
+    from unittest.mock import MagicMock
+    mock_request = MagicMock()
+    # No x-provider → defaults to openrouter; no authorization header → falls back to x-user-id
+    mock_request.headers = {"x-user-id": "user-123"}
+    assert get_current_user(mock_request) == "user-123"
 
 def test_verify_instance_ownership_success():
     storage = MockStorage(GameInstance(id="inst-1", user_id="user-1", persona_id="p1", version_id="v1", status=GameStatus.ACTIVE))

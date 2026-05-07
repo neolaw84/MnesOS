@@ -22,6 +22,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from .cartridge import CartridgeLoader, LoadedCartridge
+from .config import ConfigMerger, MnesOSRuntimeConfig
 from .graph import (
     GameState,
     build_graph,
@@ -121,6 +122,8 @@ class Orchestrator:
         *,
         parent_turn_id: Optional[str] = None,
         llm_clients: Optional[Dict[str, Any]] = None,
+        player_settings: Optional[Dict[str, Any]] = None,
+        request_overrides: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Execute one game turn.
@@ -137,6 +140,12 @@ class Orchestrator:
         llm_clients : dict, optional
             Per-request LLM instances for BYOK. Keys: ``"director"``,
             ``"narrator"``, ``"npc"``.
+        player_settings : dict, optional
+            Persisted player preferences (e.g. preferred LLM provider/model).
+            Merged above cartridge defaults.
+        request_overrides : dict, optional
+            Per-request config overrides sent by the frontend for this turn.
+            Merged above player settings (highest precedence).
 
         Returns
         -------
@@ -159,8 +168,19 @@ class Orchestrator:
         )
         state["client_messages"].append({"role": "user", "content": user_input})
 
-        # 2. Invoke graph with static cartridge data + BYOK LLMs via config
-        config = self._build_runnable_config(llm_clients=llm_clients)
+        # 2. Merge hierarchical config: cartridge < player < request
+        cartridge_defaults = {
+            "yare_config": self._cartridge.yare_config,
+            "prompt_directives": self._cartridge.prompt_directives,
+        }
+        runtime_config = ConfigMerger.merge(
+            cartridge_defaults,
+            player_settings or {},
+            request_overrides or {},
+        )
+
+        # 3. Invoke graph with merged config + BYOK LLMs via RunnableConfig
+        config = self._build_runnable_config(runtime_config=runtime_config, llm_clients=llm_clients)
         
         # Log a filtered version of the state to avoid message noise
         log_state = {k: v for k, v in state.items() if k not in ["client_messages", "agent_messages"]}
@@ -172,12 +192,12 @@ class Orchestrator:
         log_new_state = {k: v for k, v in new_state.items() if k not in ["client_messages", "agent_messages"]}
         logger.debug("GRAPH RESULT (filtered): %s", json.dumps(log_new_state, indent=2, default=str))
 
-        # 3. Extract yare_delta from bot_memory changes
+        # 4. Extract yare_delta from bot_memory changes
         yare_delta = self._extract_delta(
             self._cartridge.initial_state, lineage, new_state
         )
 
-        # 4. Extract narrator response
+        # 5. Extract narrator response
         narrator_text = self._extract_narrator_response(new_state)
 
         return {
@@ -193,21 +213,37 @@ class Orchestrator:
 
     def _build_runnable_config(
         self,
+        runtime_config: Optional[MnesOSRuntimeConfig] = None,
         llm_clients: Optional[Dict[str, Any]] = None,
     ) -> dict:
-        """Build the ``RunnableConfig`` dict carrying static cartridge data.
+        """Build the ``RunnableConfig`` dict carrying static cartridge data and
+        the merged :class:`~MnesOS.config.MnesOSRuntimeConfig`.
+
+        ``runtime_config`` LLM role settings are injected under their
+        respective keys (``director_llm``, ``narrator_llm``, ``npc_llm``,
+        ``embedding_llm``) so that graph nodes can retrieve them from
+        ``config["configurable"]``.
 
         If *llm_clients* is provided the dict is included under
         ``configurable["llm_clients"]`` so graph nodes can pick them up
         for BYOK invocations (per 0005 §4.2).
         """
+        # Use runtime_config fields when available; fall back to cartridge defaults.
+        # Both MnesOSRuntimeConfig and LoadedCartridge expose yare_config and
+        # prompt_directives, so the same attribute access works for both.
+        cfg_src = runtime_config if runtime_config is not None else self._cartridge
         configurable: Dict[str, Any] = {
-            "yare_config": self._cartridge.yare_config,
-            "prompt_directives": self._cartridge.prompt_directives,
+            "yare_config": cfg_src.yare_config,
+            "prompt_directives": cfg_src.prompt_directives,
             "lore_path": self._cartridge.lore_path,
             "lore_content": self._cartridge.lore_content,
             "persona_context": self._cartridge.persona_context,
         }
+        if runtime_config is not None:
+            configurable["director_llm"] = runtime_config.director_llm.model_dump()
+            configurable["narrator_llm"] = runtime_config.narrator_llm.model_dump()
+            configurable["npc_llm"] = runtime_config.npc_llm.model_dump()
+            configurable["embedding_llm"] = runtime_config.embedding_llm.model_dump()
         if llm_clients:
             configurable["llm_clients"] = llm_clients
         return {"configurable": configurable}
