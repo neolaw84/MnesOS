@@ -15,10 +15,13 @@ Resolution order
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional
 
 from ...config import LLMRoleConfig
 from ...llm import build_default_factory
+
+logger = logging.getLogger(__name__)
 
 # Module-level factory shared across all nodes in the same process.
 _llm_factory = build_default_factory()
@@ -58,7 +61,11 @@ def resolve_llm(
         try:
             role_cfg = LLMRoleConfig(**role_config_dict)
             return _llm_factory.create_chat_client(role_cfg, keys)
-        except (ValueError, ImportError):
-            pass
+        except (ValueError, ImportError) as exc:
+            logger.warning(
+                "Failed to resolve LLM for role %r: %s. Falling back to dry-run.",
+                role,
+                exc,
+            )
 
     return None

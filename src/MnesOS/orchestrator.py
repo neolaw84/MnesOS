@@ -257,8 +257,12 @@ class Orchestrator:
             try:
                 with open(self._cartridge.lore_path, "r", encoding="utf-8") as fh:
                     lore_content = fh.read()
-            except (FileNotFoundError, OSError):
-                pass
+            except (FileNotFoundError, OSError) as exc:
+                logger.warning(
+                    "Could not read lore file %r: %s. Lore retrieval will be unavailable.",
+                    self._cartridge.lore_path,
+                    exc,
+                )
 
         lore_service = VectorLoreSearchService(lore_content)
 
