@@ -43,6 +43,17 @@ A game cartridge is a directory inside `cartridges/` with the following structur
 1.  Navigate to the directory of the game you want to modify under `cartridges/`.
 2.  Edit the `prompt_directives.yaml`, `bot_lore.md`, or `yare.yaml` files to change the game's story, lore, or rules.
 
+## Development & Architecture Conventions
+
+*   **Unified Distribution (SPA + FastAPI):** The React frontend (`web-client/`) is built and staged into the Python package (`src/MnesOS/static/`) so the FastAPI backend can serve it as a single self-contained application using `StaticFiles` with an `index.html` SPA fallback.
+*   **Python Packaging:** MnesOS uses modern `pyproject.toml` configuration (`[tool.setuptools.package-data]`) to bundle the built frontend into distributions (sdists and wheels). Legacy `MANIFEST.in` is redundant and deprecated for this workflow. 
+*   **Unified E2E Testing:** Playwright tests are executed against the actual FastAPI server serving the built SPA in a production-like manner, rather than against a mock Vite dev server. Absolute ESM pathing (`fileURLToPath(import.meta.url)`) and explicit separation of environments (`reuseExistingServer: false`) ensure stability and determinism in isolated test runners.
+*   **Developer Orchestration:** Always use the root `Makefile` for developer tasks:
+    *   `make run-web`: Start frontend dev server
+    *   `make run-python`: Start backend dev server
+    *   `make run-e2e`: Human validation (builds and runs front-to-back using Uvicorn)
+    *   `make full-ci`: To run CI locally before PRs.
+
 ## Documentation
 
 For more detailed information, refer to the documentation:
