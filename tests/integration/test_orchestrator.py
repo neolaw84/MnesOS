@@ -194,5 +194,6 @@ class TestSeparateNpcBrainFeature:
 
         orch = Orchestrator(storage=MagicMock(), cartridge_dir=str(tmp_path))
         node_names = set(orch._app.get_graph().nodes.keys())
-        for expected in ("Director", "Narrator", "Lore", "CycleTick"):
+        for expected in ("Director", "Narrator", "CycleTick"):
             assert expected in node_names, f"Expected node {expected} missing in monolithic mode"
+        assert "Lore" not in node_names, "Lore pre-node replaced by multi_lore_lookup tool"

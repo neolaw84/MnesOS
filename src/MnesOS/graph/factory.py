@@ -1,5 +1,5 @@
 import functools
-from typing import Dict, Any, Literal
+from typing import Dict, Any, Literal, Optional
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 
@@ -13,11 +13,11 @@ from .nodes.system import (
     cycle_tick_node,
 )
 from .nodes.director import director_node, _get_last_ai_tool_calls
-from .nodes.lore import context_retrieval_node
 from .nodes.narrator import narrator_node
 from .tools.yare import build_yare_event_tools
 from .tools.time import advance_game_time
 from .tools.npc import build_npc_intent_tool
+from .tools.lore_batch import LoreSearchService, build_multi_lore_lookup_tool
 
 
 
@@ -38,6 +38,7 @@ def build_graph(
     llm_npc=None,
     llm_narrator=None,
     prompt_directives: Dict[str, str] | None = None,
+    lore_service: Optional[LoreSearchService] = None,
 ):
     """
     Build and compile a LangGraph for the given YARE config and LLM instances.
@@ -45,6 +46,10 @@ def build_graph(
     Static cartridge data that was formerly carried in ``GameState`` is now
     closed over at build time (for tools) or passed at invoke time via
     ``RunnableConfig["configurable"]`` (for nodes).
+
+    When *lore_service* is provided the ``multi_lore_lookup`` batch RAG tool
+    is injected into the Director's dynamic tool list so the Director can
+    actively retrieve lore on demand.  The old ``Lore`` pre-node is omitted.
     """
     prompt_directives = prompt_directives or {}
     dynamic_tools = build_yare_event_tools(yare_config)
@@ -55,10 +60,12 @@ def build_graph(
             build_npc_intent_tool(llm_npc, yare_config=yare_config, prompt_directives=prompt_directives)
         ]
 
+    if lore_service is not None:
+        dynamic_tools = dynamic_tools + [build_multi_lore_lookup_tool(lore_service)]
+
     graph = StateGraph(GameState)
 
     graph.add_node("ResetAgentMessages", reset_agent_messages_node)
-    graph.add_node("Lore", context_retrieval_node)
     graph.add_node("CycleTick", cycle_tick_node)
     graph.add_node("Director", functools.partial(director_node, llm=llm_director, tools=dynamic_tools))
     graph.add_node("PreTools", pre_tools_node)
@@ -73,8 +80,7 @@ def build_graph(
     graph.add_node("CleanupAgentMessages", cleanup_agent_messages_node)
 
     graph.set_entry_point("ResetAgentMessages")
-    graph.add_edge("ResetAgentMessages", "Lore")
-    graph.add_edge("Lore", "CycleTick")
+    graph.add_edge("ResetAgentMessages", "CycleTick")
     graph.add_edge("CycleTick", "Director")
 
     graph.add_conditional_edges(

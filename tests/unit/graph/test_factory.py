@@ -17,10 +17,16 @@ class TestBuildGraphFactory:
         app = build_graph(yare_config=_DEFAULT_YARE_CONFIG)
         node_names = set(app.get_graph().nodes.keys())
         for expected in (
-            "ResetAgentMessages", "Lore", "CycleTick", "Director",
+            "ResetAgentMessages", "CycleTick", "Director",
             "PreTools", "Tools", "PostTools", "Narrator", "CleanupAgentMessages",
         ):
             assert expected in node_names, f"Missing expected node: {expected!r}"
+
+    def test_build_graph_monolithic_excludes_lore_node(self):
+        """Lore pre-node is replaced by the multi_lore_lookup tool."""
+        app = build_graph(yare_config=_DEFAULT_YARE_CONFIG)
+        node_names = set(app.get_graph().nodes.keys())
+        assert "Lore" not in node_names
 
     def test_build_graph_monolithic_excludes_npc(self):
         app = build_graph(yare_config=_DEFAULT_YARE_CONFIG)
