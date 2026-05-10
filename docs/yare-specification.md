@@ -1,6 +1,6 @@
 # YARE Specification
 
-YARE is the deterministic rules layer used by MnesOS. It is interpreted by `YAREInterpreter` and is intentionally narrower than general Python.
+YARE stands for YARE Agentic Rules Engine. YARE is the deterministic rules layer used by MnesOS. It is interpreted by `YAREInterpreter` and is intentionally narrower than general Python.
 
 ## Top-Level Structure
 
@@ -195,7 +195,7 @@ New events are simply added in `yare.yaml`. No code changes are required to expo
 
 ## Time Sync Extensions
 
-- `state.game_time` is automatically injected into Director, NPC Brain (when enabled), and Narrator prompt context when present.
+- `state.game_time` is automatically injected into Director, NPC Intent tool, and Narrator prompt context when present.
 - Narrator uses a structured tool call for end-of-turn engine actions:
   - `end_of_narration(actions=[{"type":"advance_time","duration":"PT15M"}])`
   - `end_of_narration(actions=[{"type":"set_game_time","value":"2026-04-10T10:00:00+00:00"}])`
