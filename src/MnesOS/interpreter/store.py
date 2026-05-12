@@ -30,6 +30,17 @@ class InterpreterStore:
         parts = path.split('.')
         curr = self.state if parts[0] == "state" else self.temp
         for part in parts[1:]:
+            # If current is a list, try numeric index access
+            if isinstance(curr, list):
+                try:
+                    idx = int(part)
+                except Exception:
+                    return None
+                if idx < 0 or idx >= len(curr):
+                    return None
+                curr = curr[idx]
+                continue
+
             if not isinstance(curr, dict):
                 return None
             part = self._find_case_insensitive_key(curr, part)
@@ -41,9 +52,36 @@ class InterpreterStore:
         root = parts[0]
         curr = self.state if root == "state" else self.temp
         for part in parts[1:-1]:
-            part = self._find_case_insensitive_key(curr, part)
-            curr = curr.setdefault(part, {})
+            # If curr is a list and part is numeric, index into list and extend if needed
+            if isinstance(curr, list):
+                try:
+                    idx = int(part)
+                except Exception:
+                    # cannot traverse non-numeric part on list
+                    raise TypeError(f"Invalid path segment '{part}' for list")
+                while idx >= len(curr):
+                    curr.append({})
+                curr = curr[idx]
+                continue
+
+            # curr is expected to be a dict here
+            part_key = self._find_case_insensitive_key(curr, part)
+            if part_key not in curr:
+                curr[part_key] = {}
+            curr = curr[part_key]
+
         last = parts[-1]
+        # If setting into a list
+        if isinstance(curr, list):
+            try:
+                idx = int(last)
+            except Exception:
+                raise TypeError(f"Invalid path segment '{last}' for list")
+            while idx >= len(curr):
+                curr.append(None)
+            curr[idx] = value
+            return
+
         last = self._find_case_insensitive_key(curr, last)
         curr[last] = value
 

@@ -33,6 +33,7 @@ api = [
     "fastapi>=0.115,<1.0",
     "uvicorn[standard]>=0.34,<1.0",
     "python-multipart>=0.0.22",
+    "aiofiles>=24.1",   # required by FastAPI StaticFiles
 ]
 dev = [
     "pytest>=7.0",
@@ -46,6 +47,7 @@ dev = [
     "fastapi>=0.115,<1.0",
     "uvicorn[standard]>=0.34,<1.0",
     "python-multipart>=0.0.22",
+    "aiofiles>=24.1",
 ]
 docs = [
     "mkdocs>=1.5",
@@ -56,9 +58,15 @@ docs = [
 
 [project.scripts]
 mnesos-ingest-cartridges = "MnesOS.utils.ingest_cartridges:main"
+mnesos-create-creator = "MnesOS.utils.create_creator:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# Include the pre-built React SPA that is staged into the package before `python -m build`.
+# The staging step in release.yml copies web-client/dist → src/MnesOS/static/.
+[tool.setuptools.package-data]
+"MnesOS" = ["static/**/*", "static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

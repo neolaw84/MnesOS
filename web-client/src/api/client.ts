@@ -49,7 +49,7 @@ export function setOpenRouterKey(key: string): void {
 }
 
 export function getUserId(): string {
-  return localStorage.getItem(USER_ID_KEY) ?? "";
+  return localStorage.getItem(USER_ID_KEY) ?? "local-user";
 }
 
 export function setUserId(id: string): void {
@@ -74,6 +74,7 @@ async function apiFetch<T>(
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    "X-Provider": "local",
     ...(init.headers as Record<string, string> | undefined),
   };
 

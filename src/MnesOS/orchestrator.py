@@ -17,10 +17,12 @@ Aligned with ``docs/design/0005-interfaces-and-contracts.md`` §3.2:
 """
 
 import copy
+import json
 import logging
 from typing import Any, Dict, Optional
 
 from .cartridge import CartridgeLoader, LoadedCartridge
+from .config import ConfigMerger, MnesOSRuntimeConfig
 from .graph import (
     GameState,
     build_graph,
@@ -30,14 +32,9 @@ from .storage.models import TurnLog, TurnActor
 from .storage.hydrator import StateHydrator
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
-# Maximum number of automatic retries when a turn fails with a recoverable error.
-MAX_TURN_RETRIES = 1
 
-_RETRY_SYSTEM_NOTE = (
-    "SYSTEM: The previous attempt returned an error. "
-    "Please respond with valid JSON and only call declared events."
-)
 
 
 class Orchestrator:
@@ -76,13 +73,13 @@ class Orchestrator:
 
     def __init__(
         self,
+        storage: AbstractStorageComponent,
         cartridge_dir: Optional[str] = None,
         cartridge_version: Optional[Any] = None,
         persona: Any = None,
         llm_director=None,
         llm_npc=None,
         llm_narrator=None,
-        storage: Optional[AbstractStorageComponent] = None,
     ) -> None:
         loader = CartridgeLoader()
         if cartridge_version:
@@ -102,38 +99,22 @@ class Orchestrator:
                 "To use the orchestrator, set separate_npc=False or omit it."
             )
 
+        if storage is None:
+            raise ValueError("A storage backend is required for Orchestrator.")
         self._storage = storage
         self._app = self._compile_graph(llm_director, llm_npc, llm_narrator)
         logger.info("Graph compiled. Nodes: %s", list(self._app.get_graph().nodes.keys()))
-
-        # Stateful mode keeps an in-memory state; stateless mode does not.
-        self._state: Optional[GameState] = (
-            self._build_initial_state() if storage is None else None
-        )
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    @property
-    def state(self) -> GameState:
-        """The current, live GameState (stateful mode only)."""
-        if self._state is None:
-            raise RuntimeError(
-                "No in-memory state. In stateless mode use "
-                "process_turn(user_input, parent_turn_id=...)."
-            )
-        return self._state
+
 
     @property
     def cartridge(self) -> LoadedCartridge:
         """The loaded cartridge metadata."""
         return self._cartridge
-
-    def reset(self) -> None:
-        """Restore the game to its initial state (stateful mode only)."""
-        self._state = self._build_initial_state()
-        logger.info("Orchestrator state reset to initial cartridge defaults.")
 
     def process_turn(
         self,
@@ -141,101 +122,38 @@ class Orchestrator:
         *,
         parent_turn_id: Optional[str] = None,
         llm_clients: Optional[Dict[str, Any]] = None,
-    ):
+        player_settings: Optional[Dict[str, Any]] = None,
+        request_overrides: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """
         Execute one game turn.
-
-        **Stateful mode** (no ``parent_turn_id``, no ``storage``): appends
-        *user_input* to the in-memory conversation history, invokes the
-        graph, and returns the Narrator's prose response string.
-
-        **Stateless mode** (``storage`` provided): hydrates state from the
-        turn-log tree, invokes the graph, and returns a result dict.
-        The Orchestrator does NOT save the turn to the DB; the API route
-        handles that.  (Aligned with 0005 §3.2.)
+        
+        Hydrates state from the turn-log tree, invokes the graph, and returns a result dict.
+        The Orchestrator does NOT save the turn to the DB; the API route handles that.
 
         Parameters
         ----------
         user_input : str
             The player's raw text input.
         parent_turn_id : str, optional
-            ID of the previous turn (stateless mode).
+            ID of the previous turn. If None, assumes a new game starting at Turn 0.
         llm_clients : dict, optional
             Per-request LLM instances for BYOK. Keys: ``"director"``,
             ``"narrator"``, ``"npc"``.
-
-        Returns
-        -------
-        str
-            Stateful mode: Narrator's prose response string.
-        dict
-            Stateless mode: ``{"narrator_text": str, "yare_delta": dict}``.
-        """
-        if parent_turn_id is not None or self._storage is not None:
-            return self._process_turn_stateless(
-                user_input,
-                parent_turn_id=parent_turn_id,
-                llm_clients=llm_clients,
-            )
-        return self._process_turn_stateful(user_input)
-
-    # ------------------------------------------------------------------
-    # Stateful turn (legacy / CLI)
-    # ------------------------------------------------------------------
-
-    def _process_turn_stateful(self, user_input: str) -> str:
-        """In-memory stateful turn loop (original behavior)."""
-        self._state["client_messages"].append({"role": "user", "content": user_input})
-        logger.debug("Player: %s", user_input)
-
-        config = self._build_runnable_config()
-
-        for attempt in range(MAX_TURN_RETRIES + 1):
-            try:
-                new_state = self._app.invoke(self._state, config=config)
-                self._state = new_state
-                response = self._extract_narrator_response(self._state)
-                logger.debug("Narrator: %s", response[:120] if response else "(none)")
-                return response
-            except Exception as exc:  # noqa: BLE001
-                logger.warning(
-                    "Turn attempt %d/%d failed: %s — %s",
-                    attempt + 1,
-                    MAX_TURN_RETRIES + 1,
-                    type(exc).__name__,
-                    exc,
-                    exc_info=True,
-                )
-                if attempt < MAX_TURN_RETRIES:
-                    self._state["system_notes"] = (
-                        self._state.get("system_notes") or []
-                    ) + [_RETRY_SYSTEM_NOTE]
-                else:
-                    raise
-
-    # ------------------------------------------------------------------
-    # Stateless turn (web / API)
-    # ------------------------------------------------------------------
-
-    def _process_turn_stateless(
-        self,
-        user_input: str,
-        *,
-        parent_turn_id: Optional[str] = None,
-        llm_clients: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """Hydrate -> invoke -> return result dict (no persistence).
+        player_settings : dict, optional
+            Persisted player preferences (e.g. preferred LLM provider/model).
+            Merged above cartridge defaults.
+        request_overrides : dict, optional
+            Per-request config overrides sent by the frontend for this turn.
+            Merged above player settings (highest precedence).
 
         Returns
         -------
         dict
-            ``{"narrator_text": str, "yare_delta": dict}``
+            ``{"narrator_text": str, "yare_delta": dict}``.
         """
         if self._storage is None:
-            raise RuntimeError(
-                "Stateless process_turn requires a storage backend. "
-                "Pass storage= to Orchestrator.__init__."
-            )
+            raise RuntimeError("process_turn requires a storage backend.")
 
         # 1. Hydrate state from lineage
         if parent_turn_id is not None:
@@ -243,19 +161,43 @@ class Orchestrator:
         else:
             lineage = []
 
-        state = StateHydrator.hydrate_state(lineage, self._cartridge.initial_state)
+        state = StateHydrator.hydrate_state(
+            lineage, 
+            self._cartridge.initial_state, 
+            self._cartridge.first_message
+        )
         state["client_messages"].append({"role": "user", "content": user_input})
 
-        # 2. Invoke graph with static cartridge data + BYOK LLMs via config
-        config = self._build_runnable_config(llm_clients=llm_clients)
+        # 2. Merge hierarchical config: cartridge < player < request
+        cartridge_defaults = {
+            "yare_config": self._cartridge.yare_config,
+            "prompt_directives": self._cartridge.prompt_directives,
+        }
+        runtime_config = ConfigMerger.merge(
+            cartridge_defaults,
+            player_settings or {},
+            request_overrides or {},
+        )
+
+        # 3. Invoke graph with merged config + BYOK LLMs via RunnableConfig
+        config = self._build_runnable_config(runtime_config=runtime_config, llm_clients=llm_clients)
+        
+        # Log a filtered version of the state to avoid message noise
+        log_state = {k: v for k, v in state.items() if k not in ["client_messages", "agent_messages"]}
+        logger.debug("INVOKING GRAPH with hydrated state (filtered): %s", json.dumps(log_state, indent=2, default=str))
+
         new_state = self._app.invoke(state, config=config)
 
-        # 3. Extract yare_delta from bot_memory changes
+        # Log a filtered version of the result
+        log_new_state = {k: v for k, v in new_state.items() if k not in ["client_messages", "agent_messages"]}
+        logger.debug("GRAPH RESULT (filtered): %s", json.dumps(log_new_state, indent=2, default=str))
+
+        # 4. Extract yare_delta from bot_memory changes
         yare_delta = self._extract_delta(
             self._cartridge.initial_state, lineage, new_state
         )
 
-        # 4. Extract narrator response
+        # 5. Extract narrator response
         narrator_text = self._extract_narrator_response(new_state)
 
         return {
@@ -267,49 +209,70 @@ class Orchestrator:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _build_initial_state(self) -> GameState:
-        """Construct a fresh GameState from cartridge defaults."""
-        return {
-            "client_messages": [],
-            "agent_messages": [],
-            "bot_memory": copy.deepcopy(self._cartridge.initial_state),
-            "bot_memory_staging": [],
-            "system_notes": [],
-            "retrieved_lore": "",
-            "iteration_count": 0,
-            "turn_phase": "",
-            "npc_intent_called": False,
-        }
+
 
     def _build_runnable_config(
         self,
+        runtime_config: Optional[MnesOSRuntimeConfig] = None,
         llm_clients: Optional[Dict[str, Any]] = None,
     ) -> dict:
-        """Build the ``RunnableConfig`` dict carrying static cartridge data.
+        """Build the ``RunnableConfig`` dict carrying static cartridge data and
+        the merged :class:`~MnesOS.config.MnesOSRuntimeConfig`.
+
+        ``runtime_config`` LLM role settings are injected under their
+        respective keys (``director_llm``, ``narrator_llm``, ``npc_llm``,
+        ``embedding_llm``) so that graph nodes can retrieve them from
+        ``config["configurable"]``.
 
         If *llm_clients* is provided the dict is included under
         ``configurable["llm_clients"]`` so graph nodes can pick them up
         for BYOK invocations (per 0005 §4.2).
         """
+        # Use runtime_config fields when available; fall back to cartridge defaults.
+        # Both MnesOSRuntimeConfig and LoadedCartridge expose yare_config and
+        # prompt_directives, so the same attribute access works for both.
+        cfg_src = runtime_config if runtime_config is not None else self._cartridge
         configurable: Dict[str, Any] = {
-            "yare_config": self._cartridge.yare_config,
-            "prompt_directives": self._cartridge.prompt_directives,
+            "yare_config": cfg_src.yare_config,
+            "prompt_directives": cfg_src.prompt_directives,
             "lore_path": self._cartridge.lore_path,
             "lore_content": self._cartridge.lore_content,
             "persona_context": self._cartridge.persona_context,
         }
+        if runtime_config is not None:
+            configurable["director_llm"] = runtime_config.director_llm.model_dump()
+            configurable["narrator_llm"] = runtime_config.narrator_llm.model_dump()
+            configurable["npc_llm"] = runtime_config.npc_llm.model_dump()
+            configurable["embedding_llm"] = runtime_config.embedding_llm.model_dump()
         if llm_clients:
             configurable["llm_clients"] = llm_clients
         return {"configurable": configurable}
 
     def _compile_graph(self, llm_director, llm_npc, llm_narrator):
         """Delegate graph compilation to the build_graph factory in graph.py."""
+        from .graph.tools.lore_batch import VectorLoreSearchService
+
+        lore_content = self._cartridge.lore_content or ""
+        if not lore_content and self._cartridge.lore_path:
+            try:
+                with open(self._cartridge.lore_path, "r", encoding="utf-8") as fh:
+                    lore_content = fh.read()
+            except (FileNotFoundError, OSError) as exc:
+                logger.warning(
+                    "Could not read lore file %r: %s. Lore retrieval will be unavailable.",
+                    self._cartridge.lore_path,
+                    exc,
+                )
+
+        lore_service = VectorLoreSearchService(lore_content)
+
         return build_graph(
             yare_config=self._cartridge.yare_config,
             llm_director=llm_director,
             llm_npc=llm_npc,
             llm_narrator=llm_narrator,
             prompt_directives=self._cartridge.prompt_directives,
+            lore_service=lore_service,
         )
 
     @staticmethod

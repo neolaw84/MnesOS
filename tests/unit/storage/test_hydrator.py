@@ -97,7 +97,9 @@ class TestDeepMerge:
 class TestHydrateState:
     def test_empty_lineage_returns_initial_state(self):
         result = hydrate_state([], INITIAL_STATE)
-        assert result["bot_memory"] == INITIAL_STATE
+        expected_memory = copy.deepcopy(INITIAL_STATE)
+        expected_memory["game_time"] = "2026-04-01T00:00:00"
+        assert result["bot_memory"] == expected_memory
         assert result["client_messages"] == []
 
     def test_does_not_mutate_initial_state(self):
@@ -145,12 +147,16 @@ class TestHydrateState:
     def test_turn_with_empty_delta(self):
         turn = _make_turn(0, input_text="I wait.", narrator_text="Nothing happens.", yare_delta={})
         result = hydrate_state([turn], INITIAL_STATE)
-        assert result["bot_memory"] == INITIAL_STATE
+        expected_memory = copy.deepcopy(INITIAL_STATE)
+        expected_memory["game_time"] = "2026-04-01T00:00:00"
+        assert result["bot_memory"] == expected_memory
 
     def test_turn_with_none_delta(self):
         turn = _make_turn(0, input_text="I wait.", narrator_text="Nothing.", yare_delta=None)
         result = hydrate_state([turn], INITIAL_STATE)
-        assert result["bot_memory"] == INITIAL_STATE
+        expected_memory = copy.deepcopy(INITIAL_STATE)
+        expected_memory["game_time"] = "2026-04-01T00:00:00"
+        assert result["bot_memory"] == expected_memory
 
     def test_system_actor_injects_delta(self):
         """System (cheat) turns should apply their delta like any other."""
@@ -178,7 +184,8 @@ class TestHydrateState:
         expected_keys = {
             "client_messages", "agent_messages", "bot_memory",
             "bot_memory_staging", "system_notes", "retrieved_lore",
-            "iteration_count", "turn_phase", "npc_intent_called",
+            "iteration_count", "turn_phase", "npc_intent_calls",
+            "turn_start_time",
         }
         assert set(result.keys()) == expected_keys
 
@@ -194,7 +201,7 @@ class TestHydrateState:
         assert result["retrieved_lore"] == ""
         assert result["iteration_count"] == 0
         assert result["turn_phase"] == ""
-        assert result["npc_intent_called"] is False
+        assert result["npc_intent_calls"] == 0
 
     def test_turn_without_narrator_text_skips_assistant_message(self):
         turn = _make_turn(0, input_text="I arrive.", narrator_text="")
@@ -228,5 +235,7 @@ class TestStateHydratorClass:
 
     def test_class_empty_lineage(self):
         result = StateHydrator.hydrate_state([], INITIAL_STATE)
-        assert result["bot_memory"] == INITIAL_STATE
+        expected_memory = copy.deepcopy(INITIAL_STATE)
+        expected_memory["game_time"] = "2026-04-01T00:00:00"
+        assert result["bot_memory"] == expected_memory
         assert result["client_messages"] == []

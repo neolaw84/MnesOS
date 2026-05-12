@@ -51,6 +51,11 @@ coverage.xml
 .pytest_cache/
 cover/
 
+# E2E runtime data
+artifacts/mnesos-e2e.db
+artifacts/mnesos-e2e.db-shm
+artifacts/mnesos-e2e.db-wal
+
 # Translations
 *.mo
 *.pot
@@ -209,14 +214,20 @@ __marimo__/
 
 data
 cartridges-nsfw
-artifacts/mnesos.db
-artifacts/mnesos.db-*
 # setuptools-scm generated version file
 src/*/_version.py
 
 # Web client (managed by web-client/.gitignore)
 web-client/node_modules/
 web-client/dist/
+web-client/playwright-report/
+
+# Staged SPA build (generated during release, never tracked)
+src/MnesOS/static/
 
 # MnesOS local database
+artifacts/mnesos.db
+artifacts/mnesos.db-*
 
+web-client/test-results
+web-client/coverage

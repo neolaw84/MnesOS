@@ -67,6 +67,16 @@ def _get_orchestrator(
 
 
 # ---------------------------------------------------------------------------
+# Health check
+# ---------------------------------------------------------------------------
+
+@router.get("/health", summary="Health check", include_in_schema=False)
+def health_check() -> dict:
+    """Returns 200 OK. Used by CI and Playwright to confirm the server is ready."""
+    return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
 # §1.1  POST /instances/{instance_id}/turn
 # ---------------------------------------------------------------------------
 
@@ -90,6 +100,8 @@ def process_turn(
         body.user_input,
         parent_turn_id=body.parent_turn_id,
         llm_clients=llm_clients,
+        player_settings=body.player_settings or {},
+        request_overrides=body.request_overrides or {},
     )
 
     # 2. Persist TurnLog (API route responsibility per 0005 §3.2)

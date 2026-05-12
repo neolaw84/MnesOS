@@ -1,10 +1,14 @@
 # ── ci-dev.yml ────────────────────────────────────────────────────────────────
 # Gate-keep every pull request targeting the `dev` branch.
 #
-# Rules enforced:
-#   • All unit-tests must pass.
-#   • Coverage must be ≥ 80% when src contains > 1 000 lines of Python,
-#     otherwise ≥ 60%.
+# Architecture: MnesOS-260507-01 / 02 / 03
+#   • paths-filter  — detects which sub-systems changed (src/ vs web-client/)
+#   • python-tests  — Python unit tests + coverage (≥80% or ≥60% per LOC)
+#   • web-tests     — Frontend Vitest unit tests + 80% coverage hard-fail
+#   • e2e-tests     — Playwright smoke / happy-path tests
+#   • ci-success    — Gatekeeper: all required workers must pass or be skipped
+#
+# Branch-protection rule: require ONLY "CI Gate" as the required status check.
 # ──────────────────────────────────────────────────────────────────────────────
 name: CI – PR to dev
 
@@ -22,9 +26,35 @@ concurrency:
   group: ci-dev-pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# ── Job 0: Detect which paths changed ─────────────────────────────────────────
 jobs:
-  test-and-coverage:
-    name: Tests & Coverage
+  paths-filter:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            python:
+              - 'src/**'
+              - 'tests/**'
+              - 'pyproject.toml'
+            web:
+              - 'web-client/**'
+
+# ── Job 1: Python tests & coverage ────────────────────────────────────────────
+  python-tests:
+    name: Python Tests & Coverage
+    needs: paths-filter
+    if: needs.paths-filter.outputs.python == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -51,7 +81,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      # ── Count Python LOC in src/ ───────────────────────────────────────────
+      # ── Count Python LOC in src/ ─────────────────────────────────────────
       - name: Count lines of code in src/
         id: loc
         run: |
@@ -61,7 +91,7 @@ jobs:
           echo "loc=${LOC}" >> "$GITHUB_OUTPUT"
           echo "Lines of Python code in src/: ${LOC}"
 
-      # ── Derive coverage threshold ──────────────────────────────────────────
+      # ── Derive coverage threshold ────────────────────────────────────────
       - name: Determine coverage threshold
         id: threshold
         run: |
@@ -73,11 +103,11 @@ jobs:
             echo "Threshold: 60% (src LOC ≤ 1 000)"
           fi
 
-      # ── Run pytest with coverage ───────────────────────────────────────────
+      # ── Run pytest with coverage ─────────────────────────────────────────
       - name: Run tests
         run: pytest --cov=src --cov-report=xml --cov-report=term-missing
 
-      # ── Enforce threshold ──────────────────────────────────────────────────
+      # ── Enforce threshold ────────────────────────────────────────────────
       - name: Check coverage threshold
         run: |
           THRESHOLD=${{ steps.threshold.outputs.threshold }}
@@ -96,11 +126,140 @@ jobs:
           fi
           echo "Coverage check passed ✓"
 
-      # ── Upload coverage report as artefact ────────────────────────────────
+      # ── Upload coverage report ───────────────────────────────────────────
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
+          name: python-coverage-report
           path: coverage.xml
           retention-days: 7
+
+# ── Job 2: Web-client unit tests & coverage ───────────────────────────────────
+  web-tests:
+    name: Web-Client Tests & Coverage
+    needs: paths-filter
+    if: needs.paths-filter.outputs.web == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: web-client/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web-client
+        run: npm ci
+
+      # ── Run Vitest with coverage ─────────────────────────────────────────
+      - name: Run unit tests with coverage
+        working-directory: web-client
+        run: npm run test:coverage
+        # Coverage threshold (80%) is enforced inside vitest config — non-zero
+        # exit code here means the threshold was not met.
+
+      - name: Upload web coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-coverage-report
+          path: web-client/coverage/
+          retention-days: 7
+
+# ── Job 3: E2E – Playwright ───────────────────────────────────────────────────
+  e2e-tests:
+    name: E2E – Playwright
+    needs: [paths-filter, python-tests, web-tests]
+    # Run when the web client changed and upstream jobs passed/skipped.
+    if: |
+      always() &&
+      needs.paths-filter.outputs.web == 'true' &&
+      (needs.python-tests.result == 'success' || needs.python-tests.result == 'skipped') &&
+      (needs.web-tests.result == 'success' || needs.web-tests.result == 'skipped')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        run: |
+          pip install -e ".[api]"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: web-client/package-lock.json
+
+      - name: Install Node dependencies
+        working-directory: web-client
+        run: npm ci
+
+      - name: Install Playwright Chromium + system deps
+        working-directory: web-client
+        run: npx playwright install --with-deps chromium
+
+      - name: Build web-client
+        working-directory: web-client
+        run: npm run build
+
+      - name: Stage frontend into Python package static dir
+        run: |
+          rm -rf src/MnesOS/static
+          mkdir -p src/MnesOS/static
+          cp -r web-client/dist/. src/MnesOS/static/
+
+      # ── Run full Playwright suite using the local OpenRouter mock ────────
+      - name: Run E2E tests
+        working-directory: web-client
+        run: npx playwright test
+        env:
+          CI: "true"
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web-client/playwright-report/
+          retention-days: 7
+
+# ── Job 4: Gatekeeper ─────────────────────────────────────────────────────────
+  ci-success:
+    name: CI Gate
+    needs: [python-tests, web-tests, e2e-tests]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Evaluate results
+        run: |
+          PYTHON="${{ needs.python-tests.result }}"
+          WEB="${{ needs.web-tests.result }}"
+          E2E="${{ needs.e2e-tests.result }}"
+
+          echo "python-tests : ${PYTHON}"
+          echo "web-tests    : ${WEB}"
+          echo "e2e-tests    : ${E2E}"
+
+          # 'skipped' means the path wasn't touched → treat as pass.
+          for result in "$PYTHON" "$WEB" "$E2E"; do
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              echo "::error::One or more CI jobs failed (result=${result})."
+              exit 1
+            fi
+          done
+
+          echo "All CI jobs passed or were skipped ✓"

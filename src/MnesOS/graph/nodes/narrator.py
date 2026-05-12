@@ -6,6 +6,7 @@ from ..state import GameState, get_public_state
 from ..utils.messages import _client_messages_to_langchain_messages
 from ..utils.time import _format_game_time_context
 from ..utils.persona import build_persona_background_context
+from ..utils.llm_resolver import resolve_llm
 from ...prompts import NARRATOR_SYSTEM_PROMPT
 
 def narrator_node(state: GameState, config: RunnableConfig, *, llm=None) -> dict:
@@ -21,8 +22,8 @@ def narrator_node(state: GameState, config: RunnableConfig, *, llm=None) -> dict
     yare_config = configurable.get("yare_config", {})
     public_state = get_public_state(state["bot_memory"], yare_config)
 
-    # Resolve LLM: closure arg > config BYOK > None (dry-run)
-    effective_llm = llm or configurable.get("llm_clients", {}).get("narrator")
+    # Resolve LLM: closure arg > dynamic (keys + config) > None (dry-run)
+    effective_llm = resolve_llm(configurable, "narrator", fallback=llm)
 
     result: dict = {"iteration_count": 0, "system_notes": [], "retrieved_lore": ""}
 
@@ -32,6 +33,11 @@ def narrator_node(state: GameState, config: RunnableConfig, *, llm=None) -> dict
         for msg in reversed(state.get("agent_messages", [])):
             if isinstance(msg, AIMessage) and msg.content and not getattr(msg, "tool_calls", None):
                 scene_directives = msg.content
+                import logging
+                logging.getLogger("MnesOS.graph.nodes.narrator").info(
+                    "\n--- DIRECTOR SCENE DIRECTIVES ---\n%s\n---------------------------------", 
+                    scene_directives
+                )
                 break
 
         c_directives = configurable.get("prompt_directives", {}).get("narrator", "") or ""

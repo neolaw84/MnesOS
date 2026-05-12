@@ -65,8 +65,15 @@ class YAREInterpreter:
                 elif "default" in spec:
                     coerced[key] = spec["default"]
 
+        context = {
+            "state": self.state,
+            "temp": self.temp,
+            "inputs": coerced,
+            "macros": self.config.get("macros", {}),
+        }
+
         for step in event.get("steps", []):
-            self.actions.execute_step(step, coerced)
+            self.actions.execute_step(step, context)
         self.call_depth -= 1
 
     def _execute_step(self, step: Dict[str, Any], context: Dict[str, Any] = None):

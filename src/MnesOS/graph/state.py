@@ -3,6 +3,7 @@ import operator
 from pydantic import BaseModel, Field
 from langgraph.graph.message import add_messages
 
+
 def _staging_reducer(existing: Optional[List[Any]], update: Optional[List[Any]]) -> List[Any]:
     """Reducer for bot_memory_staging. None signals a clear; a list is appended."""
     if update is None:
@@ -20,7 +21,8 @@ class GameState(TypedDict):
     retrieved_lore: str
     iteration_count: int
     turn_phase: str
-    npc_intent_called: bool  # tracks whether query_npc_intent was already called this turn
+    npc_intent_calls: int  # tracks how many times query_npc_intent was called this turn
+    turn_start_time: str  # the game_time at the beginning of the user turn
 
 class NPCPresentation(TypedDict):
     """DTO carrying the identifying information for a single NPC.
