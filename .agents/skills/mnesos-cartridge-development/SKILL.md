@@ -18,6 +18,7 @@ A MnesOS cartridge divides game responsibilities across explicitly named files:
 1.  **`bot_lore.md`**: Contains the world setting, factions, locations, character backgrounds, and items.
 2.  **`prompt_directives.yaml`**: Contains instructions for the Director, NPC, and Narrator roles, steering their behavior and tone.
 3.  **`yare.yaml`**: The deterministic logic layer handling character stats (HP, Mana, Gold, Status Effects) and state mutations through defined events (e.g., combat strikes, trading, exploring).
+4.  **`first-message.md`** (Optional): Contains the initial starting prompt or scenario preamble to kickstart the story narrative.
 
 ## Best Practices 
 
@@ -39,9 +40,7 @@ A MnesOS cartridge divides game responsibilities across explicitly named files:
     *   [assets/prompt_directives.yaml](assets/prompt_directives.yaml)
     *   [assets/yare.yaml](assets/yare.yaml)
 *   **Documentation**:
-    *   [references/cartridge-guide.md](references/cartridge-guide.md)
-    *   [references/yare-specification.md](references/yare-specification.md)
-    *   [references/architecture_analysis.md](references/architecture_analysis.md)
-    *   [references/combat_mechanics.md](references/combat_mechanics.md)
+    Use your file reading tools to view the local index router:
+    *   **Bundled AI Index Router**: Read `references/ai-index.md` relative to this `SKILL.md` file directory. Follow its path mappings by prepending `references/` to locate the target file (e.g., `references/guides/cartridge-developer-guide.md` or `references/yare-specification.md`).
 *   **Scripts**:
     *   [scripts/setup_cartridge.py](scripts/setup_cartridge.py): Use this python script to automatically scaffold a new cartridge using the assets in this skill. Usage: `python scripts/setup_cartridge.py <cartridge-name>`

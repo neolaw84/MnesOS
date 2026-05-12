@@ -295,6 +295,23 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
         conn.executescript(_INDEXES)
         self._migrate_personas_table()
         self._migrate_turn_logs_table()
+        # Ensure default local-user exists to satisfy foreign key constraints
+        with conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO user_accounts
+                    (id, username, email, password_hash, role, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "local-user",
+                    "local-user",
+                    "local@example.com",
+                    "",
+                    "CREATOR",
+                    _ts_to_str(_now_utc()),
+                ),
+            )
 
     # ------------------------------------------------------------------
     # UserAccount

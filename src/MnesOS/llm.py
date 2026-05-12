@@ -83,8 +83,9 @@ class OpenRouterProvider(LLMProvider):
     Expected key names
     ------------------
     ``openrouter_key``
-        The caller's OpenRouter API key (``sk-or-...``).  Falls back to the
-        ``OPENROUTER_API_KEY`` environment variable.
+        The caller's OpenRouter API key (``sk-or-...``).  Must be supplied by
+        the request via the ``X-OpenRouter-Key`` header — no server-side
+        env-var fallback is provided (strict BYOK).
     ``openrouter_base_url`` *(optional)*
         Override the base URL (useful for tests / proxies).
     """
@@ -98,20 +99,23 @@ class OpenRouterProvider(LLMProvider):
                 "Install it with: pip install langchain-openai"
             ) from exc
 
-        api_key = (
-            keys.get("openrouter_key")
-            or os.environ.get("OPENROUTER_API_KEY", "")
-        )
-        base_url = keys.get(
-            "openrouter_base_url",
-            os.environ.get("OPENROUTER_BASE_URL", _OPENROUTER_DEFAULT_BASE_URL),
+        api_key = keys.get("openrouter_key", "")
+        base_url = (
+            keys.get("openrouter_base_url")
+            or os.environ.get("OPENROUTER_BASE_URL")
+            or _OPENROUTER_DEFAULT_BASE_URL
         )
 
+        model_name = config.model_name or "google/gemini-2.5-flash"
         kwargs: dict = {
-            "model": config.model_name,
+            "model": model_name,
             "api_key": api_key,
             "base_url": base_url,
             "temperature": config.temperature,
+            "default_headers": {
+                "HTTP-Referer": "https://github.com/neolaw84/MnesOS",
+                "X-Title": "MnesOS",
+            },
         }
         if config.max_tokens is not None:
             kwargs["max_tokens"] = config.max_tokens
@@ -127,17 +131,16 @@ class OpenRouterProvider(LLMProvider):
                 "Install it with: pip install langchain-openai"
             ) from exc
 
-        api_key = (
-            keys.get("openrouter_key")
-            or os.environ.get("OPENROUTER_API_KEY", "")
-        )
-        base_url = keys.get(
-            "openrouter_base_url",
-            os.environ.get("OPENROUTER_BASE_URL", _OPENROUTER_DEFAULT_BASE_URL),
+        api_key = keys.get("openrouter_key", "")
+        base_url = (
+            keys.get("openrouter_base_url")
+            or os.environ.get("OPENROUTER_BASE_URL")
+            or _OPENROUTER_DEFAULT_BASE_URL
         )
 
+        model_name = config.model_name or "text-embedding-ada-002"
         return OpenAIEmbeddings(
-            model=config.model_name,
+            model=model_name,
             api_key=api_key,
             base_url=base_url,
         )

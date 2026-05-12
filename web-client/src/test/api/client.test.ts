@@ -26,8 +26,8 @@ describe('api/client localStorage helpers', () => {
     expect(getOpenRouterKey()).toBe('sk-or-abc')
   })
 
-  it('getUserId returns empty string by default', () => {
-    expect(getUserId()).toBe('')
+  it('getUserId returns default local-user by default', () => {
+    expect(getUserId()).toBe('local-user')
   })
 
   it('setUserId persists and getUserId retrieves it', () => {

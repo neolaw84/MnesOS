@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+
+echo "Running pre-commit hook: Synchronizing AI documentation references..."
+make sync-refs
+
+# Automatically stage any changes produced in the .agents/skills directory
+if git status --porcelain .agents/skills | grep -q "^"; then
+    echo "Staging synchronized skill reference files..."
+    git add .agents/skills
+fi

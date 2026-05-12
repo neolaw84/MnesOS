@@ -1,6 +1,6 @@
 # YARE Specification
 
-YARE is the deterministic rules layer used by MnesOS. It is interpreted by `YAREInterpreter` and is intentionally narrower than general Python.
+YARE stands for YARE Agentic Rules Engine. YARE is the deterministic rules layer used by MnesOS. It is interpreted by `YAREInterpreter` and is intentionally narrower than general Python.
 
 ## Top-Level Structure
 
@@ -30,10 +30,17 @@ Available roots:
 
 Supported operators in the current interpreter:
 
-- arithmetic: `+`, `-`, `*`, `/`, `//`, `%`
+- arithmetic: `+`, `-`, `*`, `/`, `//`, `%` (Note: `+` supports string concatenation even if one operand is a number, e.g. `'npc_' + 1` -> `'npc_1'`)
 - comparison: `==`, `!=`, `<`, `<=`, `>`, `>=`
 - boolean: `and`, `or`, `not`
 - unary: unary `+` and unary `-`
+
+Supported structures:
+
+- **Dictionary literals**: `@ {'key': 'value', 'num': 42}`
+- **List literals**: `@ ['item1', 'item2']`
+- **Attribute access**: `@ dict_var.key` (natively evaluates dictionary key access)
+- **Bracket subscription**: `@ list_var[inputs.index]` or `@ dict_var[inputs.key]`
 
 Supported built-ins in the current interpreter:
 
@@ -188,7 +195,7 @@ New events are simply added in `yare.yaml`. No code changes are required to expo
 
 ## Time Sync Extensions
 
-- `state.game_time` is automatically injected into Director, NPC Brain (when enabled), and Narrator prompt context when present.
+- `state.game_time` is automatically injected into Director, NPC Intent tool, and Narrator prompt context when present.
 - Narrator uses a structured tool call for end-of-turn engine actions:
   - `end_of_narration(actions=[{"type":"advance_time","duration":"PT15M"}])`
   - `end_of_narration(actions=[{"type":"set_game_time","value":"2026-04-10T10:00:00+00:00"}])`

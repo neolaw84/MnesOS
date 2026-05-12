@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
@@ -213,15 +214,28 @@ class OpenRouterPKCE(AuthProvider, LLMAuthValidator):
 _LOCAL_USER_ID = "local-user"
 
 
-class LocalAuthProvider(AuthProvider):
+class LocalAuthProvider(AuthProvider, LLMAuthValidator):
     """Auth provider for local / offline development mode.
 
     Always returns a fixed :class:`AuthContext` with ``is_local=True``
-    regardless of what headers are present.
+    regardless of what headers are present, and validates provider keys
+    by falling back to environment or dummy dev keys.
     """
 
     def resolve_identity(self, headers: dict) -> AuthContext:  # noqa: ARG002
         return AuthContext(user_id=_LOCAL_USER_ID, is_local=True)
+
+    def validate_provider_keys(self, headers: dict) -> dict:
+        key = headers.get("x-openrouter-key") or headers.get("X-OpenRouter-Key")
+        openrouter_key = key or os.environ.get("OPENROUTER_API_KEY")
+        if not openrouter_key:
+            raise NotImplementedError("Local LLM is not implemented. Please provide a valid OpenRouter key.")
+
+        gemini_key = os.environ.get("GOOGLE_API_KEY") or "local-dev-key"
+        return {
+            "openrouter_key": openrouter_key,
+            "gemini_key": gemini_key,
+        }
 
 
 # ---------------------------------------------------------------------------
