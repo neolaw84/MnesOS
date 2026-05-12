@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import SettingsModal from '../../components/SettingsModal'
 import * as client from '../../api/client'
 
+import * as pkce from '../../utils/pkce'
+
 vi.mock('../../api/client', () => ({
   getOpenRouterKey: vi.fn(() => ''),
   setOpenRouterKey: vi.fn(),
@@ -11,6 +13,10 @@ vi.mock('../../api/client', () => ({
   setUserId: vi.fn(),
   getInstanceId: vi.fn(() => ''),
   setInstanceId: vi.fn(),
+}))
+
+vi.mock('../../utils/pkce', () => ({
+  initiateOpenRouterLogin: vi.fn(),
 }))
 
 describe('SettingsModal', () => {
@@ -25,9 +31,30 @@ describe('SettingsModal', () => {
 
   it('renders form fields when open is true', () => {
     render(<SettingsModal open={true} onClose={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /connect openrouter/i })).toBeInTheDocument()
     expect(screen.getByPlaceholderText('sk-or-...')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('user-uuid')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('instance-uuid')).toBeInTheDocument()
+  })
+
+  it('calls initiateOpenRouterLogin when Connect OpenRouter is clicked', async () => {
+    const user = userEvent.setup()
+    render(<SettingsModal open={true} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: /connect openrouter/i }))
+    expect(pkce.initiateOpenRouterLogin).toHaveBeenCalledOnce()
+  })
+
+  it('renders Disconnect button when key is present', async () => {
+    vi.mocked(client.getOpenRouterKey).mockReturnValueOnce('sk-or-existing')
+    const user = userEvent.setup()
+    render(<SettingsModal open={true} onClose={vi.fn()} />)
+    
+    expect(screen.getByText(/connected to openrouter/i)).toBeInTheDocument()
+    const disconnectBtn = screen.getByRole('button', { name: /disconnect/i })
+    expect(disconnectBtn).toBeInTheDocument()
+    
+    await user.click(disconnectBtn)
+    expect(client.setOpenRouterKey).toHaveBeenCalledWith('')
   })
 
   it('calls onClose when Cancel is clicked', async () => {

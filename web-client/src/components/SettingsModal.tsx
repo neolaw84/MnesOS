@@ -14,6 +14,7 @@ import {
   getInstanceId,
   setInstanceId,
 } from "../api/client";
+import { initiateOpenRouterLogin } from "../utils/pkce";
 
 interface SettingsModalProps {
   open: boolean;
@@ -35,21 +36,56 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     onClose();
   };
 
+  const handleDisconnect = () => {
+    setOpenRouterKey('');
+    setApiKey('');
+  };
+
+  const handleConnectClick = async () => {
+    try {
+      await initiateOpenRouterLogin();
+    } catch (err: any) {
+      console.error("Failed to initiate login:", err);
+      alert(`Could not start OpenRouter connection: ${err.message || err}`);
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <h2>⚙️ Settings</h2>
 
-        <label className="modal-label">
-          OpenRouter API Key (BYOK)
-          <input
-            type="password"
-            className="modal-input"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="sk-or-..."
-          />
-        </label>
+        <div className="modal-section" style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.1)', borderRadius: '8px' }}>
+          <h3>OpenRouter Authentication</h3>
+          <p className="modal-hint" style={{ marginBottom: '1rem' }}>
+            Connect your OpenRouter account securely to enable AI models.
+          </p>
+          {apiKey ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>✅ Connected to OpenRouter</span>
+              <button className="btn btn-secondary btn-small" onClick={handleDisconnect}>
+                Disconnect
+              </button>
+            </div>
+          ) : (
+            <button className="btn btn-primary" onClick={handleConnectClick} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+              🔗 Connect OpenRouter
+            </button>
+          )}
+        </div>
+
+        <details style={{ marginBottom: '1rem' }}>
+          <summary style={{ cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>Advanced: Manual API Key (BYOK)</summary>
+          <label className="modal-label" style={{ marginTop: '1rem' }}>
+            <input
+              type="password"
+              className="modal-input"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="sk-or-..."
+            />
+          </label>
+        </details>
 
         <label className="modal-label">
           User ID

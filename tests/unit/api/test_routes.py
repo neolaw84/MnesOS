@@ -322,7 +322,7 @@ class TestAuth:
             f"/api/instances/{instance_id}/turn",
             json={"user_input": "Hello"},
         )
-        assert resp.status_code == 422  # Missing required header
+        assert resp.status_code == 401  # No auth credentials → Unauthorized
 
         app.dependency_overrides.clear()
 

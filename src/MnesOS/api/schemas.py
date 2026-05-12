@@ -88,6 +88,14 @@ class TurnRequest(BaseModel):
         min_length=1,
         description="The player's raw text input.",
     )
+    player_settings: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Persisted player preferences (e.g. preferred LLM provider/model).",
+    )
+    request_overrides: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Per-request config overrides for this turn (highest precedence).",
+    )
 
 
 class TurnResponse(BaseModel):

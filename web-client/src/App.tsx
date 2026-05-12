@@ -20,6 +20,8 @@ import PersonaManager from "./components/PersonaManager";
 import GameInstanceManager from "./components/GameInstanceManager";
 import StartNewGameModal from "./components/StartNewGameModal";
 import { useGameSession } from "./hooks/useGameSession";
+import { exchangeCodeForKey } from "./utils/pkce";
+import { setOpenRouterKey } from "./api/client";
 import "./App.css";
 
 type View = "game" | "library" | "personas" | "active_games";
@@ -29,8 +31,35 @@ function App() {
   const [debugVisible, setDebugVisible] = useState(false);
   const [view, setView] = useState<View>("library");
   const [startNewGameOpen, setStartNewGameOpen] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const session = useGameSession();
+
+  // PKCE OAuth callback handling
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const code = searchParams.get("code");
+    
+    if (code) {
+      setAuthLoading(true);
+      setAuthError(null);
+      
+      exchangeCodeForKey(code)
+        .then((key) => {
+          setOpenRouterKey(key);
+          // Remove the code from the URL without reloading the page
+          window.history.replaceState({}, document.title, window.location.pathname);
+        })
+        .catch((err) => {
+          console.error("Failed to exchange code:", err);
+          setAuthError(err.message || "Auth failed");
+        })
+        .finally(() => {
+          setAuthLoading(false);
+        });
+    }
+  }, []);
 
   useEffect(() => {
     const handlePlay = (e: Event) => {
@@ -44,6 +73,26 @@ function App() {
 
   return (
     <div className="app-root">
+      {/* Auth overlay */}
+      {authLoading && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ textAlign: 'center' }}>
+            <h2>Authenticating with OpenRouter...</h2>
+            <p className="modal-hint">Please wait while we exchange your code for an API key.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Auth error banner */}
+      {authError && (
+        <div className="error-banner">
+          <span>{authError}</span>
+          <button className="btn btn-small" onClick={() => setAuthError(null)}>
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <header className="app-header">
         <h1 className="app-title">🎮 MnesOS</h1>

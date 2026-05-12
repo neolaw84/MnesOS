@@ -7,6 +7,7 @@ from ...constants import MAX_TOOL_CALL, MAX_NPC_INTENT_CALL
 from ..utils.messages import _client_messages_to_langchain_messages
 from ..utils.time import _format_game_time_context
 from ..utils.persona import build_persona_background_context
+from ..utils.llm_resolver import resolve_llm
 from ...prompts import DIRECTOR_SYSTEM_PROMPT
 
 def _get_last_ai_tool_calls(agent_messages: list) -> list:
@@ -47,8 +48,8 @@ def director_node(state: GameState, config: RunnableConfig, *, llm=None, tools=N
         + _format_game_time_context(state.get("bot_memory", {}))
     )
 
-    # Resolve LLM: closure arg > config BYOK > None (dry-run)
-    effective_llm = llm or configurable.get("llm_clients", {}).get("director")
+    # Resolve LLM: closure arg > dynamic (keys + config) > None (dry-run)
+    effective_llm = resolve_llm(configurable, "director", fallback=llm)
 
     result = {"iteration_count": loops, "turn_phase": "player"}
     if effective_llm is not None:
