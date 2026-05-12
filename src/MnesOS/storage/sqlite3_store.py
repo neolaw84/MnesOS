@@ -207,6 +207,10 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
 
     def _get_conn(self) -> sqlite3.Connection:
         if self._conn is None:
+            if self._db_path != ":memory:":
+                parent_dir = os.path.dirname(self._db_path)
+                if parent_dir:
+                    os.makedirs(parent_dir, exist_ok=True)
             self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA journal_mode=WAL;")
