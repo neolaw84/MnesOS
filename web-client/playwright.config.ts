@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 
 const CONFIG_DIR = fileURLToPath(new URL('.', import.meta.url))
 const REPO_ROOT = resolve(CONFIG_DIR, '..')
-const PYTHON_BIN = process.env.PYTHON_BIN ?? 'python'
+const PYTHON_BIN = process.env.PYTHON_BIN ?? (process.env.CI ? 'python' : resolve(REPO_ROOT, 'venv', 'bin', 'python'))
 const E2E_DB_PATH = resolve(REPO_ROOT, 'artifacts', 'mnesos-e2e.db')
 const STATIC_DIR = resolve(REPO_ROOT, 'src', 'MnesOS', 'static')
 const MOCK_SERVER = resolve(CONFIG_DIR, 'e2e', 'mock-openrouter.py')
@@ -39,7 +39,7 @@ export default defineConfig({
       // Local OpenRouter-compatible mock used by backend LLM clients
       command: `${PYTHON_BIN} ${MOCK_SERVER}`,
       url: 'http://127.0.0.1:8899/health',
-      reuseExistingServer: false,
+      reuseExistingServer: !process.env.CI,
       timeout: 30000,
       stdout: 'ignore',
       stderr: 'ignore',
@@ -48,7 +48,7 @@ export default defineConfig({
       // FastAPI backend serving staged frontend assets (unified mode)
       command: `MNESOS_DB_PATH=${E2E_DB_PATH} MNESOS_STATIC_DIR=${STATIC_DIR} OPENROUTER_BASE_URL=http://127.0.0.1:8899/api/v1 ${PYTHON_BIN} -m uvicorn MnesOS.api.app:app --host 0.0.0.0 --port 8000`,
       url: 'http://localhost:8000/api/health',
-      reuseExistingServer: false,
+      reuseExistingServer: !process.env.CI,
       timeout: 30000,
       stdout: 'ignore',
       stderr: 'ignore',

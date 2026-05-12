@@ -169,6 +169,7 @@ test.describe('Happy Path – Auth → New Game → First Turn', () => {
   test('2 – User can open Settings and save credentials', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('button', { name: /settings/i }).click()
+    await page.getByText('Advanced: Manual API Key (BYOK)').click()
     await page.getByPlaceholder('sk-or-...').fill(API_KEY)
     await page.getByPlaceholder('user-uuid').fill(seededUserId)
     await page.getByRole('button', { name: /save/i }).click()
@@ -211,9 +212,9 @@ test.describe('Smoke – App loads without credentials', () => {
   test('Settings modal opens and closes', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('button', { name: /settings/i }).click()
-    await expect(page.getByPlaceholder('sk-or-...')).toBeVisible()
+    await expect(page.getByRole('button', { name: /Connect OpenRouter/i })).toBeVisible()
     await page.getByRole('button', { name: /cancel/i }).click()
-    await expect(page.getByPlaceholder('sk-or-...')).not.toBeVisible()
+    await expect(page.getByRole('button', { name: /Connect OpenRouter/i })).not.toBeVisible()
   })
 
   test('navigation between views works', async ({ page }) => {
