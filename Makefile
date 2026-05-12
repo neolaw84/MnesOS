@@ -54,19 +54,19 @@ run-web:
 
 run-python:
 	@echo "Starting backend (uvicorn) in foreground"
-	MNESOS_DB_PATH=artifacts/mnesos-dev.db MNESOS_STATIC_DIR=src/MnesOS/static OPENROUTER_BASE_URL=http://127.0.0.1:8899/api/v1 $(PY) -m uvicorn MnesOS.api.app:app --reload --host 0.0.0.0 --port 8000
+	MNESOS_DB_PATH=artifacts/mnesos.db MNESOS_STATIC_DIR=src/MnesOS/static OPENROUTER_BASE_URL=http://127.0.0.1:8899/api/v1 $(PY) -m uvicorn MnesOS.api.app:app --reload --host 0.0.0.0 --port 8000
 
 run-e2e: build stage
 	@echo "Starting backend for manual E2E (uses real OpenRouter)."
 	@echo "Visit http://localhost:8000 in your browser to exercise the SPA."
 	@echo "Press Ctrl-C to stop the server when finished."
-	MNESOS_DB_PATH=artifacts/mnesos-e2e.db MNESOS_STATIC_DIR=src/MnesOS/static OPENROUTER_BASE_URL=$${OPENROUTER_BASE_URL:-} $(PY) -m uvicorn MnesOS.api.app:app --reload --host 0.0.0.0 --port 8000
+	MNESOS_DB_PATH=artifacts/mnesos.db MNESOS_STATIC_DIR=src/MnesOS/static OPENROUTER_BASE_URL=$${OPENROUTER_BASE_URL:-} $(PY) -m uvicorn MnesOS.api.app:app --reload --host 0.0.0.0 --port 8000
 
 sync-refs:
 	@echo "Synchronizing docs/ to standalone agent skill references/ directories"
 	$(PY) scripts/sync_skill_references.py
 
-package: sync-refs
+package: sync-refs build stage
 	$(PY) -m build
 
 full-ci: python-test web-test e2e package

@@ -60,7 +60,7 @@ if _env_static:
         _static_dir = _candidate
 
 if _static_dir is None:
-    _bundled = Path(__file__).parent / "static"
+    _bundled = Path(__file__).parent.parent / "static"
     if _bundled.is_dir():
         _static_dir = _bundled
 
