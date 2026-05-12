@@ -12,13 +12,9 @@
         <meta name="author" content="neolaw84">
       
       
-        <link rel="canonical" href="https://neolaw84.github.io/MnesOS/cartridge-guide/">
+        <link rel="canonical" href="https://neolaw84.github.io/MnesOS/to-do-260507/">
       
       
-        <link rel="prev" href="..">
-      
-      
-        <link rel="next" href="../yare-specification/">
       
       
         
@@ -29,7 +25,7 @@
     
     
       
-        <title>Cartridge Guide - MnesOS</title>
+        <title>MnesOS Implementation Plan – 2026-05-07 - MnesOS</title>
       
     
     
@@ -82,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#cartridge-guide" class="md-skip">
+        <a href="#mnesos-implementation-plan-2026-05-07" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Cartridge Guide
+              MnesOS Implementation Plan – 2026-05-07
             
           </span>
         </div>
@@ -246,11 +242,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="./" class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../cartridge-guide.md" class="md-tabs__link">
         
   
   
@@ -291,7 +285,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../play-test/" class="md-tabs__link">
+        <a href="../play-test.md" class="md-tabs__link">
           
   
   
@@ -401,37 +395,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Cartridge Guide
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../cartridge-guide.md" class="md-nav__link">
         
   
   
@@ -447,131 +414,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cartridge-contract" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Cartridge Contract
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-goes-where" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What Goes Where
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="What Goes Where">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#bot_loremd" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        bot_lore.md
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#yareyaml" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        yare.yaml
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#prompt_directivesyaml" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        prompt_directives.yaml
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#state-visibility" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        State Visibility
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#conversion-checklist" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Conversion Checklist
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#things-not-to-rely-on" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Things Not To Rely On
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#testing" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Testing
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -750,7 +592,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../play-test/" class="md-nav__link">
+      <a href="../play-test.md" class="md-nav__link">
         
   
   
@@ -778,7 +620,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../play-test-win/" class="md-nav__link">
+      <a href="../play-test-win.md" class="md-nav__link">
         
   
   
@@ -806,7 +648,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guides/advanced-combat-mechanics/" class="md-nav__link">
+      <a href="../guides/advanced-combat-mechanics.md" class="md-nav__link">
         
   
   
@@ -921,7 +763,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../design/0002-state-and-turn-flow/" class="md-nav__link">
+      <a href="../design/0002-state-and-turn-flow.md" class="md-nav__link">
         
   
   
@@ -997,115 +839,124 @@
   
 
 
-<h1 id="cartridge-guide">Cartridge Guide<a class="headerlink" href="#cartridge-guide" title="Permanent link">&para;</a></h1>
-<p>This guide describes how to build and validate a MnesOS cartridge.</p>
-<h2 id="cartridge-contract">Cartridge Contract<a class="headerlink" href="#cartridge-contract" title="Permanent link">&para;</a></h2>
-<p>Create a cartridge under <code>cartridges/&lt;your-game-name&gt;/</code>.</p>
-<p>Required files:</p>
-<ol>
-<li><code>yare.yaml</code></li>
-<li><code>bot_lore.md</code></li>
-</ol>
-<p>Optional file:</p>
-<ol>
-<li><code>prompt_directives.yaml</code></li>
-</ol>
-<p><code>yare.yaml</code> stays procedural. Narrative steering belongs in <code>prompt_directives.yaml</code>, not in the rules file.</p>
-<h2 id="what-goes-where">What Goes Where<a class="headerlink" href="#what-goes-where" title="Permanent link">&para;</a></h2>
-<h3 id="bot_loremd"><code>bot_lore.md</code><a class="headerlink" href="#bot_loremd" title="Permanent link">&para;</a></h3>
-<p>Use this file for world facts, NPC descriptions, locations, factions, and items.</p>
+<h1 id="mnesos-implementation-plan-2026-05-07">MnesOS Implementation Plan – 2026-05-07<a class="headerlink" href="#mnesos-implementation-plan-2026-05-07" title="Permanent link">&para;</a></h1>
+<p>This plan outlines the Foundation and Gameplay tracks for parallel development. Tasks are structured as JIRA-style cards to enable clear ownership for 2-3 engineers.</p>
+<hr />
+<h2 id="phase-1-foundation-cicd">Phase 1: Foundation (CI/CD)<a class="headerlink" href="#phase-1-foundation-cicd" title="Permanent link">&para;</a></h2>
+<h3 id="mnesos-260507-01-ci-implement-path-filtering-gatekeeper-pattern">[MnesOS-260507-01] CI – Implement Path-Filtering &amp; Gatekeeper Pattern<a class="headerlink" href="#mnesos-260507-01-ci-implement-path-filtering-gatekeeper-pattern" title="Permanent link">&para;</a></h3>
 <ul>
-<li>structure content with markdown headers because the lore store chunks on <code>#</code>, <code>##</code>, and <code>###</code></li>
-<li>keep mechanics out of lore text</li>
-<li>use descriptive section names so retrieval has strong anchors</li>
+<li><strong>Objective:</strong> Prevent PR blocking when specific sub-systems (Python or Web) are skipped.</li>
+<li><strong>Description:</strong> <ul>
+<li>Implement a <code>paths-filter</code> job to detect changes in <code>src/</code> vs <code>web-client/</code>.</li>
+<li>Create a <code>ci-success</code> gatekeeper job that depends on all test workers.</li>
+<li>Implement logic in <code>ci-success</code> to treat <code>skipped</code> results as <code>success</code>.</li>
+<li><strong>Contract:</strong> This will be the only required status check for branch protection.</li>
 </ul>
-<p>Example:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gh"># Crossroads</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>The crossroads is the first safe settlement outside the ruined highway.
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gu">## Goblin Scout</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>A cautious scavenger who avoids direct combat unless cornered.
-</code></pre></div>
-<h3 id="yareyaml"><code>yare.yaml</code><a class="headerlink" href="#yareyaml" title="Permanent link">&para;</a></h3>
-<p>Use this file for deterministic state and event logic.</p>
+</li>
+</ul>
+<h3 id="mnesos-260507-02-ci-web-client-unit-tests-coverage-enforcement">[MnesOS-260507-02] CI – Web-Client Unit Tests &amp; Coverage Enforcement<a class="headerlink" href="#mnesos-260507-02-ci-web-client-unit-tests-coverage-enforcement" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>state_schema</code> defines tracked state and defaults</li>
-<li><code>macros</code> define reusable <code>@</code> expressions</li>
-<li><code>events</code> define executable steps</li>
-<li>supported actions are <code>set</code>, <code>mutate</code>, <code>branch</code>, <code>table_roll</code>, <code>call</code>, and <code>note</code></li>
+<li><strong>Objective:</strong> Establish quality standards for the frontend.</li>
+<li><strong>Description:</strong><ul>
+<li>Configure Vitest/Jest in the <code>web-client</code> directory.</li>
+<li>Update GitHub Actions to run frontend tests when <code>web-client/</code> changes.</li>
+<li>Enforce a hard-fail threshold of 80% code coverage.</li>
 </ul>
-<p>Example:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">state_schema</span><span class="p">:</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">player</span><span class="p">:</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">hp</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">int</span><span class="p p-Indicator">,</span><span class="nt"> default</span><span class="p">:</span><span class="w"> </span><span class="nv">100</span><span class="p p-Indicator">,</span><span class="nt"> min</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> max</span><span class="p">:</span><span class="w"> </span><span class="nv">100</span><span class="p p-Indicator">,</span><span class="nt"> visibility</span><span class="p">:</span><span class="w"> </span><span class="nv">public</span><span class="w"> </span><span class="p p-Indicator">}</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">npc</span><span class="p">:</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">hp</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">int</span><span class="p p-Indicator">,</span><span class="nt"> default</span><span class="p">:</span><span class="w"> </span><span class="nv">20</span><span class="p p-Indicator">,</span><span class="nt"> min</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> visibility</span><span class="p">:</span><span class="w"> </span><span class="nv">public</span><span class="w"> </span><span class="p p-Indicator">}</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nt">events</span><span class="p">:</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">deal_damage</span><span class="p">:</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="nt">steps</span><span class="p">:</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mutate</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">        </span><span class="nt">var</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">state.npc.hp</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">        </span><span class="nt">op</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sub</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">        </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">note</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">        </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Player</span><span class="nv"> </span><span class="s">deals</span><span class="nv"> </span><span class="s">10</span><span class="nv"> </span><span class="s">damage.&quot;</span>
-</code></pre></div>
-<h3 id="prompt_directivesyaml"><code>prompt_directives.yaml</code><a class="headerlink" href="#prompt_directivesyaml" title="Permanent link">&para;</a></h3>
-<p>Use this file only for short per-role LLM steering.</p>
-<p>Allowed keys:</p>
+</li>
+</ul>
+<h3 id="mnesos-260507-03-ci-full-system-e2e-integration-pipeline">[MnesOS-260507-03] CI – Full System E2E Integration Pipeline<a class="headerlink" href="#mnesos-260507-03-ci-full-system-e2e-integration-pipeline" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>director</code></li>
-<li><code>npc</code></li>
-<li><code>narrator</code></li>
+<li><strong>Objective:</strong> Verify the unified application artifact.</li>
+<li><strong>Description:</strong><ul>
+<li>Update CI to build the web-client and mount the static output to the FastAPI backend.</li>
+<li>Implement a Playwright test suite that boots the unified service.</li>
+<li>Enforce E2E "Happy Path" verification (Auth -&gt; New Game -&gt; First Turn).</li>
 </ul>
-<p>Example:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">director</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Prefer</span><span class="nv"> </span><span class="s">explicit</span><span class="nv"> </span><span class="s">mechanical</span><span class="nv"> </span><span class="s">events</span><span class="nv"> </span><span class="s">over</span><span class="nv"> </span><span class="s">narration-only</span><span class="nv"> </span><span class="s">turns.&quot;</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">npc</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Escalate</span><span class="nv"> </span><span class="s">only</span><span class="nv"> </span><span class="s">when</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">NPC</span><span class="nv"> </span><span class="s">has</span><span class="nv"> </span><span class="s">a</span><span class="nv"> </span><span class="s">clear</span><span class="nv"> </span><span class="s">advantage.&quot;</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">narrator</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Keep</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">prose</span><span class="nv"> </span><span class="s">terse</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">grounded.&quot;</span>
-</code></pre></div>
-<p>At load time the cartridge loader validates:</p>
+</li>
+</ul>
+<hr />
+<h2 id="phase-2-gameplay-abstractions">Phase 2: Gameplay &amp; Abstractions<a class="headerlink" href="#phase-2-gameplay-abstractions" title="Permanent link">&para;</a></h2>
+<h3 id="mnesos-260507-04-auth-implement-stateless-auth-abstraction-layer">[MnesOS-260507-04] Auth – Implement Stateless Auth Abstraction Layer<a class="headerlink" href="#mnesos-260507-04-auth-implement-stateless-auth-abstraction-layer" title="Permanent link">&para;</a></h3>
 <ul>
-<li>only those three keys are allowed</li>
-<li>each value must be a string</li>
-<li>each value has a length cap</li>
-<li>total directive size has a combined cap</li>
-<li>obvious prompt-injection patterns are rejected</li>
+<li><strong>Objective:</strong> Decouple the engine from specific auth providers.</li>
+<li><strong>Description:</strong><ul>
+<li>Define <code>AuthProvider</code> and <code>AuthValidator</code> abstract base classes.</li>
+<li>Implement the <code>OpenRouterPKCE</code> strategy.</li>
+<li>Refactor API middleware/dependencies to use an <code>AuthFactory</code> based on <code>X-Provider</code> headers.</li>
 </ul>
-<p>If <code>prompt_directives</code> is placed inside <code>yare.yaml</code>, the loader rejects the cartridge.</p>
-<h2 id="state-visibility">State Visibility<a class="headerlink" href="#state-visibility" title="Permanent link">&para;</a></h2>
-<p>Each schema field may define <code>visibility</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">state_schema</span><span class="p">:</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">player</span><span class="p">:</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">hp</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">int</span><span class="p p-Indicator">,</span><span class="nt"> default</span><span class="p">:</span><span class="w"> </span><span class="nv">100</span><span class="p p-Indicator">,</span><span class="nt"> min</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> visibility</span><span class="p">:</span><span class="w"> </span><span class="nv">public</span><span class="w"> </span><span class="p p-Indicator">}</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">mana</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">int</span><span class="p p-Indicator">,</span><span class="nt"> default</span><span class="p">:</span><span class="w"> </span><span class="nv">50</span><span class="p p-Indicator">,</span><span class="nt"> min</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> visibility</span><span class="p">:</span><span class="w"> </span><span class="nv">public</span><span class="w"> </span><span class="p p-Indicator">}</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">hidden_flag</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">bool</span><span class="p p-Indicator">,</span><span class="nt"> default</span><span class="p">:</span><span class="w"> </span><span class="nv">false</span><span class="p p-Indicator">,</span><span class="nt"> visibility</span><span class="p">:</span><span class="w"> </span><span class="nv">private</span><span class="w"> </span><span class="p p-Indicator">}</span>
-</code></pre></div>
-<p>Behavior:</p>
+</li>
+</ul>
+<h3 id="mnesos-260507-05-engine-implement-llm-provider-factory">[MnesOS-260507-05] Engine – Implement LLM Provider Factory<a class="headerlink" href="#mnesos-260507-05-engine-implement-llm-provider-factory" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>public</code> fields are eligible for narrator context through <code>get_public_state</code></li>
-<li>omitted <code>visibility</code> defaults to <code>private</code></li>
-<li>direct <code>@ state...</code> access to private fields is blocked by the interpreter</li>
+<li><strong>Objective:</strong> Enable multi-model and multi-provider support.</li>
+<li><strong>Description:</strong><ul>
+<li>Define the <code>LLMProvider</code> interface (generate, embed).</li>
+<li>Implement <code>OpenRouter</code> and <code>Gemini</code> concrete strategies.</li>
+<li>Update LangGraph nodes to receive an injected <code>LLMProvider</code> rather than calling specific APIs.</li>
 </ul>
-<p>This keeps hidden mechanics in deterministic state without leaking them into player-facing narration by default.</p>
-<h2 id="conversion-checklist">Conversion Checklist<a class="headerlink" href="#conversion-checklist" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Extract all stats, resources, and flags into <code>state_schema</code></li>
-<li>Move every deterministic rule into <code>events</code></li>
-<li>Add bounds with <code>min</code> and <code>max</code> where needed</li>
-<li>Mark player-visible fields with <code>visibility: public</code></li>
-<li>Move flavor text into <code>bot_lore.md</code></li>
-<li>Move tone instructions into <code>prompt_directives.yaml</code></li>
-</ol>
-<h2 id="things-not-to-rely-on">Things Not To Rely On<a class="headerlink" href="#things-not-to-rely-on" title="Permanent link">&para;</a></h2>
+</li>
+</ul>
+<h3 id="mnesos-260507-06-engine-hierarchical-config-runnableconfig-mapping">[MnesOS-260507-06] Engine – Hierarchical Config &amp; RunnableConfig Mapping<a class="headerlink" href="#mnesos-260507-06-engine-hierarchical-config-runnableconfig-mapping" title="Permanent link">&para;</a></h3>
 <ul>
-<li>do not rely on hardcoded event-name matching in engine code</li>
-<li>do not rely on cartridge-specific NPC behavior embedded in Python nodes</li>
-<li>do not put prompt directives inside <code>yare.yaml</code></li>
-<li>do not assume the engine persists state for you; the client must store and re-supply the returned game state each turn</li>
+<li><strong>Objective:</strong> Grant players and developers control over LLM parameters.</li>
+<li><strong>Description:</strong><ul>
+<li>Implement the <code>MnesOSRuntimeConfig</code> schema.</li>
+<li>Create a <code>ConfigMerger</code> to combine Cartridge defaults, Player settings, and Request-level overrides.</li>
+<li>Update the <code>Orchestrator</code> to map the merged config into the LangGraph <code>RunnableConfig["configurable"]</code> dictionary.</li>
 </ul>
-<h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
-<p>Validate the cartridge by loading it through <code>CartridgeLoader</code>, then run the graph with the returned <code>yare_config</code>, <code>prompt_directives</code>, <code>lore_path</code>, and initial state.</p>
+</li>
+</ul>
+<h3 id="mnesos-260507-07-gameplay-director-batch-rag-tool">[MnesOS-260507-07] Gameplay – Director Batch RAG Tool<a class="headerlink" href="#mnesos-260507-07-gameplay-director-batch-rag-tool" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Objective:</strong> Optimize cost and performance of lore retrieval.</li>
+<li><strong>Description:</strong><ul>
+<li>Implement the <code>multi_lore_lookup(queries: List[str])</code> tool.</li>
+<li>Update the Director node’s system prompt to mandate batching of information lookups.</li>
+<li>Refactor the graph to make RAG an active tool call instead of a pre-node injection.</li>
+</ul>
+</li>
+</ul>
+<h2 id="phase-3-cartridge-developer-features">Phase 3: Cartridge Developer Features<a class="headerlink" href="#phase-3-cartridge-developer-features" title="Permanent link">&para;</a></h2>
+<h3 id="mnesos-260507-08-builder-ui-ide-lite-split-pane-layout">[MnesOS-260507-08] Builder UI – IDE-lite Split-Pane Layout<a class="headerlink" href="#mnesos-260507-08-builder-ui-ide-lite-split-pane-layout" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Objective:</strong> Provide a high-productivity authoring environment.</li>
+<li><strong>Description:</strong><ul>
+<li>Implement the split-pane layout: Chat Agent (Left) and 4-Tab Live Preview (Right).</li>
+<li><strong>Tabs:</strong> World Lore (<code>.md</code>), Game Rules (<code>.yaml</code>), AI Directives (<code>.yaml</code>), and Intro Message (<code>.md</code>).</li>
+<li><strong>Bi-directional Sync:</strong> Ensure manual edits in the preview pane are reflected back into the Agent's context.</li>
+</ul>
+</li>
+</ul>
+<h3 id="mnesos-260507-09-builder-backend-architect-specialist-multi-agent-system">[MnesOS-260507-09] Builder Backend – Architect &amp; Specialist Multi-Agent System<a class="headerlink" href="#mnesos-260507-09-builder-backend-architect-specialist-multi-agent-system" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Objective:</strong> Ensure high-quality generation across narrative and technical domains.</li>
+<li><strong>Description:</strong><ul>
+<li>Implement a LangGraph orchestrator (Architect) that delegates to specialized workers.</li>
+<li><strong>Lore Master Node:</strong> Handles markdown worldbuilding and consistency.</li>
+<li><strong>Mechanic Node (YARE Expert):</strong> Handles English-to-YAML translation.</li>
+<li><strong>Prompter Node:</strong> Handles role steering and intro narrative.</li>
+<li><strong>Contract:</strong> The Mechanic node MUST include rich YAML comments for every generated state/event.</li>
+</ul>
+</li>
+</ul>
+<h3 id="mnesos-260507-10-builder-tools-yare-translator-auto-validator">[MnesOS-260507-10] Builder Tools – YARE Translator &amp; Auto-Validator<a class="headerlink" href="#mnesos-260507-10-builder-tools-yare-translator-auto-validator" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Objective:</strong> Enable deterministic logic generation with auto-correction.</li>
+<li><strong>Description:</strong><ul>
+<li>Build the <code>yare_translate</code> tool: English -&gt; (YAML Block + Logic Explanation).</li>
+<li>Build the <code>cartridge_validate</code> tool: Wraps the existing <code>CartridgeLoader</code> to provide agents with immediate feedback for auto-correction loops.</li>
+</ul>
+</li>
+</ul>
+<h3 id="mnesos-260507-11-builder-persistence-versioned-drafts-zip-export">[MnesOS-260507-11] Builder Persistence – Versioned Drafts &amp; ZIP Export<a class="headerlink" href="#mnesos-260507-11-builder-persistence-versioned-drafts-zip-export" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Objective:</strong> Ensure user work is safe and portable.</li>
+<li><strong>Description:</strong><ul>
+<li>Implement the <code>cartridge_drafts</code> table with <strong>Auto-save</strong> and <strong>Version History</strong> (Retention: k=3).</li>
+<li>Implement a one-click <strong>ZIP Export</strong> feature that packages the 4 draft files into a standard MnesOS cartridge structure.</li>
+</ul>
+</li>
+</ul>
 
 
 

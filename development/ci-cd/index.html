@@ -12,10 +12,8 @@
         <meta name="author" content="neolaw84">
       
       
-        <link rel="canonical" href="https://neolaw84.github.io/MnesOS/design/0002-state-and-turn-flow/">
+        <link rel="canonical" href="https://neolaw84.github.io/MnesOS/development/ci-cd/">
       
-      
-        <link rel="prev" href="../../guides/advanced-combat-mechanics/">
       
       
       
@@ -27,7 +25,7 @@
     
     
       
-        <title>State and Turn Flow - MnesOS</title>
+        <title>MnesOS CI/CD Pipelines & Build Instructions - MnesOS</title>
       
     
     
@@ -80,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#architecture-state-and-turn-flow" class="md-skip">
+        <a href="#mnesos-cicd-pipelines-build-instructions" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              State and Turn Flow
+              MnesOS CI/CD Pipelines &amp; Build Instructions
             
           </span>
         </div>
@@ -246,7 +244,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../cartridge-guide/" class="md-tabs__link">
+      <a href="../../cartridge-guide.md" class="md-tabs__link">
         
   
   
@@ -287,7 +285,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../play-test/" class="md-tabs__link">
+        <a href="../../play-test.md" class="md-tabs__link">
           
   
   
@@ -303,13 +301,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../0001-three-node-graph-architecture.md" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../design/0001-three-node-graph-architecture.md" class="md-tabs__link">
           
   
   
@@ -402,7 +398,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cartridge-guide/" class="md-nav__link">
+      <a href="../../cartridge-guide.md" class="md-nav__link">
         
   
   
@@ -596,7 +592,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../play-test/" class="md-nav__link">
+      <a href="../../play-test.md" class="md-nav__link">
         
   
   
@@ -624,7 +620,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../play-test-win/" class="md-nav__link">
+      <a href="../../play-test-win.md" class="md-nav__link">
         
   
   
@@ -652,7 +648,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/advanced-combat-mechanics/" class="md-nav__link">
+      <a href="../../guides/advanced-combat-mechanics.md" class="md-nav__link">
         
   
   
@@ -684,31 +680,26 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
             
   
   
@@ -726,7 +717,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -744,7 +735,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0001-three-node-graph-architecture.md" class="md-nav__link">
+      <a href="../../design/0001-three-node-graph-architecture.md" class="md-nav__link">
         
   
   
@@ -769,37 +760,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    State and Turn Flow
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../design/0002-state-and-turn-flow.md" class="md-nav__link">
         
   
   
@@ -815,120 +779,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#terms" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Terms
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#core-architecture" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Core Architecture
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#state-ownership" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        State Ownership
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#message-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Message Model
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Message Model">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#client_messages" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        client_messages
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#agent_messages" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        agent_messages
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#turn-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Turn Flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tool-protocol" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Tool Protocol
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -941,7 +791,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../separate-npc-brain.md" class="md-nav__link">
+      <a href="../../design/separate-npc-brain.md" class="md-nav__link">
         
   
   
@@ -989,76 +839,50 @@
   
 
 
-<h1 id="architecture-state-and-turn-flow">Architecture: State and Turn Flow<a class="headerlink" href="#architecture-state-and-turn-flow" title="Permanent link">&para;</a></h1>
-<p>This document describes the internal turn architecture implemented in <code>src/MnesOS/graph.py</code>.</p>
-<h2 id="terms">Terms<a class="headerlink" href="#terms" title="Permanent link">&para;</a></h2>
+<h1 id="mnesos-cicd-pipelines-build-instructions">MnesOS CI/CD Pipelines &amp; Build Instructions<a class="headerlink" href="#mnesos-cicd-pipelines-build-instructions" title="Permanent link">&para;</a></h1>
+<p>To ensure consistent builds and prevent environment issues, developers and AI agents must strictly utilize built-in <code>Makefile</code> commands rather than invoking direct package manager scripts.</p>
+<h2 id="continuous-integration-gating-rules">Continuous Integration Gating Rules<a class="headerlink" href="#continuous-integration-gating-rules" title="Permanent link">&para;</a></h2>
+<p>Automated workflows in <code>.github/workflows/</code> enforce strict merge criteria:
+1. <strong>Targeting Main (<code>ci-main.yml</code>)</strong>: <strong>STRICT RULE</strong>: All Pull Requests targeting the <code>main</code> branch <strong>MUST</strong> originate directly from the <code>dev</code> branch. Any other origin path is instantly rejected.
+2. <strong>Targeting Dev (<code>ci-dev.yml</code>)</strong>: Uses selective execution (<code>dorny/paths-filter</code>) to conditionally run Python unit tests, Web frontend tests, and E2E browser tests. Explicitly enforces a strict 60%-80% test line-coverage criteria inline.</p>
+<hr />
+<h2 id="local-development-verification-commands">Local Development &amp; Verification Commands<a class="headerlink" href="#local-development-verification-commands" title="Permanent link">&para;</a></h2>
+<h3 id="1-environment-initialization">1. Environment Initialization<a class="headerlink" href="#1-environment-initialization" title="Permanent link">&para;</a></h3>
+<p>Always run this before testing or building to instantiate environments correctly.
+- <strong>Command</strong>: <code>make setup</code>
+- <strong>Details</strong>: Scaffolds a virtual environment (<code>./venv</code>) and installs core project dependencies in editable mode (<code>pip install -e ".[dev]"</code>).</p>
+<h3 id="2-unit-testing">2. Unit Testing<a class="headerlink" href="#2-unit-testing" title="Permanent link">&para;</a></h3>
 <ul>
-<li>client: the caller that invokes <code>app.invoke(...)</code></li>
-<li>agent: the compiled LangGraph application (built via <code>build_graph()</code>)</li>
-<li>node: one unit of graph execution, LLM-backed or deterministic</li>
+<li><strong>Backend (Python)</strong>: <code>make python-test</code> executes <code>pytest</code> targeting the <code>tests/</code> directory with enforced line coverage thresholds.</li>
+<li><strong>Frontend (Web)</strong>: <code>make web-test</code> executes <code>vitest</code> coverage runners across <code>web-client/</code>.</li>
 </ul>
-<h2 id="core-architecture">Core Architecture<a class="headerlink" href="#core-architecture" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>graph TD
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    Client[Client] --&gt; Reset[Reset Agent Messages]
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    Reset --&gt; Lore[Lore Node]
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    Lore --&gt; Director[Director Node]
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    Director --&gt;|Tool Call| PreTools[PreTools Node]
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    Director --&gt;|Final Summary| Narrator[Narrator Node]
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    PreTools --&gt; Tools[ToolNode]
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    Tools --&gt; PostTools[PostTools Node]
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    PostTools --&gt; Director
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    Narrator --&gt; Cleanup[Cleanup Agent Messages]
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    Cleanup --&gt; Client
-</code></pre></div>
-<h2 id="state-ownership">State Ownership<a class="headerlink" href="#state-ownership" title="Permanent link">&para;</a></h2>
-<p>The agent is stateless across invocations. The client owns persistence.</p>
+<h3 id="3-frontend-build-staging-pipeline">3. Frontend Build &amp; Staging Pipeline<a class="headerlink" href="#3-frontend-build-staging-pipeline" title="Permanent link">&para;</a></h3>
+<p>Because FastAPI statically serves the React application bundle, JS assets must be compiled and moved into the backend source directory.
+1. <strong>Compile</strong>: <code>make build</code> triggers Vite to render static assets to <code>web-client/dist/</code>.
+2. <strong>Stage</strong>: <code>make stage</code> copies compiled assets into <code>src/MnesOS/static/</code>.</p>
+<blockquote>
+<p><strong>Mandatory Flow</strong>: Both commands must run sequentially to reflect UI updates when serving from the Python backend.</p>
+</blockquote>
+<h3 id="4-end-to-end-e2e-browser-testing">4. End-to-End (E2E) Browser Testing<a class="headerlink" href="#4-end-to-end-e2e-browser-testing" title="Permanent link">&para;</a></h3>
+<p>Playwright launches the FastAPI server via <code>uvicorn</code> using a dedicated OpenRouter mock proxy. </p>
+<blockquote>
+<p>[!WARNING]
+Bare calls to <code>make e2e</code> or <code>make run-e2e</code> will fail if the global system Python runtime differs from the virtual environment. A common error reads: <code>Error: Process from config.webServer was not able to start. Exit code: 1</code>.</p>
+</blockquote>
 <ul>
-<li>the client passes the current <code>GameState</code> into <code>app.invoke(...)</code></li>
-<li>the agent returns an updated <code>GameState</code></li>
-<li>the client stores that returned state and provides it again on the next turn</li>
+<li><strong>CRITICAL WORKAROUND</strong>: Always prefix E2E execution with the absolute path to the virtual environment binary:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">PYTHON_BIN</span><span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/venv/bin/python<span class="w"> </span>make<span class="w"> </span>e2e
+</code></pre></div></li>
 </ul>
-<p>This split keeps storage, sessions, and user identity outside the graph.</p>
-<h2 id="message-model">Message Model<a class="headerlink" href="#message-model" title="Permanent link">&para;</a></h2>
-<p>There are two distinct message concepts.</p>
-<h3 id="client_messages"><code>client_messages</code><a class="headerlink" href="#client_messages" title="Permanent link">&para;</a></h3>
-<p>Persistent story history. This belongs to the client and is part of <code>GameState</code>.</p>
-<ul>
-<li>latest user turn is appended by the client before invoke</li>
-<li>latest narrator reply is appended by the agent before returning state</li>
-<li>this history is available to all LLM nodes for cross-turn continuity</li>
-</ul>
-<h3 id="agent_messages"><code>agent_messages</code><a class="headerlink" href="#agent_messages" title="Permanent link">&para;</a></h3>
-<p>Ephemeral per-turn internal protocol messages (LLM prompts and tool traces), stored in <code>GameState</code> with the <code>add_messages</code> reducer.</p>
-<ul>
-<li><code>Director</code> appends its <code>AIMessage</code> response (carrying <code>tool_calls</code>)</li>
-<li><code>ToolNode</code> executes the requested YARE event or NPC query and appends <code>ToolMessage</code> results</li>
-<li><code>reset_agent_messages_node</code> clears this channel at graph entry</li>
-<li><code>cleanup_agent_messages_node</code> clears this channel before returning to the client</li>
-</ul>
-<p>The client never sees or manages <code>agent_messages</code>.</p>
-<h2 id="turn-flow">Turn Flow<a class="headerlink" href="#turn-flow" title="Permanent link">&para;</a></h2>
-<ol>
-<li><strong><code>reset_agent_messages_node</code></strong>: Clears any stale <code>agent_messages</code> from a previous turn.</li>
-<li><strong><code>context_retrieval_node</code></strong>: Reads the latest client message and current world state, then retrieves relevant lore chunks.</li>
-<li><strong><code>director_node</code></strong>: Binds all dynamic YARE tools and the <code>query_npc_intent</code> tool. Invokes the LLM to analyze intent and choose an action.</li>
-<li><strong><code>pre_tools_node</code></strong>: Clears <code>bot_memory_staging</code> (the YARE write buffer) to ensure a clean slate for the current iteration.</li>
-<li><strong><code>ToolNode</code></strong>: Executes the tool call. If it's a YARE event, it runs the <code>YAREInterpreter</code>. If it's <code>query_npc_intent</code>, it queries the NPC brain. Returns a <code>Command</code> with updates.</li>
-<li><strong><code>post_tools_node</code></strong>: Commits the updated state to <code>bot_memory</code> and clears the staging buffer.</li>
-<li><strong>Iteration Loop</strong>: The graph routes back to the <code>Director</code> (up to <code>MAX_ITERATIONS = 3</code>) to allow for sequential resolutions (e.g., Attack -&gt; NPC React -&gt; Results).</li>
-<li><strong><code>narrator_node</code></strong>: Once the Director provides a final plain-text summary (Scene Directive), the Narrator renders the turn into story prose.</li>
-<li><strong><code>cleanup_agent_messages_node</code></strong>: Clears internal traces.</li>
-</ol>
-<h2 id="tool-protocol">Tool Protocol<a class="headerlink" href="#tool-protocol" title="Permanent link">&para;</a></h2>
-<p>MnesOS uses <strong>Dynamic Tool Generation</strong>. At graph compilation, every YARE event defined in the cartridge is converted into a native LangChain tool with its own schema.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># graph.py implementation detail</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">tools</span> <span class="o">=</span> <span class="n">build_yare_event_tools</span><span class="p">(</span><span class="n">yare_config</span><span class="p">)</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">tools</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">build_npc_intent_tool</span><span class="p">(</span><span class="n">llm_npc</span><span class="p">))</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># In director_node</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">response</span> <span class="o">=</span> <span class="n">llm</span><span class="o">.</span><span class="n">bind_tools</span><span class="p">(</span><span class="n">tools</span><span class="p">,</span> <span class="n">parallel_tool_calls</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>
-</code></pre></div>
-<p><code>parallel_tool_calls=False</code> ensures the Director handles one mechanic at a time, preventing state conflict. The iterative loop (<code>Director -&gt; Tools -&gt; Director</code>) handles complex chain reactions. </p>
-<p>Routing decisions inspect the <code>tool_calls</code> attribute on the last <code>AIMessage</code> in <code>agent_messages</code>. If no calls are present, the turn transitions to the <code>Narrator</code>.</p>
+<h3 id="5-full-pre-flight-ci-checks">5. Full Pre-Flight CI Checks<a class="headerlink" href="#5-full-pre-flight-ci-checks" title="Permanent link">&para;</a></h3>
+<p>To perfectly emulate remote GitHub Actions checks locally before pushing code:
+- <strong>Command</strong>: <code>PYTHON_BIN=$(pwd)/venv/bin/python make full-ci</code>
+- <strong>Sequence</strong>: Executes <code>make python-test</code>, <code>make web-test</code>, sandbox-isolated E2E tests, and wheel packaging tests across <code>MnesOS.egg-info</code>.</p>
+<h3 id="6-local-dev-servers">6. Local Dev Servers<a class="headerlink" href="#6-local-dev-servers" title="Permanent link">&para;</a></h3>
+<p>Execute components individually during active feature iteration:
+- <strong>Frontend SPA Client Only</strong>: <code>make run-web</code> starts the Vite dev server proxy.
+- <strong>Backend API REST Only</strong>: <code>make run-python</code> starts the FastAPI process.
+- <strong>Full Sandbox Play Loop</strong>: <code>PYTHON_BIN=$(pwd)/venv/bin/python make run-e2e</code> runs the fully compiled stack with local OpenRouter mock proxying. Ensure <code>make build</code> and <code>make stage</code> are run first.</p>
 
 
 

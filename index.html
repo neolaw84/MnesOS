@@ -16,7 +16,7 @@
       
       
       
-        <link rel="next" href="cartridge-guide/">
+        <link rel="next" href="yare-specification/">
       
       
         
@@ -248,7 +248,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="cartridge-guide/" class="md-tabs__link">
+      <a href="cartridge-guide.md" class="md-tabs__link">
         
   
   
@@ -289,7 +289,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="play-test/" class="md-tabs__link">
+        <a href="play-test.md" class="md-tabs__link">
           
   
   
@@ -412,7 +412,7 @@
   
   
     <li class="md-nav__item">
-      <a href="cartridge-guide/" class="md-nav__link">
+      <a href="cartridge-guide.md" class="md-nav__link">
         
   
   
@@ -606,7 +606,7 @@
   
   
     <li class="md-nav__item">
-      <a href="play-test/" class="md-nav__link">
+      <a href="play-test.md" class="md-nav__link">
         
   
   
@@ -634,7 +634,7 @@
   
   
     <li class="md-nav__item">
-      <a href="play-test-win/" class="md-nav__link">
+      <a href="play-test-win.md" class="md-nav__link">
         
   
   
@@ -662,7 +662,7 @@
   
   
     <li class="md-nav__item">
-      <a href="guides/advanced-combat-mechanics/" class="md-nav__link">
+      <a href="guides/advanced-combat-mechanics.md" class="md-nav__link">
         
   
   
@@ -777,7 +777,7 @@
   
   
     <li class="md-nav__item">
-      <a href="design/0002-state-and-turn-flow/" class="md-nav__link">
+      <a href="design/0002-state-and-turn-flow.md" class="md-nav__link">
         
   
   
@@ -855,65 +855,66 @@
 
 <h1 id="home">Home<a class="headerlink" href="#home" title="Permanent link">&para;</a></h1>
 <h1 id="mnesos">MnesOS<a class="headerlink" href="#mnesos" title="Permanent link">&para;</a></h1>
-<p>MnesOS is an agentic RPG engine that separates deterministic game mechanics from LLM-driven narration.</p>
-<p><a href="https://badge.fury.io/py/MnesOS"><img alt="PyPI version" src="https://badge.fury.io/py/MnesOS.svg" /></a>
-<a href="https://neolaw84.github.io/MnesOS/"><img alt="Documentation" src="https://img.shields.io/badge/docs-gh--pages-blue" /></a></p>
-<h2 id="what-it-does">What It Does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
-<p>MnesOS combines four concerns into a single turn pipeline:</p>
+<p>MnesOS is a stateless, event-sourced agentic RPG engine that operates on a Bring-Your-Own-Key (BYOK) model. It is designed to solve the unreliability of traditional "LLM-only" RPGs by explicitly separating deterministic logic from high-fidelity narrative orchestration.</p>
+<h2 id="key-features-architecture">🌟 Key Features &amp; Architecture<a class="headerlink" href="#key-features-architecture" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>VectorLoreStore</code> retrieves relevant lore from <code>bot_lore.md</code></li>
-<li>the Director LLM maps player intent to YARE events</li>
-<li><code>YAREInterpreter</code> applies deterministic state changes</li>
-<li>the Director can query NPC intents via the <code>query_npc_intent</code> tool</li>
-<li>the Narrator LLM reacts to the resolved turn
-The engine state is explicit. The caller passes a <code>GameState</code> into <code>app.invoke(...)</code> and receives the updated state back.</li>
+<li><strong>Deterministic Rules (YARE)</strong>: All state mutation, math operations, and RNG are handled by the non-Turing complete YARE Agentic Rules Engine rather than the LLM.</li>
+<li><strong>Air-Gapped Narration</strong>: MnesOS utilizes a two-node LangGraph structure (Director and Narrator), isolating system mechanics and numbers from the narrative output.</li>
+<li><strong>Stateless &amp; Branchable</strong>: The backend retains no operational memory across network turns, employing a tree-based event source model that natively supports branching timelines.</li>
+<li><strong>Secure Identity</strong>: Uses a zero-knowledge, side-by-side authentication approach where API keys are passed in-flight via PKCE and never stored on the server.</li>
 </ul>
-<h2 id="turn-model">Turn Model<a class="headerlink" href="#turn-model" title="Permanent link">&para;</a></h2>
-<p>The graph itself is stateless between invocations. The client is responsible for persisting and re-supplying the returned game state for the next turn.</p>
+<p><em>For comprehensive details on the engine's mechanics and design constraints, read the <a href="docs/design/architecture.md">Architecture Design</a> and <a href="docs/design/philosophy.md">Core Philosophy</a> documents.</em></p>
+<h2 id="getting-started">🚀 Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h2>
+<h3 id="for-players">For Players<a class="headerlink" href="#for-players" title="Permanent link">&para;</a></h3>
+<p>MnesOS can be installed as a pre-compiled Python package, bundling the backend and frontend into a single instance:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>MnesOS<span class="o">[</span>api<span class="o">]</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uvicorn<span class="w"> </span>MnesOS.api.app:app<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span>
+</code></pre></div>
+<p><em>Refer to the <a href="docs/guides/player-guide.md">Player Guide</a> for full instructions on setting up your environment, navigating the UI, and connecting your local OpenRouter credentials.</em></p>
+<h3 id="for-cartridge-developers">For Cartridge Developers<a class="headerlink" href="#for-cartridge-developers" title="Permanent link">&para;</a></h3>
+<p>MnesOS games are distributed as "Cartridges". A cartridge typically contains:</p>
 <ul>
-<li><code>client_messages</code>: persistent story history owned by the caller</li>
-<li>agent message lists: per-node, per-turn working prompts rebuilt on each invocation</li>
-<li><code>bot_memory</code>: persistent deterministic world state</li>
+<li><code>yare.yaml</code>: Defines the deterministic state schema and logic. Read the <a href="docs/yare-specification.md">YARE Specification</a> for syntax rules and capabilities.</li>
+<li><code>bot_lore.md</code>: Markdown-formatted world facts, item definitions, and NPC details used for context retrieval.</li>
+<li><code>prompt_directives.yaml</code>: Per-role steering instructions for the Director, Narrator, and NPC roles.</li>
 </ul>
-<h2 id="cartridge-layout">Cartridge Layout<a class="headerlink" href="#cartridge-layout" title="Permanent link">&para;</a></h2>
-<p>Each cartridge lives under <code>cartridges/&lt;name&gt;/</code> and contains:</p>
+<p><em>Check the <a href="docs/guides/cartridge-developer-guide.md">Cartridge Developer Guide</a> to learn about best practices, including semantic grounding and phase-based combat intention.</em></p>
+<h3 id="for-engine-contributors">For Engine Contributors<a class="headerlink" href="#for-engine-contributors" title="Permanent link">&para;</a></h3>
+<p>MnesOS requires Python 3.12+ and Node.js (v20+ LTS) for full-stack, split-terminal development.</p>
 <ul>
-<li><code>yare.yaml</code>: procedural rules and state schema</li>
-<li><code>bot_lore.md</code>: markdown lore used for retrieval</li>
-<li><code>prompt_directives.yaml</code>: optional LLM directives for <code>director</code>, <code>npc</code>, and <code>narrator</code></li>
+<li><strong>Setup &amp; Testing</strong>: Learn about <code>Makefile</code> commands, continuous integration gating rules, and test runners in the <a href="docs/development/ci-cd.md">CI/CD &amp; Build Instructions</a>.</li>
+<li><strong>Codebase Structure</strong>: Familiarize yourself with the Python/React layers and directory locations in the <a href="docs/development/directory-map.md">Directory Map</a>.</li>
+<li><strong>Interfaces</strong>: Review the generated <a href="docs/api.md">API Reference</a> for backend endpoint details.</li>
 </ul>
-<p><code>prompt_directives</code> must not be embedded in <code>yare.yaml</code>; the loader rejects that configuration.</p>
-<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>MnesOS
-</code></pre></div>
-<h2 id="development">Development<a class="headerlink" href="#development" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>venv
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">source</span><span class="w"> </span>venv/bin/activate
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev,docs]&quot;</span>
-</code></pre></div>
-<h3 id="run-tests">Run Tests<a class="headerlink" href="#run-tests" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pytest
-</code></pre></div>
-<h3 id="build-docs">Build Docs<a class="headerlink" href="#build-docs" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>mkdocs<span class="w"> </span>build
-</code></pre></div>
-<h2 id="further-reading">Further Reading<a class="headerlink" href="#further-reading" title="Permanent link">&para;</a></h2>
+<h2 id="full-documentation-map">📚 Full Documentation Map<a class="headerlink" href="#full-documentation-map" title="Permanent link">&para;</a></h2>
+<p>Our detailed documentation is organized tightly by domain:</p>
 <ul>
-<li><code>docs/architecture.md</code>: current graph architecture and turn flow</li>
-<li><code>docs/cartridge-guide.md</code>: cartridge authoring guidance</li>
-<li><code>docs/yare-specification.md</code>: supported YARE syntax and execution rules</li>
+<li><strong>Core Architecture</strong>: <a href="docs/design/architecture.md">Architecture</a> | <a href="docs/design/philosophy.md">Philosophy</a> | <a href="docs/yare-specification.md">YARE Spec</a> | <a href="docs/api.md">API</a></li>
+<li><strong>Guides</strong>: <a href="docs/guides/player-guide.md">Player Guide</a> | <a href="docs/guides/cartridge-developer-guide.md">Cartridge Dev Guide</a></li>
+<li><strong>Development</strong>: <a href="docs/development/directory-map.md">Directory Map</a> | <a href="docs/development/ci-cd.md">CI/CD</a></li>
+<li><strong>AI Context</strong>: <a href="docs/ai-index.md">AI Knowledge Map</a></li>
 </ul>
-<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">&para;</a></h2>
-<p>MIT.</p>
 <h2 id="documentation-map">Documentation Map<a class="headerlink" href="#documentation-map" title="Permanent link">&para;</a></h2>
+<h3 id="core-architecture-design">Core Architecture &amp; Design<a class="headerlink" href="#core-architecture-design" title="Permanent link">&para;</a></h3>
 <ul>
-<li><a href="cartridge-guide/">Cartridge Guide</a>: cartridge file layout, prompt directives, and public/private state behavior</li>
-<li><a href="yare-specification/">YARE Specification</a>: supported rule syntax and interpreter behavior</li>
-<li><a href="api/">API Reference</a>: generated reference for the package</li>
-<li><a href="guides/advanced-combat-mechanics/">Advanced Combat Mechanics</a>: mechanics and asynchronous counter-play design</li>
-<li><a href="design/0001-graph-architecture/">Graph Architecture</a>: analysis of the two-node graph and YARE air-gapping</li>
-<li><a href="design/0002-state-and-turn-flow/">State and Turn Flow</a>: internal engine flow and stateless architecture</li>
-<li><a href="design/0003-npc-interaction-model/">NPC Interaction Model</a>: tool-based NPC intent and persona isolation</li>
+<li><a href="design/architecture/">MnesOS Architectural Design</a>: complete strategy covering graph design, side-by-side authentication, and four-tier deployment models</li>
+<li><a href="design/philosophy/">Core Design Philosophy</a>: expected engineering mindset, statelessness principles, and mechanical isolation</li>
+<li><a href="yare-specification/">YARE Specification</a>: supported rule syntax, expressions, and interpreter behavior</li>
+<li><a href="api/">API Reference</a>: generated interface reference for the package</li>
+</ul>
+<h3 id="development-workflows">Development &amp; Workflows<a class="headerlink" href="#development-workflows" title="Permanent link">&para;</a></h3>
+<ul>
+<li><a href="development/directory-map/">Directory Map &amp; Runtimes</a>: project repository structure, layers, and technology stacks</li>
+<li><a href="development/ci-cd/">CI/CD &amp; Build Instructions</a>: validation gating rules, Makefile execution, and specific Playwright environment workarounds</li>
+</ul>
+<h3 id="guides-manuals">Guides &amp; Manuals<a class="headerlink" href="#guides-manuals" title="Permanent link">&para;</a></h3>
+<ul>
+<li><a href="guides/cartridge-developer-guide/">Cartridge Developer Guide</a>: layout, procedural events, lore integration, and prompt directives</li>
+<li><a href="guides/player-guide/">Player Guide</a>: player interaction manual and gameplay flow</li>
+</ul>
+<h3 id="ai-agents">AI Agents<a class="headerlink" href="#ai-agents" title="Permanent link">&para;</a></h3>
+<ul>
+<li><a href="ai-index/">AI Knowledge Map &amp; Router</a>: dedicated initial read routing agent assistants to specific context files without duplicating text</li>
 </ul>
 
 

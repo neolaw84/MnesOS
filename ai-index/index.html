@@ -12,7 +12,7 @@
         <meta name="author" content="neolaw84">
       
       
-        <link rel="canonical" href="https://neolaw84.github.io/MnesOS/design/0004-shift-gears-to-stateless/">
+        <link rel="canonical" href="https://neolaw84.github.io/MnesOS/ai-index/">
       
       
       
@@ -20,19 +20,19 @@
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>MnesOS Alpha: Architectural Design & Evolution Report - MnesOS</title>
+        <title>MnesOS AI Knowledge Map & Router - MnesOS</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -51,9 +51,9 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#mnesos-alpha-architectural-design-evolution-report" class="md-skip">
+        <a href="#mnesos-ai-knowledge-map-router" class="md-skip">
           Skip to content
         </a>
       
@@ -92,7 +92,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="MnesOS" class="md-header__button md-logo" aria-label="MnesOS" data-md-component="logo">
+    <a href=".." title="MnesOS" class="md-header__button md-logo" aria-label="MnesOS" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              MnesOS Alpha: Architectural Design &amp; Evolution Report
+              MnesOS AI Knowledge Map &amp; Router
             
           </span>
         </div>
@@ -225,7 +225,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../.." class="md-tabs__link">
+      <a href=".." class="md-tabs__link">
         
   
   
@@ -244,7 +244,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../cartridge-guide/" class="md-tabs__link">
+      <a href="../cartridge-guide.md" class="md-tabs__link">
         
   
   
@@ -265,7 +265,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../yare-specification/" class="md-tabs__link">
+        <a href="../yare-specification/" class="md-tabs__link">
           
   
   
@@ -285,7 +285,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../play-test/" class="md-tabs__link">
+        <a href="../play-test.md" class="md-tabs__link">
           
   
   
@@ -305,7 +305,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../0001-three-node-graph-architecture.md" class="md-tabs__link">
+        <a href="../design/0001-three-node-graph-architecture.md" class="md-tabs__link">
           
   
   
@@ -341,7 +341,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="MnesOS" class="md-nav__button md-logo" aria-label="MnesOS" data-md-component="logo">
+    <a href=".." title="MnesOS" class="md-nav__button md-logo" aria-label="MnesOS" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -371,7 +371,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -398,7 +398,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cartridge-guide/" class="md-nav__link">
+      <a href="../cartridge-guide.md" class="md-nav__link">
         
   
   
@@ -477,7 +477,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../yare-specification/" class="md-nav__link">
+      <a href="../yare-specification/" class="md-nav__link">
         
   
   
@@ -505,7 +505,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/" class="md-nav__link">
+      <a href="../api/" class="md-nav__link">
         
   
   
@@ -592,7 +592,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../play-test/" class="md-nav__link">
+      <a href="../play-test.md" class="md-nav__link">
         
   
   
@@ -620,7 +620,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../play-test-win/" class="md-nav__link">
+      <a href="../play-test-win.md" class="md-nav__link">
         
   
   
@@ -648,7 +648,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/advanced-combat-mechanics/" class="md-nav__link">
+      <a href="../guides/advanced-combat-mechanics.md" class="md-nav__link">
         
   
   
@@ -735,7 +735,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0001-three-node-graph-architecture.md" class="md-nav__link">
+      <a href="../design/0001-three-node-graph-architecture.md" class="md-nav__link">
         
   
   
@@ -763,7 +763,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0002-state-and-turn-flow/" class="md-nav__link">
+      <a href="../design/0002-state-and-turn-flow.md" class="md-nav__link">
         
   
   
@@ -791,7 +791,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../separate-npc-brain.md" class="md-nav__link">
+      <a href="../design/separate-npc-brain.md" class="md-nav__link">
         
   
   
@@ -839,102 +839,22 @@
   
 
 
-<h1 id="mnesos-alpha-architectural-design-evolution-report">MnesOS Alpha: Architectural Design &amp; Evolution Report<a class="headerlink" href="#mnesos-alpha-architectural-design-evolution-report" title="Permanent link">&para;</a></h1>
-<h2 id="executive-summary">Executive Summary<a class="headerlink" href="#executive-summary" title="Permanent link">&para;</a></h2>
-<p>This document outlines the strategic pivot for the MnesOS RPG engine from a stateful, local-first prototype to a stateless, event-sourced web architecture. The primary goal is to support an Alpha web application that allows for branching timelines, state manipulation ("authorized cheating"), and a scalable four-tier physical deployment model.</p>
-<hr />
-<h2 id="1-core-architectural-shift-from-stateful-to-stateless">1. Core Architectural Shift: From Stateful to Stateless<a class="headerlink" href="#1-core-architectural-shift-from-stateful-to-stateless" title="Permanent link">&para;</a></h2>
-<p>The current <code>Orchestrator</code> maintains an internal <code>_state</code> across turns. To support web environments, the Orchestrator will be refactored to be <strong>stateless</strong>.</p>
-<h3 id="key-decisions">Key Decisions:<a class="headerlink" href="#key-decisions" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Hydrate on Demand:</strong> Every turn begins with a "Hydration" phase where the state is reconstructed from a <code>TurnLog</code> ID.</li>
-<li><strong>Persistence via Delta:</strong> The Orchestrator no longer saves the entire state; it extracts the <code>yare_delta</code> (from <code>bot_memory_staging</code>) and appends it to the event store.</li>
-<li><strong>Stateless Loop:</strong> The backend service receives a <code>parent_turn_id</code> and <code>user_input</code>, processes the turn, and returns a <code>new_turn_id</code>.</li>
-</ul>
-<hr />
-<h2 id="2-event-sourcing-tree-based-state">2. Event Sourcing &amp; Tree-Based State<a class="headerlink" href="#2-event-sourcing-tree-based-state" title="Permanent link">&para;</a></h2>
-<p>We have moved away from a flat table of turns to a <strong>Tree-based Event Source</strong> model. This allows players to branch timelines and "save" at any specific point in the story.</p>
-<h3 id="updated-data-models">Updated Data Models:<a class="headerlink" href="#updated-data-models" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>TurnLog (The Node):</strong><ul>
-<li><code>parent_id</code>: Links back to the previous state, enabling the tree structure.</li>
-<li><code>yare_delta</code>: The atomic state changes made during this specific turn.</li>
-<li><code>narrator_text</code>: Explicitly stored to prevent re-running the graph to see old dialogue.</li>
-</ul>
-</li>
-<li><strong>GameSave (The Bookmark):</strong><ul>
-<li>A simple pointer to a specific <code>TurnLog.id</code>. This allows users to have multiple "save files" pointing to different branches of the same game instance.</li>
-</ul>
-</li>
-</ul>
-<h3 id="state-hydration-logic">State Hydration Logic:<a class="headerlink" href="#state-hydration-logic" title="Permanent link">&para;</a></h3>
-<p>To reconstruct <code>bot_memory</code> at any given node:
-1. Traverse up the <code>parent_id</code> chain to the root.
-2. Reverse the list (Root -&gt; Target Node).
-3. Sequentially apply every <code>yare_delta</code> and message to a blank state object.</p>
-<hr />
-<h2 id="3-gamestate-cleanup-removal-of-bloat">3. GameState Cleanup (Removal of Bloat)<a class="headerlink" href="#3-gamestate-cleanup-removal-of-bloat" title="Permanent link">&para;</a></h2>
-<p>The <code>GameState</code> was identified as containing redundant static data. To optimize performance and token usage, we are separating <strong>Static Context</strong> from <strong>Live State</strong>.</p>
-<h3 id="items-removed-from-persistent-state">Items Removed from Persistent State:<a class="headerlink" href="#items-removed-from-persistent-state" title="Permanent link">&para;</a></h3>
-<ul>
-<li><code>yare_config</code>, <code>prompt_directives</code>, <code>lore_path</code>, <code>lore_content</code>, <code>persona_context</code>.</li>
-<li><strong>Reasoning:</strong> These are derived from the <code>CartridgeVersion</code> and do not change. They will be passed into the graph via <code>RunnableConfig</code> (LangChain) rather than being carried in the state dictionary.</li>
-</ul>
-<h3 id="items-kept-in-persistent-state">Items Kept in Persistent State:<a class="headerlink" href="#items-kept-in-persistent-state" title="Permanent link">&para;</a></h3>
-<ul>
-<li><code>client_messages</code>: The primary story history.</li>
-<li><code>bot_memory</code>: The current mechanical state of the world.</li>
-</ul>
-<hr />
-<h2 id="4-four-tier-physical-deployment-model">4. Four-Tier Physical Deployment Model<a class="headerlink" href="#4-four-tier-physical-deployment-model" title="Permanent link">&para;</a></h2>
-<p>The application is designed to be physically decoupled into four layers, supporting both localhost "Alpha" installs and cloud-hosted web services.</p>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">Layer</th>
-<th style="text-align: left;">Component</th>
-<th style="text-align: left;">Physical Location</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;"><strong>Tier 1: Client</strong></td>
-<td style="text-align: left;">UI (Vue/React/Mobile)</td>
-<td style="text-align: left;">User's Device</td>
-</tr>
-<tr>
-<td style="text-align: left;"><strong>Tier 2: App Server</strong></td>
-<td style="text-align: left;">FastAPI / Orchestrator</td>
-<td style="text-align: left;">Localhost or Cloud VM</td>
-</tr>
-<tr>
-<td style="text-align: left;"><strong>Tier 3: Persistence</strong></td>
-<td style="text-align: left;">SQLite / PostgreSQL</td>
-<td style="text-align: left;">Disk or Managed DB</td>
-</tr>
-<tr>
-<td style="text-align: left;"><strong>Tier 4: Cognitive</strong></td>
-<td style="text-align: left;">LLM API (OpenRouter/OpenAI)</td>
-<td style="text-align: left;">External SaaS</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="5-security-accounting-aspect-oriented-design">5. Security &amp; Accounting (Aspect-Oriented Design)<a class="headerlink" href="#5-security-accounting-aspect-oriented-design" title="Permanent link">&para;</a></h2>
-<p>By making the Orchestrator stateless, we can apply "Aspects" (Middleware/DI) to handle cross-cutting concerns before the game logic fires.</p>
-<ul>
-<li><strong>Authorization Aspect:</strong> Ensures <code>request.user_id == target_save.user_id</code>. Players cannot view or modify turns in trees they do not own.</li>
-<li><strong>Accounting Aspect:</strong> Checks credit balance or "BYOK" (Bring Your Own Key) status via PKCE (OpenRouter) before invoking the LLM nodes.</li>
-<li><strong>Cheat-Friendly Policy:</strong> We embrace user-driven state manipulation. Since the system is event-sourced, "cheating" is simply the injection of a <code>SYSTEM</code> actor turn with a custom <code>yare_delta</code>. The engine handles this natively without breaking the timeline.</li>
-</ul>
-<hr />
-<h2 id="6-next-steps-for-alpha-development">6. Next Steps for Alpha Development<a class="headerlink" href="#6-next-steps-for-alpha-development" title="Permanent link">&para;</a></h2>
-<ol>
-<li><strong>Refactor <code>Orchestrator.process_turn</code></strong> to accept a <code>parent_turn_id</code> and return a result object containing the delta.</li>
-<li><strong>Update <code>sqlite3_store.py</code></strong> to support the <code>parent_id</code> column and the <code>GameSave</code> table.</li>
-<li><strong>Implement the <code>Hydrator</code> utility</strong> to reconstruct state from the TurnLog tree.</li>
-<li><strong>Expose the REST API</strong> using a framework like FastAPI, utilizing Dependency Injection for the Auth and Accounting layers.</li>
-</ol>
+<h1 id="mnesos-ai-knowledge-map-router">MnesOS AI Knowledge Map &amp; Router<a class="headerlink" href="#mnesos-ai-knowledge-map-router" title="Permanent link">&para;</a></h1>
+<p>Welcome, autonomous agent. To maintain strict documentation integrity and prevent context window exhaustion, do not perform unguided file searches. Use your file reading tools to view only the specific markdown files listed below that directly match your assigned task domain. </p>
+<p><em>(Note: Paths below are relative to the directory containing this index file).</em></p>
+<h2 id="1-project-structure-workflows">1. Project Structure &amp; Workflows<a class="headerlink" href="#1-project-structure-workflows" title="Permanent link">&para;</a></h2>
+<p>If you need to locate where components live, or run tests/builds:
+* <strong>Directory Map &amp; Architecture Layout</strong>: Read <code>development/directory-map.md</code>
+* <strong>CI/CD Pipelines, Make Commands, &amp; Validation Rules</strong>: Read <code>development/ci-cd.md</code></p>
+<h2 id="2-design-philosophy-engine-architecture">2. Design Philosophy &amp; Engine Architecture<a class="headerlink" href="#2-design-philosophy-engine-architecture" title="Permanent link">&para;</a></h2>
+<p>If you are implementing engine features, graph nodes, state routing, or interpreter logic:
+* <strong>AI Engineering Philosophy &amp; Core Principles</strong>: Read <code>design/philosophy.md</code>
+* <strong>Comprehensive Engine Architecture &amp; Contracts</strong>: Read <code>design/architecture.md</code>
+* <strong>YARE Language Specification</strong>: Read <code>yare-specification.md</code></p>
+<h2 id="3-cartridge-user-guides">3. Cartridge &amp; User Guides<a class="headerlink" href="#3-cartridge-user-guides" title="Permanent link">&para;</a></h2>
+<p>If you are crafting game content, writing YARE rules, or guiding player interactions:
+* <strong>Cartridge Developer Guide</strong>: Read <code>guides/cartridge-developer-guide.md</code>
+* <strong>Player Guide</strong>: Read <code>guides/player-guide.md</code></p>
 
 
 
@@ -984,10 +904,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>

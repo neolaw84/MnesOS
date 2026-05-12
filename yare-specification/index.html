@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://neolaw84.github.io/MnesOS/yare-specification/">
       
       
-        <link rel="prev" href="../cartridge-guide/">
+        <link rel="prev" href="..">
       
       
         <link rel="next" href="../api/">
@@ -248,7 +248,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../cartridge-guide/" class="md-tabs__link">
+      <a href="../cartridge-guide.md" class="md-tabs__link">
         
   
   
@@ -291,7 +291,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../play-test/" class="md-tabs__link">
+        <a href="../play-test.md" class="md-tabs__link">
           
   
   
@@ -404,7 +404,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../cartridge-guide/" class="md-nav__link">
+      <a href="../cartridge-guide.md" class="md-nav__link">
         
   
   
@@ -854,7 +854,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../play-test/" class="md-nav__link">
+      <a href="../play-test.md" class="md-nav__link">
         
   
   
@@ -882,7 +882,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../play-test-win/" class="md-nav__link">
+      <a href="../play-test-win.md" class="md-nav__link">
         
   
   
@@ -910,7 +910,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guides/advanced-combat-mechanics/" class="md-nav__link">
+      <a href="../guides/advanced-combat-mechanics.md" class="md-nav__link">
         
   
   
@@ -1025,7 +1025,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../design/0002-state-and-turn-flow/" class="md-nav__link">
+      <a href="../design/0002-state-and-turn-flow.md" class="md-nav__link">
         
   
   
@@ -1102,7 +1102,7 @@
 
 
 <h1 id="yare-specification">YARE Specification<a class="headerlink" href="#yare-specification" title="Permanent link">&para;</a></h1>
-<p>YARE is the deterministic rules layer used by MnesOS. It is interpreted by <code>YAREInterpreter</code> and is intentionally narrower than general Python.</p>
+<p>YARE stands for YARE Agentic Rules Engine. YARE is the deterministic rules layer used by MnesOS. It is interpreted by <code>YAREInterpreter</code> and is intentionally narrower than general Python.</p>
 <h2 id="top-level-structure">Top-Level Structure<a class="headerlink" href="#top-level-structure" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1.0&quot;</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">state_schema</span><span class="p">:</span>
@@ -1126,10 +1126,17 @@
 </ul>
 <p>Supported operators in the current interpreter:</p>
 <ul>
-<li>arithmetic: <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>//</code>, <code>%</code></li>
+<li>arithmetic: <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>//</code>, <code>%</code> (Note: <code>+</code> supports string concatenation even if one operand is a number, e.g. <code>'npc_' + 1</code> -&gt; <code>'npc_1'</code>)</li>
 <li>comparison: <code>==</code>, <code>!=</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code></li>
 <li>boolean: <code>and</code>, <code>or</code>, <code>not</code></li>
 <li>unary: unary <code>+</code> and unary <code>-</code></li>
+</ul>
+<p>Supported structures:</p>
+<ul>
+<li><strong>Dictionary literals</strong>: <code>@ {'key': 'value', 'num': 42}</code></li>
+<li><strong>List literals</strong>: <code>@ ['item1', 'item2']</code></li>
+<li><strong>Attribute access</strong>: <code>@ dict_var.key</code> (natively evaluates dictionary key access)</li>
+<li><strong>Bracket subscription</strong>: <code>@ list_var[inputs.index]</code> or <code>@ dict_var[inputs.key]</code></li>
 </ul>
 <p>Supported built-ins in the current interpreter:</p>
 <ul>
@@ -1235,7 +1242,7 @@
 <p>New events are simply added in <code>yare.yaml</code>. No code changes are required to expose them — the engine dynamically translates them to LangChain tools at load time.</p>
 <h2 id="time-sync-extensions">Time Sync Extensions<a class="headerlink" href="#time-sync-extensions" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>state.game_time</code> is automatically injected into Director, NPC Brain (when enabled), and Narrator prompt context when present.</li>
+<li><code>state.game_time</code> is automatically injected into Director, NPC Intent tool, and Narrator prompt context when present.</li>
 <li>Narrator uses a structured tool call for end-of-turn engine actions:</li>
 <li><code>end_of_narration(actions=[{"type":"advance_time","duration":"PT15M"}])</code></li>
 <li><code>end_of_narration(actions=[{"type":"set_game_time","value":"2026-04-10T10:00:00+00:00"}])</code></li>

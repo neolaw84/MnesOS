@@ -12,25 +12,27 @@
         <meta name="author" content="neolaw84">
       
       
+        <link rel="canonical" href="https://neolaw84.github.io/MnesOS/guides/cartridge-developer-guide/">
+      
       
       
       
         
       
       
-      <link rel="icon" href="/MnesOS/assets/images/favicon.png">
+      <link rel="icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>MnesOS</title>
+        <title>Cartridge Developer Guide - MnesOS</title>
       
     
     
-      <link rel="stylesheet" href="/MnesOS/assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="/MnesOS/assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -49,9 +51,9 @@
       
     
     
-      <link rel="stylesheet" href="/MnesOS/assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("/MnesOS/",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -75,6 +77,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#cartridge-developer-guide" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -85,7 +92,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="/MnesOS/." title="MnesOS" class="md-header__button md-logo" aria-label="MnesOS" data-md-component="logo">
+    <a href="../.." title="MnesOS" class="md-header__button md-logo" aria-label="MnesOS" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -105,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              
+              Cartridge Developer Guide
             
           </span>
         </div>
@@ -218,7 +225,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="/MnesOS/." class="md-tabs__link">
+      <a href="../.." class="md-tabs__link">
         
   
   
@@ -237,7 +244,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="/MnesOS/cartridge-guide.md" class="md-tabs__link">
+      <a href="../../cartridge-guide.md" class="md-tabs__link">
         
   
   
@@ -258,7 +265,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/MnesOS/yare-specification/" class="md-tabs__link">
+        <a href="../../yare-specification/" class="md-tabs__link">
           
   
   
@@ -278,7 +285,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/MnesOS/play-test.md" class="md-tabs__link">
+        <a href="../../play-test.md" class="md-tabs__link">
           
   
   
@@ -298,7 +305,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/MnesOS/design/0001-three-node-graph-architecture.md" class="md-tabs__link">
+        <a href="../../design/0001-three-node-graph-architecture.md" class="md-tabs__link">
           
   
   
@@ -334,7 +341,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="/MnesOS/." title="MnesOS" class="md-nav__button md-logo" aria-label="MnesOS" data-md-component="logo">
+    <a href="../.." title="MnesOS" class="md-nav__button md-logo" aria-label="MnesOS" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -364,7 +371,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/MnesOS/." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -391,7 +398,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/MnesOS/cartridge-guide.md" class="md-nav__link">
+      <a href="../../cartridge-guide.md" class="md-nav__link">
         
   
   
@@ -470,7 +477,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/MnesOS/yare-specification/" class="md-nav__link">
+      <a href="../../yare-specification/" class="md-nav__link">
         
   
   
@@ -498,7 +505,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/MnesOS/api/" class="md-nav__link">
+      <a href="../../api/" class="md-nav__link">
         
   
   
@@ -585,7 +592,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/MnesOS/play-test.md" class="md-nav__link">
+      <a href="../../play-test.md" class="md-nav__link">
         
   
   
@@ -613,7 +620,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/MnesOS/play-test-win.md" class="md-nav__link">
+      <a href="../../play-test-win.md" class="md-nav__link">
         
   
   
@@ -641,7 +648,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/MnesOS/guides/advanced-combat-mechanics.md" class="md-nav__link">
+      <a href="../advanced-combat-mechanics.md" class="md-nav__link">
         
   
   
@@ -728,7 +735,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/MnesOS/design/0001-three-node-graph-architecture.md" class="md-nav__link">
+      <a href="../../design/0001-three-node-graph-architecture.md" class="md-nav__link">
         
   
   
@@ -756,7 +763,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/MnesOS/design/0002-state-and-turn-flow.md" class="md-nav__link">
+      <a href="../../design/0002-state-and-turn-flow.md" class="md-nav__link">
         
   
   
@@ -784,7 +791,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/MnesOS/design/separate-npc-brain.md" class="md-nav__link">
+      <a href="../../design/separate-npc-brain.md" class="md-nav__link">
         
   
   
@@ -825,8 +832,116 @@
               
               <article class="md-content__inner md-typeset">
                 
-  <h1>404 - Not found</h1>
+                  
 
+
+  
+  
+
+
+<h1 id="cartridge-developer-guide">Cartridge Developer Guide<a class="headerlink" href="#cartridge-developer-guide" title="Permanent link">&para;</a></h1>
+<p>This guide describes how to build and validate a MnesOS cartridge, alongside implementing complex mechanics like countering and phase-based intention.</p>
+<h2 id="cartridge-contract-structure">Cartridge Contract &amp; Structure<a class="headerlink" href="#cartridge-contract-structure" title="Permanent link">&para;</a></h2>
+<p>Create a cartridge under <code>cartridges/&lt;your-game-name&gt;/</code>.</p>
+<p>Required files:
+1. <code>yare.yaml</code>
+2. <code>bot_lore.md</code></p>
+<p>Optional file:
+3. <code>prompt_directives.yaml</code></p>
+<p><code>yare.yaml</code> stays procedural. Narrative steering belongs in <code>prompt_directives.yaml</code>, not in the rules file.</p>
+<h3 id="bot_loremd"><code>bot_lore.md</code><a class="headerlink" href="#bot_loremd" title="Permanent link">&para;</a></h3>
+<p>Use this file for world facts, NPC descriptions, locations, factions, and items.
+- structure content with markdown headers because the lore store chunks on <code>#</code>, <code>##</code>, and <code>###</code>
+- keep mechanics out of lore text
+- use descriptive section names so retrieval has strong anchors</p>
+<h3 id="prompt_directivesyaml"><code>prompt_directives.yaml</code><a class="headerlink" href="#prompt_directivesyaml" title="Permanent link">&para;</a></h3>
+<p>Use this file only for short per-role LLM steering.</p>
+<p><strong>Important Note on State Access</strong>: When instructing the LLMs to check the game state, you MUST refer to it as <code>bot_memory</code> (e.g., <code>If bot_memory['player']['hp'] &lt; 10...</code>). The <code>state.</code> prefix is only used inside <code>yare.yaml</code>.</p>
+<p>Allowed keys: <code>director</code>, <code>npc</code>, <code>narrator</code>.
+If <code>prompt_directives</code> is placed inside <code>yare.yaml</code>, the loader rejects the cartridge.</p>
+<h3 id="yareyaml-integration"><code>yare.yaml</code> Integration<a class="headerlink" href="#yareyaml-integration" title="Permanent link">&para;</a></h3>
+<p>Use this file for deterministic state and event logic. 
+- <code>state_schema</code> defines tracked state and defaults
+- <code>macros</code> define reusable <code>@</code> expressions
+- <code>events</code> define executable steps</p>
+<p><strong>For full details on supported expressions, operators, step types (like <code>set</code>, <code>mutate</code>, <code>branch</code>, <code>call</code>, <code>table_roll</code>, etc.), please refer to the complete <a href="../../yare-specification/">YARE Specification</a>.</strong></p>
+<h2 id="state-visibility">State Visibility<a class="headerlink" href="#state-visibility" title="Permanent link">&para;</a></h2>
+<p>Each schema field may define <code>visibility</code> (<code>public</code> or <code>private</code>).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">state_schema</span><span class="p">:</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">player</span><span class="p">:</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">hp</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">int</span><span class="p p-Indicator">,</span><span class="nt"> default</span><span class="p">:</span><span class="w"> </span><span class="nv">100</span><span class="p p-Indicator">,</span><span class="nt"> min</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> visibility</span><span class="p">:</span><span class="w"> </span><span class="nv">public</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">hidden_flag</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">bool</span><span class="p p-Indicator">,</span><span class="nt"> default</span><span class="p">:</span><span class="w"> </span><span class="nv">false</span><span class="p p-Indicator">,</span><span class="nt"> visibility</span><span class="p">:</span><span class="w"> </span><span class="nv">private</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</code></pre></div>
+<ul>
+<li><code>public</code> fields are eligible for narrator context.</li>
+<li>omitted <code>visibility</code> defaults to <code>private</code>.</li>
+<li>direct <code>@ state...</code> access to private fields is blocked by the interpreter.</li>
+</ul>
+<p>This keeps hidden mechanics deterministic without leaking them into player-facing narration.</p>
+<hr />
+<h2 id="advanced-mechanics-counter-play">Advanced Mechanics &amp; Counter-Play<a class="headerlink" href="#advanced-mechanics-counter-play" title="Permanent link">&para;</a></h2>
+<p>This section outlines the operational domain of the MnesOS 2-node graph, including how <code>system_notes</code> are safely passed to the Narrator and how complex combat systems can be implemented.</p>
+<h3 id="1-semantic-grounding-ensuring-narrator-understanding">1. Semantic Grounding (Ensuring Narrator Understanding)<a class="headerlink" href="#1-semantic-grounding-ensuring-narrator-understanding" title="Permanent link">&para;</a></h3>
+<p>The <strong>Narrator</strong> LLM needs to understand the numbers generated by YARE without the user seeing the raw math. Cartridge developers must provide <strong>semantic grounding</strong> within <code>note</code> event actions.</p>
+<p>Use variable interpolation (<code>{variable}</code>) inside <code>note</code> strings and format them as instructions or stage directions for the Narrator. Enclosing them in tags (like <code>[SYSTEM LOG: ...]</code>) ensures the Narrator recognizes it as backstage instruction.</p>
+<p><strong>Good Practice (Semantic Grounding):</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mutate</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">var</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;state.goblin.hp&quot;</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">op</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;sub&quot;</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">note</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;[SYSTEM</span><span class="nv"> </span><span class="s">LOG:</span><span class="nv"> </span><span class="s">Player</span><span class="nv"> </span><span class="s">successfully</span><span class="nv"> </span><span class="s">landed</span><span class="nv"> </span><span class="s">an</span><span class="nv"> </span><span class="s">attack</span><span class="nv"> </span><span class="s">on</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">Goblin.</span><span class="nv"> </span><span class="s">Base</span><span class="nv"> </span><span class="s">damage</span><span class="nv"> </span><span class="s">was</span><span class="nv"> </span><span class="s">10.</span><span class="nv"> </span><span class="s">The</span><span class="nv"> </span><span class="s">Goblin&#39;s</span><span class="nv"> </span><span class="s">remaining</span><span class="nv"> </span><span class="s">HP</span><span class="nv"> </span><span class="s">is</span><span class="nv"> </span><span class="s">{state.goblin.hp}.</span><span class="nv"> </span><span class="s">Describe</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">strike</span><span class="nv"> </span><span class="s">connecting</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">Goblin</span><span class="nv"> </span><span class="s">reeling.]&quot;</span>
+</code></pre></div></p>
+<h3 id="2-the-operational-domain-turn-iterations">2. The Operational Domain &amp; Turn Iterations<a class="headerlink" href="#2-the-operational-domain-turn-iterations" title="Permanent link">&para;</a></h3>
+<p>The execution graph flows iteratively between the Director and the ToolNode before finally reaching the Narrator:
+<code>Director (Intent Analysis)</code> 🔁 <code>ToolNode (Mechanics &amp; NPC Intent)</code> ➔ <code>Narrator (Render)</code></p>
+<p>If an action is "immediate", reactive "counters" within the same turn require the Director to query the NPC before finalizing damage. Complex rules require designing YARE events using <strong>Phase-Based Intention</strong> and <strong>Telegraphing</strong>.</p>
+<h3 id="3-scenario-a-player-attacks-npc-counters-shield-block">3. Scenario A: Player attacks, NPC Counters (Shield Block)<a class="headerlink" href="#3-scenario-a-player-attacks-npc-counters-shield-block" title="Permanent link">&para;</a></h3>
+<p>If a player attacks, the Director should query the NPC intent <em>before</em> applying final damage.</p>
+<p><strong>How it works:</strong>
+1. Player says <em>"I attack the Goblin"</em>.
+2. Director queries NPC intent using <code>query_npc_intent</code>.
+3. NPC Intent tool responds: <em>"I intend to raise my shield!"</em>
+4. Director resolves the attack mechanics (YARE), taking the block into account, and summarizes.</p>
+<p>For complex logic: Trigger <code>plan_player_attack</code> to save values to a buffer, query NPC, and in the next loop, run mechanics resolution to clear the buffer and apply damage.</p>
+<h3 id="4-scenario-b-npc-telegraphs-player-counters">4. Scenario B: NPC Telegraphs, Player Counters<a class="headerlink" href="#4-scenario-b-npc-telegraphs-player-counters" title="Permanent link">&para;</a></h3>
+<p>The Player cannot physically interrupt an active Turn resolution. To allow a Player to counter an NPC, the NPC must <strong>telegraph</strong> an attack on Turn 1, so the Player can respond on Turn 2.</p>
+<p><strong>How it works:</strong>
+1. <strong>Turn N (Mechanics Phase)</strong>: Director triggers <code>npc_telegraph_attack</code>.
+2. <strong>Turn N (Narrator)</strong>: Narrator writes <em>"The Goblin raises his heavy club, preparing to smash it down!"</em>
+3. <strong>Turn N+1 (Player Phase)</strong>: Player says <em>"I raise my shield to brace."</em> Director triggers <code>player_resolve_incoming</code>.</p>
+<p><em>(Refer to earlier documentation or YARE design patterns for specific implementation details on buffering <code>incoming_attack_val</code> and clearing it upon resolution).</em></p>
+<hr />
+<h2 id="conversion-checklist-things-not-to-rely-on">Conversion Checklist &amp; Things Not To Rely On<a class="headerlink" href="#conversion-checklist-things-not-to-rely-on" title="Permanent link">&para;</a></h2>
+<h3 id="conversion-checklist">Conversion Checklist<a class="headerlink" href="#conversion-checklist" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Extract all stats, resources, and flags into <code>state_schema</code>.</li>
+<li>Move every deterministic rule into <code>events</code>.</li>
+<li>Add bounds with <code>min</code> and <code>max</code> where needed.</li>
+<li>Mark player-visible fields with <code>visibility: public</code>.</li>
+<li>Move flavor text into <code>bot_lore.md</code>.</li>
+<li>Move tone instructions into <code>prompt_directives.yaml</code>.</li>
+</ol>
+<h3 id="anti-patterns-do-not-do-these">Anti-Patterns (Do Not Do These)<a class="headerlink" href="#anti-patterns-do-not-do-these" title="Permanent link">&para;</a></h3>
+<ul>
+<li>do not rely on hardcoded event-name matching in engine code</li>
+<li>do not rely on cartridge-specific NPC behavior embedded in Python nodes</li>
+<li>do not put prompt directives inside <code>yare.yaml</code></li>
+<li>do not assume the engine persists state for you; the client must store and re-supply the returned game state each turn</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
               </article>
             </div>
           
@@ -863,10 +978,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "/MnesOS/", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "/MnesOS/assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="/MnesOS/assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>

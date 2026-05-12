@@ -12,7 +12,7 @@
         <meta name="author" content="neolaw84">
       
       
-        <link rel="canonical" href="https://neolaw84.github.io/MnesOS/design/0001-graph-architecture/">
+        <link rel="canonical" href="https://neolaw84.github.io/MnesOS/design/philosophy/">
       
       
       
@@ -25,7 +25,7 @@
     
     
       
-        <title>MnesOS Architectural Analysis: Two-Node Graph - MnesOS</title>
+        <title>MnesOS Core Design Philosophy - MnesOS</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#mnesos-architectural-analysis-two-node-graph" class="md-skip">
+        <a href="#mnesos-core-design-philosophy" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              MnesOS Architectural Analysis: Two-Node Graph
+              MnesOS Core Design Philosophy
             
           </span>
         </div>
@@ -244,7 +244,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../cartridge-guide/" class="md-tabs__link">
+      <a href="../../cartridge-guide.md" class="md-tabs__link">
         
   
   
@@ -285,7 +285,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../play-test/" class="md-tabs__link">
+        <a href="../../play-test.md" class="md-tabs__link">
           
   
   
@@ -398,7 +398,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cartridge-guide/" class="md-nav__link">
+      <a href="../../cartridge-guide.md" class="md-nav__link">
         
   
   
@@ -592,7 +592,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../play-test/" class="md-nav__link">
+      <a href="../../play-test.md" class="md-nav__link">
         
   
   
@@ -620,7 +620,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../play-test-win/" class="md-nav__link">
+      <a href="../../play-test-win.md" class="md-nav__link">
         
   
   
@@ -648,7 +648,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/advanced-combat-mechanics/" class="md-nav__link">
+      <a href="../../guides/advanced-combat-mechanics.md" class="md-nav__link">
         
   
   
@@ -763,7 +763,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0002-state-and-turn-flow/" class="md-nav__link">
+      <a href="../0002-state-and-turn-flow.md" class="md-nav__link">
         
   
   
@@ -839,37 +839,29 @@
   
 
 
-<h1 id="mnesos-architectural-analysis-two-node-graph">MnesOS Architectural Analysis: Two-Node Graph<a class="headerlink" href="#mnesos-architectural-analysis-two-node-graph" title="Permanent link">&para;</a></h1>
-<p>This report addresses the architectural analysis of the <code>YARE interpreter</code> and the <code>Agentic Game Graph</code> found in the MnesOS core engine.</p>
-<h2 id="1-yare-interpreter-analysis">1. YARE Interpreter Analysis<a class="headerlink" href="#1-yare-interpreter-analysis" title="Permanent link">&para;</a></h2>
-<h3 id="completeness-and-fit-for-purpose">Completeness and Fit for Purpose<a class="headerlink" href="#completeness-and-fit-for-purpose" title="Permanent link">&para;</a></h3>
-<p>The YAML Agentic Rules Engine (YARE), defined in <code>src/MnesOS/interpreter.py</code>, is <strong>not strictly Turing Complete</strong> — and this is an optimal and intentional design choice. 
-- <strong>What it lacks</strong>: It does not support unbounded looping (there are no <code>while</code> or <code>for</code> loops within the DSL) and explicitly limits recursion (nested event calling depth is hard-capped at <code>max_call_depth = 10</code>).
-- <strong>What it provides</strong>: It supports robust conditional branching (<code>if</code>/<code>else</code> condition logic via the <code>branch</code> action), sequential execution, arbitrary nested state mutation (<code>mutate</code>, <code>set</code>), deterministic RNG (<code>roll</code>), and nested state reading.
-- <strong>Why it fits</strong>: In the context of an LLM-backed game engine, evaluating deterministic game logic <em>must always</em> halt in a predictable timeframe. Allowing Turing-complete boundless loops inside a configuration file would risk the game entering an infinite loop during a tool call, crashing the session entirely. By capping recursion and removing infinite loops, YARE guarantees safe, bounded execution (Total Turing completeness).</p>
-<h3 id="influence-on-narration">Influence on Narration<a class="headerlink" href="#influence-on-narration" title="Permanent link">&para;</a></h3>
-<p>A recurring flaw in many LLM-run games is exposing literal dice rolls and rule variables mid-sentence (the "out-of-context numbers" problem). YARE solves this elegantly by air-gapping the system output from the narrative output:
-- YARE modifies the state backstage and can emit structured logging details via the <code>note</code> action (e.g., <code>"Player rolled 12 on lockpicking, Chest unlocked"</code>).
-- In <code>graph.py</code>, these interpreter logs are collected as <code>notes</code> and bundled into <code>system_notes</code>, which operates alongside the <code>agent_messages</code> history as invisible, LLM-only context.
-- <strong>The actual rendering mechanism</strong>: Because the numbers never surface directly to the client's conversation history (<code>client_messages</code>), YARE does not spit out raw logs to the user. Instead, the final log of events (<code>system_notes</code>) and the <code>public_state</code> are routed to an independent <strong>Narrator</strong> LLM node. The Narrator acts as the "renderer", taking the raw deterministic outcomes and converting them flavorfully into high-quality prose.</p>
-<h2 id="2-agentic-graph-analysis">2. Agentic Graph Analysis<a class="headerlink" href="#2-agentic-graph-analysis" title="Permanent link">&para;</a></h2>
-<p>The engine leverages a LangGraph state machine (<code>src/MnesOS/graph.py</code>) structured across two primary LLM decision nodes: <code>Director</code> and <code>Narrator</code>. The third logical role, the <strong>NPC Brain</strong>, is implemented as a specialized intent-query tool.</p>
-<h3 id="fit-for-purpose-vs-turn-based-rpgs">Fit For Purpose vs. Turn-Based RPGs<a class="headerlink" href="#fit-for-purpose-vs-turn-based-rpgs" title="Permanent link">&para;</a></h3>
-<p>The architecture mimics the phases of a classic Turn-Based RPG: <code>Player Input -&gt; Mechanics Resolution -&gt; NPC Intent -&gt; Final Resolution -&gt; Render Frame</code>. </p>
-<p>MnesOS recreates this systematically:
-1. <strong>Director Node</strong>: The Orchestrator. It maps player intent, resolves mechanics via tools, and queries NPCs for their reactions mid-turn.
-2. <strong>NPC Intent Tool (<code>query_npc_intent</code>)</strong>: The Actor. It provides autonomous character dialogue and intent when queried by the Director, ensuring persona isolation without the overhead of a separate graph node.
-3. <strong>Narrator Node</strong>: The Storyteller. It takes the finalized outcomes and renders them into immersive prose.</p>
-<h3 id="node-count-the-two-node-sweet-spot">Node Count: The Two-Node Sweet Spot<a class="headerlink" href="#node-count-the-two-node-sweet-spot" title="Permanent link">&para;</a></h3>
-<p>While previous iterations explored a 3-node graph, the current <strong>two-node architecture with specialized tools</strong> provides the optimal balance of isolation and performance.</p>
-<ul>
-<li><strong>Why separate Director &amp; Narrator?</strong> 
-  Forcing a single agent to handle both strict mechanics resolution and flavorful prose writing leads to "prompt bleed". The Narrator is air-gapped from the raw system notes to ensure it only describes <em>outcomes</em>, not <em>calculations</em>.</li>
-<li><strong>Why toolize the NPC Brain?</strong>
-  A separate graph node for NPCs creates high latency and redundant context passing (sending history to three agents). By making the NPC Brain a tool available to the Director, we preserve character autonomy and profile isolation while allowing the Director to manage the high-level turn flow in a single coordinated loop.</li>
-</ul>
-<h3 id="conclusion">Conclusion<a class="headerlink" href="#conclusion" title="Permanent link">&para;</a></h3>
-<p>The graph structure implements an LLM-adapted <strong>Model-View-Controller (MVC)</strong> framework. The <code>Director</code> acts as the <strong>Controller</strong>, the YARE engine as the <strong>Model</strong>, and the <code>Narrator</code> as the <strong>View</strong>. This separation of concerns guarantees deterministic gameplay while allowing for highly variable, high-quality narrative output.</p>
+<h1 id="mnesos-core-design-philosophy">MnesOS Core Design Philosophy<a class="headerlink" href="#mnesos-core-design-philosophy" title="Permanent link">&para;</a></h1>
+<p>This document outlines the core engineering philosophy behind MnesOS and the expected mindset for developers and AI contributors working on the project.</p>
+<h2 id="ai-engineering-mindset">AI Engineering Mindset<a class="headerlink" href="#ai-engineering-mindset" title="Permanent link">&para;</a></h2>
+<p>When contributing to MnesOS, adhere to the following behavioral expectations:
+- <strong>Autonomous Senior Ownership</strong>: Do not blindly follow superficial prompts or surface-level bug reports. Evaluate the deeper systemic root cause.
+- <strong>Holistic Stack Alignment</strong>: Always maintain semantic alignment across system boundaries. If backend API structures or return models are modified, proactively locate and refactor the corresponding client ingestion logic (<code>web-client/</code>) without waiting for explicit instruction.
+- <strong>Proactive Refactoring</strong>: If supporting files, utilities, or validation schemas must be modernized to implement a feature cleanly, perform the refactor immediately.
+- <strong>Rigorous Multi-Step Reasoning</strong>: Think methodically through complex logic patterns, clearly stating operational assumptions and evaluating edge cases before modifying core engine state flows.</p>
+<hr />
+<h2 id="engine-architecture-philosophies">Engine Architecture Philosophies<a class="headerlink" href="#engine-architecture-philosophies" title="Permanent link">&para;</a></h2>
+<h3 id="1-air-gapping-determinism-from-narration">1. Air-Gapping Determinism from Narration<a class="headerlink" href="#1-air-gapping-determinism-from-narration" title="Permanent link">&para;</a></h3>
+<p>MnesOS cleanly separates numerical stat tracking from narrative immersion to solve hallucination and out-of-context mechanics reporting.
+- <strong>Deterministic Mechanics (YARE)</strong>: All mathematical operations, item transactions, checks, and time transitions execute purely inside code-based logic triggered by the LLM. 
+- <strong>Isolated Narration</strong>: The resulting mechanical traces are hidden as system backstage logs (<code>system_notes</code>). A decoupled <code>Narrator</code> LLM node receives only filtered public state buffers to craft rich, immersive prose without leaking raw variable states into dialogue.</p>
+<h3 id="2-pure-stateless-core">2. Pure Stateless Core<a class="headerlink" href="#2-pure-stateless-core" title="Permanent link">&para;</a></h3>
+<p>The backend engine (<code>src/MnesOS/graph.py</code>) retains no operational memory across network turns.
+- The state graph acts purely as a deterministic pure function: <code>f(State, Input) -&gt; NewState</code>.
+- Persistence, checkpointing, and branch management are strictly owned by the caller/client storage layers, enabling infinite execution timeline branching and historical rewinds.</p>
+<h3 id="3-bounded-engine-constraints">3. Bounded Engine Constraints<a class="headerlink" href="#3-bounded-engine-constraints" title="Permanent link">&para;</a></h3>
+<p>To prevent mechanical infinite loops and resource overruns, engine loops are strictly bounded:
+- <strong>Max Iterations</strong>: LangGraph turn limits enforce a strict cap (<code>MAX_ITERATIONS = 3</code>) on consecutive autonomous tool invocations per turn.
+- <strong>Encapsulated Event Procedures</strong>: Cartridge developers must encapsulate intricate procedural workflows within deterministic event chains (<code>call</code> directives in <code>yare.yaml</code>) rather than relying on endless recursive LLM tool-calling.
+- <strong>Modernized Evaluator Context</strong>: The engine natively parses bracket notation (<code>arr[i]</code>), attribute access (<code>obj.val</code>), and nested literals directly inside configuration expressions without requiring core interpreter modifications.</p>
 
 
 
