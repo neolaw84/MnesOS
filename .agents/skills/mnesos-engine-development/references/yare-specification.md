@@ -60,7 +60,7 @@ Not currently supported:
 `visibility` is optional in `state_schema` and defaults to `private`.
 
 - `public` fields can be exposed to the narrator context through `get_public_state`
-- `private` fields are blocked from direct `@ state...` access inside interpreter expressions
+- `private` fields (the default) are excluded from the narrator context, but remain fully accessible to the YARE interpreter for logic and mutations.
 
 ## Step Types
 

@@ -13,7 +13,9 @@ If you need to locate where components live, or run tests/builds:
 If you are implementing engine features, graph nodes, state routing, or interpreter logic:
 * **AI Engineering Philosophy & Core Principles**: Read `design/philosophy.md`
 * **Comprehensive Engine Architecture & Contracts**: Read `design/architecture.md`
+* **Architecture Decision Records (ADR) & Rationale**: Read `design/decisions.md`
 * **YARE Language Specification**: Read `yare-specification.md`
+* **YARE-to-Tool Bridge Specification**: Read `design/yare-bridge.md`
 
 ## 3. Cartridge & User Guides
 If you are crafting game content, writing YARE rules, or guiding player interactions:
