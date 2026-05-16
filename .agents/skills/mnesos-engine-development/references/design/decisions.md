@@ -97,51 +97,51 @@ This document serves as the standalone registry for all major architectural and 
 
 ---
 
-## 5. Discarded Ideas & Abandoned Patterns
+## 5. Deployment & Interaction Architecture
 
-### 5.1. Dual-Gateway (Client-Side LLM Calls)
-*   **Abandoned In Favor Of**: Backend Managed Orchestration.
-*   **Rationale**: Bypassing the backend for LLM calls (talking directly to OpenRouter from the client) breaks the orchestration engine, as the LangGraph graph needs direct access to the model to drive game turns.
-
-### 5.2. Linked Identity (Server-side Persistence of API Keys)
-*   **Abandoned In Favor Of**: Side-by-Side / Frontend Managed Auth.
-*   **Rationale**: Storing third-party OAuth/Refresh tokens or API keys in the MnesOS database creates a severe security liability ("honey pot"). Client-managed keys ensure user security and engine portability.
-
-### 5.3. Context-Driven Strategy
-*   **Abandoned In Favor Of**: The Registry Pattern.
-*   **Rationale**: Initializing the `Orchestrator` with a "Context Object" (User, Storage, Factory) provided high ergonomics but would require refactoring 15-20% of the codebase across all nodes and tools. Furthermore, a central Context object risks becoming a "God Object" that is difficult to mock and test in isolation. The Registry Pattern achieves similar goals by limiting refactoring to the API boundary and graph setup.
-
-### 5.4. Standalone NPC Brain Nodes
-*   **Abandoned In Favor Of**: NPC Intent Tool.
-*   **Rationale**: Dedicated graph nodes for NPCs added unnecessary latency and were too rigid for dynamic scenes.
-    *   **Redundancy**: For simple physical certainties (e.g., an NPC's reaction to an injury), the Director can use "GM Fiat" to determine the outcome without an extra LLM call.
-    *   **Multi-NPC Rigidity**: A fixed node cannot efficiently handle a dynamic number of NPCs. Toolizing the intent allows the Director to batch multiple reactions into a single call only when tactical or emotional complexity warrants it.
-
-### 5.5. Per-Turn Lore Pre-Node Injection
-*   **Abandoned In Favor Of**: Batch RAG Tooling.
-*   **Rationale**: Injecting lore at the start of every turn results in context inflation and wasted tokens for trivial actions. Active retrieval by the Director is more precise and efficient as it only requests information after the player's intent is known.
-
----
-
-## 6. Deployment & Interaction Architecture
-
-### 6.1. Decoupled CDN Deployment
+### 5.1. Decoupled CDN Deployment
 *   **Decision**: Separate the backend (pure API) from the frontend (served via CDN), controlled by environment variables.
 *   **Rationale**: Reduces expensive compute costs by serving static assets from cheap edge networks, allowing the Python backend to scale independently based purely on LLM orchestration load.
 *   **Note**: This architecture is specifically designed to support cloud operators providing MnesOS as a service, enabling enterprise-grade deployment flexibility from within the core codebase.
 *   **Status**: Backlog.
 
-### 6.2. Stateless Interactive Routing (`_pending_interaction`)
+### 5.2. Stateless Interactive Routing (`_pending_interaction`)
 *   **Decision**: Handle UI constraints (forms, mini-games) by tracking a `_pending_interaction` flag in the YARE database state, resolving it via a new "Input Router Node" that bypasses the Director LLM.
 *   **Rationale**: Avoids the "Interrupt Trap" (LangGraph checkpointers pausing mid-tool). It keeps the backend purely RESTful and stateless. It guarantees that players cannot bypass narrative constraints by typing free-text, as the Input Router enforces structured JSON submission.
 *   **Status**: Backlog.
 
-### 6.3. High-Level Language Authoring (yare.py / yare.js)
+### 5.3. High-Level Language Authoring (yare.py / yare.js)
 *   **Decision**: Provide cartridge developers with the ability to author the YARE specification using conventional programming languages, beginning with Python and JavaScript.
 *   **Rationale**: YAML is excellent for engine execution but lacks the modularity, type-safety, and logic-reuse capabilities (loops, helper functions) required for complex cartridges. Providing Py/JS SDKs improves developer productivity and allows for programmatic generation of rules while maintaining YAML as the underlying portable engine standard.
 *   **Status**: Backlog.
 
-### 6.4. Explicit Py/JS 1-to-1 Compiler Mapping
+### 5.4. Explicit Py/JS 1-to-1 Compiler Mapping
 *   **Decision**: SDKs (`yare.py`, `yare.js`) must maintain a strict 1-to-1 mapping between high-level language functions and YARE YAML events, requiring developers to explicitly manage state transitions and asynchronous multi-turn interactions.
 *   **Rationale**: Prevents building "compiler magic" that attempts to implicitly untangle asynchronous game loops (e.g., automatically splitting a single procedural function into multiple turn-based states). By keeping the YAML as a strict Intermediate Representation (IR) and forcing explicit event handling, the engine remains predictable, deterministic, and easy to debug.
 *   **Status**: Backlog.
+
+---
+
+## 6. Discarded Ideas & Abandoned Patterns
+
+### 6.1. Dual-Gateway (Client-Side LLM Calls)
+*   **Abandoned In Favor Of**: Backend Managed Orchestration.
+*   **Rationale**: Bypassing the backend for LLM calls (talking directly to OpenRouter from the client) breaks the orchestration engine, as the LangGraph graph needs direct access to the model to drive game turns.
+
+### 6.2. Linked Identity (Server-side Persistence of API Keys)
+*   **Abandoned In Favor Of**: Side-by-Side / Frontend Managed Auth.
+*   **Rationale**: Storing third-party OAuth/Refresh tokens or API keys in the MnesOS database creates a severe security liability ("honey pot"). Client-managed keys ensure user security and engine portability.
+
+### 6.3. Context-Driven Strategy
+*   **Abandoned In Favor Of**: The Registry Pattern.
+*   **Rationale**: Initializing the `Orchestrator` with a "Context Object" (User, Storage, Factory) provided high ergonomics but would require refactoring 15-20% of the codebase across all nodes and tools. Furthermore, a central Context object risks becoming a "God Object" that is difficult to mock and test in isolation. The Registry Pattern achieves similar goals by limiting refactoring to the API boundary and graph setup.
+
+### 6.4. Standalone NPC Brain Nodes
+*   **Abandoned In Favor Of**: NPC Intent Tool.
+*   **Rationale**: Dedicated graph nodes for NPCs added unnecessary latency and were too rigid for dynamic scenes.
+    *   **Redundancy**: For simple physical certainties (e.g., an NPC's reaction to an injury), the Director can use "GM Fiat" to determine the outcome without an extra LLM call.
+    *   **Multi-NPC Rigidity**: A fixed node cannot efficiently handle a dynamic number of NPCs. Toolizing the intent allows the Director to batch multiple reactions into a single call only when tactical or emotional complexity warrants it.
+
+### 6.5. Per-Turn Lore Pre-Node Injection
+*   **Abandoned In Favor Of**: Batch RAG Tooling.
+*   **Rationale**: Injecting lore at the start of every turn results in context inflation and wasted tokens for trivial actions. Active retrieval by the Director is more precise and efficient as it only requests information after the player's intent is known.

@@ -13,9 +13,14 @@ macros:
   macro_name: "@ expression"
 events:
   event_name:
-    inputs: [arg1, arg2]
+    description: "Optional description for LLM tool discovery"
+    inputs: 
+      arg1: { type: string, description: "...", default: "...", enum: ["a", "b"] }
+      arg2: string # Shorthand for { type: string }
     steps: []
 ```
+
+Note: `inputs` can still be a simple list of strings `[arg1, arg2]` for legacy or simple events.
 
 ## Expressions
 
@@ -31,7 +36,7 @@ Available roots:
 Supported operators in the current interpreter:
 
 - arithmetic: `+`, `-`, `*`, `/`, `//`, `%` (Note: `+` supports string concatenation even if one operand is a number, e.g. `'npc_' + 1` -> `'npc_1'`)
-- comparison: `==`, `!=`, `<`, `<=`, `>`, `>=`
+- comparison: `==`, `!=`, `<`, `<=`, `>`, `>=`, `in`, `not in`
 - boolean: `and`, `or`, `not`
 - unary: unary `+` and unary `-`
 
@@ -41,6 +46,7 @@ Supported structures:
 - **List literals**: `@ ['item1', 'item2']`
 - **Attribute access**: `@ dict_var.key` (natively evaluates dictionary key access)
 - **Bracket subscription**: `@ list_var[inputs.index]` or `@ dict_var[inputs.key]`
+- **Ternary Operator**: `@ 'yes' if state.flag else 'no'`
 
 Supported built-ins in the current interpreter:
 
@@ -52,7 +58,7 @@ Supported built-ins in the current interpreter:
 Not currently supported:
 
 - `floor`, `ceil`, `round`
-- `now()`
+- `now()` (use `state.game_time` if available)
 - arbitrary Python literals or function calls outside the whitelist
 
 ## State Visibility
@@ -61,6 +67,10 @@ Not currently supported:
 
 - `public` fields can be exposed to the narrator context through `get_public_state`
 - `private` fields (the default) are excluded from the narrator context, but remain fully accessible to the YARE interpreter for logic and mutations.
+
+## State Paths
+
+State paths (e.g. `state.Player.HP`) are **case-insensitive**. The interpreter will resolve them to the existing key in the state dictionary regardless of casing.
 
 ## Step Types
 
@@ -100,7 +110,7 @@ Appends an item to an array stored at a `state.*` or `temp.*` path. Creates an e
 ```yaml
 - action: list_push
   var: "state.player.inventory"
-  item: "'Health Potion'"
+  item: "'Health Potion'" # can also use 'value' as an alias for 'item'
 ```
 
 The engine enforces a hard cap of `MAX_CONTAINER_SIZE` (100) items. Attempting to push beyond this limit raises an error.
@@ -152,7 +162,7 @@ Example:
 
 ```yaml
 - action: foreach
-  array: "@ state.player.inventory"
+  array: "@ state.player.inventory" # can also be a direct path without @: "state.player.inventory"
   item: item
   index: idx
   steps:

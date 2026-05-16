@@ -14,22 +14,26 @@ The pipeline triggers during session initialization or when a cartridge is swapp
     - Injects the current `GameState` (filtering for allowed fields).
     - Seeds the deterministic RNG from the current turn ID.
     - Executes the `YAREInterpreter` against the event.
-    - Packages the output into the tool contract.
+    - Packages the output into a LangGraph `Command`.
+    - Auto-injects an `engine_time_delta` parameter for time synchronization.
 5. **Caching**: Compiled tool artifacts (schemas and runner metadata) are cached by cartridge checksum for re-use.
 
 ## 3. Tool Surface & Contract
-- **Input**: Strictly typed parameters declared by the YARE event plus an injected `InjectedState` reference (read-only snapshot and `bot_memory_staging` target).
-- **Output**: 
+- **Input**: Strictly typed parameters declared by the YARE event plus:
+  - `tool_call_id`: Injected by the orchestrator.
+  - `state`: Injected `GameState` snapshot.
+  - `engine_time_delta`: String (ISO-8601 duration) representing action duration (defaults to `PT0S`).
+- **Output**: Returns a LangGraph `Command` with the following updates:
   ```json
   {
-    "yare_delta": "Dict",
-    "system_notes": "List[str]",
-    "trace": "Dict",
-    "status": "ok | error",
-    "error": "Optional[str]"
+    "update": {
+      "bot_memory_staging": ["GameState"],
+      "system_notes": ["List[str]"],
+      "agent_messages": ["List[ToolMessage]"]
+    }
   }
   ```
-- **Side-effects**: Strictly prohibited outside of the returned `yare_delta`. All state mutation is expressed as an atomic delta applied by the Orchestrator.
+- **Side-effects**: Strictly prohibited outside of the returned `Command`. All state mutation is expressed as a state snapshot in `bot_memory_staging` which is reconciled by the `post_tools_node`.
 
 ## 4. Lifecycle & Execution
 - **Binding**: Tools are registered into the graph's `RunnableConfig.tools` for the duration of the session.
@@ -43,10 +47,10 @@ The pipeline triggers during session initialization or when a cartridge is swapp
 - **Determinism**: RNG is derived from a per-turn seed, ensuring repeated replays produce identical deltas.
 
 ## 6. Error Handling & Invariants
-- **Fail-Safe**: If an event execution raises an error (schema violation, recursion limit), the runner returns a no-op `yare_delta`. 
-- **Remediation**: The Director receives `system_notes` describing the failure and can choose fallback actions (GM fiat).
-- **Validation**: The Orchestrator validates each `yare_delta` against the global `state_schema` before commit.
+- **Fail-Safe**: If an event execution raises an error (schema violation, recursion limit), the tool execution may fail or return a `Command` with no state changes. 
+- **Remediation**: The Director receives `system_notes` describing the failure (if captured) and can choose fallback actions (GM fiat).
+- **Validation**: The Orchestrator validates the staged state against the global `state_schema` in the `post_tools_node` before final commit.
 
 ## 7. Observability & Testing
-- **Traces**: Every tool execution emits full traces into `agent_messages` and persists condensed traces in `TurnLog`.
-- **Unit Testing**: Cartridge authors can include unit test fixtures (inputs and expected deltas) alongside `yare.yaml`, which are run during the compilation pipeline.
+- **Traces**: Every tool execution emits a `ToolMessage` into `agent_messages` containing the interpreter notes.
+- **Unit Testing**: Cartridge authors can include unit test fixtures (inputs and expected states) alongside `yare.yaml`, which are run during the compilation pipeline.
