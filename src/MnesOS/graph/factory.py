@@ -12,6 +12,7 @@ from .nodes.system import (
     post_tools_node,
     cycle_tick_node,
 )
+from .nodes.input_router import input_router_node
 from .nodes.director import director_node, _get_last_ai_tool_calls
 from .nodes.narrator import narrator_node
 from .tools.yare import build_yare_event_tools
@@ -67,6 +68,7 @@ def build_graph(
 
     graph.add_node("ResetAgentMessages", reset_agent_messages_node)
     graph.add_node("CycleTick", cycle_tick_node)
+    graph.add_node("InputRouter", input_router_node)
     graph.add_node("Director", functools.partial(director_node, llm=llm_director, tools=dynamic_tools))
     graph.add_node("PreTools", pre_tools_node)
 
@@ -81,7 +83,8 @@ def build_graph(
 
     graph.set_entry_point("ResetAgentMessages")
     graph.add_edge("ResetAgentMessages", "CycleTick")
-    graph.add_edge("CycleTick", "Director")
+    graph.add_edge("CycleTick", "InputRouter")
+    graph.add_edge("InputRouter", "Director")
 
     graph.add_conditional_edges(
         "Director", route_director, {"PreTools": "PreTools", "Narrator": "Narrator"}

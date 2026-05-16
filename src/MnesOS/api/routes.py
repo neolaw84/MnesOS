@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from ..orchestrator import Orchestrator
+from ..exceptions import InteractionRoutingError
 from ..storage import (
     AbstractStorageComponent,
     StateHydrator,
@@ -96,13 +97,22 @@ def process_turn(
 ) -> TurnResponse:
     """Submit a user action, extending the timeline from a specific node."""
     # 1. Invoke orchestrator (stateless — no DB write)
-    result = orch.process_turn(
-        body.user_input,
-        parent_turn_id=body.parent_turn_id,
-        llm_clients=llm_clients,
-        player_settings=body.player_settings or {},
-        request_overrides=body.request_overrides or {},
-    )
+    interaction = body.interaction.model_dump() if body.interaction is not None else None
+    input_text = body.user_input
+    if interaction is not None:
+        input_text = f"[minigame:{interaction.get('minigame_id')} status={interaction.get('status')}]"
+
+    try:
+        result = orch.process_turn(
+            input_text or "",
+            interaction=interaction,
+            parent_turn_id=body.parent_turn_id,
+            llm_clients=llm_clients,
+            player_settings=body.player_settings or {},
+            request_overrides=body.request_overrides or {},
+        )
+    except InteractionRoutingError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     # 2. Persist TurnLog (API route responsibility per 0005 §3.2)
     lineage = (
@@ -114,7 +124,7 @@ def process_turn(
         instance_id=instance_id,
         turn_index=len(lineage),
         actor=TurnActor.PLAYER,
-        input_text=body.user_input,
+        input_text=input_text or "",
         yare_delta=result["yare_delta"],
         narrator_text=result["narrator_text"],
         parent_id=body.parent_turn_id,
