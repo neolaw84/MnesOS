@@ -7,10 +7,23 @@
 // §1.1 Process Turn
 // ---------------------------------------------------------------------------
 
-export interface TurnRequest {
+import type { MinigameInteractionPayload } from "./minigames";
+
+export interface TurnRequestBase {
   parent_turn_id?: string | null;
-  user_input: string;
+  player_settings?: Record<string, unknown>;
+  request_overrides?: Record<string, unknown>;
 }
+
+export type TurnRequest =
+  | ({
+      user_input: string;
+      interaction?: never;
+    } & TurnRequestBase)
+  | ({
+      user_input?: never;
+      interaction: MinigameInteractionPayload;
+    } & TurnRequestBase);
 
 export interface TurnResponse {
   turn_id: string;
@@ -175,3 +188,4 @@ export interface UpdatePersonaRequest {
   personality?: string;
 }
 
+export * from "./minigames";
