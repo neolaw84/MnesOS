@@ -37,6 +37,53 @@ A MnesOS cartridge divides game responsibilities across explicitly named files:
     *   **New Step Types**: `list_push`, `list_remove`, `dict_set`, `dict_delete`, `foreach`, `table_roll`.
 *   **Design for `MAX_ITERATIONS = 3`**: The engine allows at most 3 tool calls per turn. Use Phase-Based Intention (e.g., telegraphing) for complex mechanics like countering. Use `call` steps to chain sub-events internally rather than relying on the LLM to issue multiple tool calls.
 
+## Minigame Interactions (Pending Interaction Pattern)
+
+Minigames are client-side UI components. Cartridges request a minigame by writing a trusted `_pending_interaction` object into state, and provide a `resolver_event` that will be invoked deterministically when the client posts the result.
+
+**Minigame registry & schemas**
+- Use `references/minigames.schema.json` to discover which `minigame_id` values exist and what each game expects under `config.difficulty`, `config.assets`, and `config.narrative_hooks`.
+
+**Request event template (writes the pending interaction)**
+```yaml
+events:
+  hack_terminal_request:
+    steps:
+      - action: set
+        var: state._pending_interaction
+        value:
+          interaction_type: "minigame"
+          minigame_id: "lights_out"
+          resolver_event: "hack_terminal_resolve"
+          config:
+            difficulty: { grid_size: 4 }
+            assets: { icon_on: "fire_emoji", icon_off: "ice_emoji" }
+            narrative_hooks:
+              on_combo: "Sparks fly as you chain inputs."
+```
+
+**Resolver event template (receives the client result)**
+- Define resolver inputs as a *list* so dict payloads remain dicts (no type coercion).
+```yaml
+events:
+  hack_terminal_resolve:
+    inputs: ["status", "metrics", "minigame_specific_data"]
+    steps:
+      - branch:
+          conditions:
+            - if: "@ inputs.status == 'completed'"
+              steps:
+                - action: set
+                  var: state.door_unlocked
+                  value: true
+                - action: note
+                  message: "[SYSTEM LOG: Player hacked terminal. Rank {inputs.metrics.rank}]"
+            - else: true
+              steps:
+                - action: note
+                  message: "[SYSTEM LOG: Terminal lockout. Hack failed.]"
+```
+
 ## Anti-Patterns
 *   Do not put prompt directives inside `yare.yaml`. It will be rejected by the loader.
 *   Do not assume the engine persists state for you; the client must store and re-supply the returned game state each turn.
