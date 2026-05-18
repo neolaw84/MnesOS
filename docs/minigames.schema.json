@@ -1,3 +1,63 @@
 {
-  "minigames": []
+  "minigames": [
+    {
+      "minigame_id": "lights_out",
+      "difficulty_schema": {
+        "type": "object",
+        "properties": {
+          "grid_size": {
+            "type": "integer",
+            "minimum": 3,
+            "maximum": 7,
+            "default": 4,
+            "description": "Number of rows and columns in the grid (NxN)."
+          },
+          "max_moves": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 20,
+            "description": "Maximum moves allowed before the puzzle is failed."
+          },
+          "scramble_depth": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 10,
+            "description": "Number of random moves applied from the solved state to generate the puzzle."
+          }
+        }
+      },
+      "assets_schema": {
+        "type": "object",
+        "properties": {
+          "icon_on": {
+            "type": "string",
+            "default": "💡",
+            "description": "Emoji or short string displayed for a lit cell."
+          },
+          "icon_off": {
+            "type": "string",
+            "default": "⬛",
+            "description": "Emoji or short string displayed for an unlit cell."
+          }
+        }
+      },
+      "events_schema": [
+        "on_combo",
+        "on_near_miss"
+      ],
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "moves_made": {
+            "type": "integer",
+            "description": "Total moves the player made."
+          },
+          "grid_remaining": {
+            "type": "integer",
+            "description": "Number of lit cells remaining when the game ended."
+          }
+        }
+      }
+    }
+  ]
 }

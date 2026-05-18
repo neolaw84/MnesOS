@@ -7,6 +7,7 @@ vi.mock('../../api/client', () => ({
   getInstanceId: vi.fn(),
   setInstanceId: vi.fn(),
   processTurn: vi.fn(),
+  sendInteraction: vi.fn(),
   getGameState: vi.fn(),
   createSave: vi.fn(),
   listSaves: vi.fn(),
@@ -298,5 +299,98 @@ describe('useGameSession', () => {
     expect(result.current.error).toBeNull()
     expect(result.current.saves).toHaveLength(0)
     expect(client.setInstanceId).toHaveBeenCalledWith('')
+  })
+
+  it('initializes with null pendingInteraction', () => {
+    const { result } = renderHook(() => useGameSession())
+    expect(result.current.pendingInteraction).toBeNull()
+  })
+
+  it('sendTurn extracts _pending_interaction from bot_memory', async () => {
+    const pendingInteraction = {
+      interaction_type: 'minigame',
+      minigame_id: 'lights_out',
+      resolver_event: 'resolve_hack',
+      config: { difficulty: { grid_size: 4 }, assets: {}, narrative_hooks: {} },
+    }
+    vi.mocked(client.processTurn).mockResolvedValue({
+      turn_id: 't-1',
+      narrator_response: 'Hack terminal triggered.',
+      yare_delta: {},
+    })
+    vi.mocked(client.getGameState).mockResolvedValue({
+      bot_memory: { _pending_interaction: pendingInteraction },
+      client_messages: [],
+    })
+    const { result } = renderHook(() => useGameSession())
+    await act(async () => {
+      await result.current.sendTurn('hack the terminal')
+    })
+    expect(result.current.pendingInteraction).toEqual(pendingInteraction)
+  })
+
+  it('sendInteraction calls apiSendInteraction and clears pendingInteraction', async () => {
+    // Set up pending interaction via sendTurn
+    const pendingInteraction = {
+      interaction_type: 'minigame',
+      minigame_id: 'lights_out',
+      resolver_event: 'resolve_hack',
+      config: { difficulty: {}, assets: {}, narrative_hooks: {} },
+    }
+    vi.mocked(client.processTurn).mockResolvedValue({
+      turn_id: 't-1',
+      narrator_response: 'Puzzle triggered.',
+      yare_delta: {},
+    })
+    vi.mocked(client.getGameState)
+      .mockResolvedValueOnce({
+        bot_memory: { _pending_interaction: pendingInteraction },
+        client_messages: [],
+      })
+      .mockResolvedValueOnce({
+        // After resolution, _pending_interaction is cleared
+        bot_memory: { door_unlocked: true },
+        client_messages: [],
+      })
+    vi.mocked(client.sendInteraction).mockResolvedValue({
+      turn_id: 't-2',
+      narrator_response: 'You cracked it.',
+      yare_delta: {},
+    })
+
+    const { result } = renderHook(() => useGameSession())
+    await act(async () => {
+      await result.current.sendTurn('hack the terminal')
+    })
+    expect(result.current.pendingInteraction).not.toBeNull()
+
+    const interactionPayload = {
+      interaction_type: 'minigame' as const,
+      minigame_id: 'lights_out',
+      status: 'completed' as const,
+      metrics: { moves_made: 5 },
+      minigame_specific_data: { grid_remaining: 0 },
+    }
+    await act(async () => {
+      await result.current.sendInteraction(interactionPayload)
+    })
+    expect(client.sendInteraction).toHaveBeenCalledWith('inst-1', interactionPayload, 't-1')
+    expect(result.current.pendingInteraction).toBeNull()
+    expect(result.current.messages.at(-1)).toMatchObject({ role: 'assistant', content: 'You cracked it.' })
+  })
+
+  it('sendInteraction sets error when no instanceId', async () => {
+    vi.mocked(client.getInstanceId).mockReturnValue('')
+    const { result } = renderHook(() => useGameSession())
+    await act(async () => {
+      await result.current.sendInteraction({
+        interaction_type: 'minigame',
+        minigame_id: 'lights_out',
+        status: 'completed',
+        metrics: {},
+        minigame_specific_data: {},
+      })
+    })
+    expect(result.current.error).toMatch(/No active game/i)
   })
 })

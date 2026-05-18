@@ -116,6 +116,24 @@ export async function processTurn(
   );
 }
 
+/** §1.1 Send minigame interaction result */
+export async function sendInteraction(
+  instanceId: string,
+  interaction: import("../types/minigames").MinigameInteractionPayload,
+  parentTurnId?: string | null,
+): Promise<TurnResponse> {
+  return apiFetch<TurnResponse>(
+    `/api/instances/${instanceId}/turn`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        parent_turn_id: parentTurnId ?? null,
+        interaction,
+      } satisfies TurnRequest),
+    },
+  );
+}
+
 /** §1.2 Inject State */
 export async function injectState(
   instanceId: string,

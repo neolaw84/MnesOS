@@ -11,8 +11,10 @@ import type {
   TurnResponse,
   HydratedStateResponse,
 } from "../types";
+import type { MinigameInteractionPayload } from "../types/minigames";
 import {
   processTurn,
+  sendInteraction as apiSendInteraction,
   getGameState,
   createSave,
   listSaves,
@@ -24,11 +26,13 @@ import type { GameSave } from "../types";
 export interface GameSession {
   messages: DisplayMessage[];
   botMemory: Record<string, unknown>;
+  pendingInteraction: Record<string, unknown> | null;
   currentTurnId: string | null;
   loading: boolean;
   error: string | null;
   saves: GameSave[];
   sendTurn: (input: string) => Promise<void>;
+  sendInteraction: (payload: MinigameInteractionPayload) => Promise<void>;
   retryLast: () => Promise<void>;
   saveCheckpoint: (label: string) => Promise<void>;
   loadCheckpoint: (save: GameSave) => Promise<void>;
@@ -41,6 +45,7 @@ export interface GameSession {
 export function useGameSession(): GameSession {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [botMemory, setBotMemory] = useState<Record<string, unknown>>({});
+  const [pendingInteraction, setPendingInteraction] = useState<Record<string, unknown> | null>(null);
   const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +56,17 @@ export function useGameSession(): GameSession {
   const [lastUserInput, setLastUserInput] = useState<string>("");
 
   const clearError = useCallback(() => setError(null), []);
+
+  /** Extract `_pending_interaction` from a bot_memory dict and sync both states. */
+  const applyBotMemory = useCallback((memory: Record<string, unknown>) => {
+    setBotMemory(memory);
+    const pending = memory["_pending_interaction"];
+    setPendingInteraction(
+      pending && typeof pending === "object" && !Array.isArray(pending)
+        ? (pending as Record<string, unknown>)
+        : null,
+    );
+  }, []);
 
   // -----------------------------------------------------------------------
   // Send a new turn
@@ -95,7 +111,7 @@ export function useGameSession(): GameSession {
             instanceId,
             result.turn_id,
           );
-          setBotMemory(state.bot_memory);
+          applyBotMemory(state.bot_memory);
         } catch {
           // Non-fatal: the chat still works
         }
@@ -107,7 +123,56 @@ export function useGameSession(): GameSession {
         setLoading(false);
       }
     },
-    [currentTurnId],
+    [currentTurnId, applyBotMemory],
+  );
+
+  // -----------------------------------------------------------------------
+  // Send a minigame interaction result
+  // -----------------------------------------------------------------------
+  const sendInteraction = useCallback(
+    async (payload: MinigameInteractionPayload) => {
+      const instanceId = getInstanceId();
+      if (!instanceId) {
+        setError("No active game. Start or resume a game from the dashboard.");
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const result: TurnResponse = await apiSendInteraction(
+          instanceId,
+          payload,
+          currentTurnId,
+        );
+
+        const assistantMsg: DisplayMessage = {
+          role: "assistant",
+          content: result.narrator_response,
+          turnId: result.turn_id,
+        };
+
+        setMessages((prev) => [...prev, assistantMsg]);
+        setCurrentTurnId(result.turn_id);
+
+        // Refresh bot_memory — clears _pending_interaction server-side
+        try {
+          const state: HydratedStateResponse = await getGameState(
+            instanceId,
+            result.turn_id,
+          );
+          applyBotMemory(state.bot_memory);
+        } catch {
+          // Non-fatal
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [currentTurnId, applyBotMemory],
   );
 
   // -----------------------------------------------------------------------
@@ -147,7 +212,7 @@ export function useGameSession(): GameSession {
 
       try {
         const state = await getGameState(instanceId, result.turn_id);
-        setBotMemory(state.bot_memory);
+        applyBotMemory(state.bot_memory);
       } catch {
         // Non-fatal
       }
@@ -156,7 +221,7 @@ export function useGameSession(): GameSession {
     } finally {
       setLoading(false);
     }
-  }, [lastParentTurnId, lastUserInput]);
+  }, [lastParentTurnId, lastUserInput, applyBotMemory]);
 
   // -----------------------------------------------------------------------
   // Save checkpoint
@@ -204,7 +269,7 @@ export function useGameSession(): GameSession {
       );
 
       setMessages(displayMsgs);
-      setBotMemory(state.bot_memory);
+      applyBotMemory(state.bot_memory);
       setCurrentTurnId(state.current_turn_id ?? save.turn_log_id);
       if (state.last_user_input) {
         setLastUserInput(state.last_user_input);
@@ -215,7 +280,7 @@ export function useGameSession(): GameSession {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyBotMemory]);
 
   // -----------------------------------------------------------------------
   // Refresh saves
@@ -247,7 +312,7 @@ export function useGameSession(): GameSession {
           (m) => ({ role: m.role as "user" | "assistant", content: m.content, turnId: m.role === "assistant" ? initialTurnId || undefined : undefined }),
         );
         setMessages(displayMsgs);
-        setBotMemory(state.bot_memory);
+        applyBotMemory(state.bot_memory);
         setCurrentTurnId(state.current_turn_id ?? initialTurnId ?? null);
         if (state.last_user_input) {
           setLastUserInput(state.last_user_input);
@@ -261,6 +326,7 @@ export function useGameSession(): GameSession {
     } else {
       setMessages([]);
       setBotMemory({});
+      setPendingInteraction(null);
       setCurrentTurnId(null);
       setLoading(false);
       setError(null);
@@ -268,7 +334,7 @@ export function useGameSession(): GameSession {
       setLastParentTurnId(null);
       setLastUserInput("");
     }
-  }, []);
+  }, [applyBotMemory]);
 
   // -----------------------------------------------------------------------
   // Clear session
@@ -276,6 +342,7 @@ export function useGameSession(): GameSession {
   const clearSession = useCallback(() => {
     setMessages([]);
     setBotMemory({});
+    setPendingInteraction(null);
     setCurrentTurnId(null);
     setLoading(false);
     setError(null);
@@ -288,11 +355,13 @@ export function useGameSession(): GameSession {
   return {
     messages,
     botMemory,
+    pendingInteraction,
     currentTurnId,
     loading,
     error,
     saves,
     sendTurn,
+    sendInteraction,
     retryLast,
     saveCheckpoint,
     loadCheckpoint,

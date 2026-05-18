@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import LightsOut from "./LightsOut";
 
 export type MinigameComponentProps = {
   config: {
@@ -13,5 +14,7 @@ export type MinigameComponentProps = {
   }) => void;
 };
 
-export const minigameRegistry: Record<string, ComponentType<MinigameComponentProps>> = {};
+export const minigameRegistry: Record<string, ComponentType<MinigameComponentProps>> = {
+  lights_out: LightsOut,
+};
 

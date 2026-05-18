@@ -598,3 +598,97 @@
   color: var(--text-muted);
   padding: 2rem;
 }
+
+/* ===================================================================
+   Minigame Wrapper & Lights-Out
+   =================================================================== */
+
+.minigame-wrapper {
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+  padding: 1rem 1.25rem;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.minigame-unknown {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.lights-out-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.lights-out-header {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+.lights-out-stat strong {
+  color: var(--text-primary);
+}
+
+.lights-out-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-size, 4), 1fr);
+  gap: 6px;
+}
+
+.lights-out-cell {
+  width: 52px;
+  height: 52px;
+  font-size: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  transition: transform 0.08s, border-color 0.1s, background 0.1s;
+  font-family: inherit;
+  padding: 0;
+  line-height: 1;
+}
+
+.lights-out-cell:hover:not(:disabled) {
+  transform: scale(1.08);
+  border-color: var(--accent);
+}
+
+.lights-out-cell:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.lights-out-cell--on {
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-tertiary));
+  border-color: var(--accent);
+}
+
+.lights-out-footer {
+  margin-top: 0.25rem;
+}
+
+.lights-out-result {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0.25rem 0 0;
+}
+
+.lights-out-result--success {
+  color: var(--accent);
+}
+
+.lights-out-result--failure {
+  color: var(--color-error, #e05c5c);
+}

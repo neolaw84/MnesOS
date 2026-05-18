@@ -19,6 +19,7 @@ import CartridgeLibrary from "./components/CartridgeLibrary";
 import PersonaManager from "./components/PersonaManager";
 import PlayHub from "./components/PlayHub";
 import StartNewGameModal from "./components/StartNewGameModal";
+import MinigameWrapper from "./components/minigames/MinigameWrapper";
 import { useGameSession } from "./hooks/useGameSession";
 import { exchangeCodeForKey } from "./utils/pkce";
 import { setOpenRouterKey, getInstanceId } from "./api/client";
@@ -177,10 +178,26 @@ function App() {
               hasMessages={session.messages.length > 0}
             />
 
-            <ChatInput
-              onSend={session.sendTurn}
-              disabled={session.loading}
-            />
+            {session.pendingInteraction ? (
+              <MinigameWrapper
+                pendingInteraction={session.pendingInteraction as {
+                  interaction_type: string;
+                  minigame_id: string;
+                  resolver_event?: string;
+                  config?: {
+                    difficulty?: Record<string, unknown>;
+                    assets?: Record<string, unknown>;
+                    narrative_hooks?: Record<string, unknown>;
+                  };
+                }}
+                onInteractionComplete={session.sendInteraction}
+              />
+            ) : (
+              <ChatInput
+                onSend={session.sendTurn}
+                disabled={session.loading}
+              />
+            )}
           </main>
 
           {/* Debug sidebar */}
