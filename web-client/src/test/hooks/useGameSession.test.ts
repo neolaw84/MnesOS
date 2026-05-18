@@ -5,6 +5,7 @@ import * as client from '../../api/client'
 
 vi.mock('../../api/client', () => ({
   getInstanceId: vi.fn(),
+  setInstanceId: vi.fn(),
   processTurn: vi.fn(),
   getGameState: vi.fn(),
   createSave: vi.fn(),
@@ -40,7 +41,7 @@ describe('useGameSession', () => {
     await act(async () => {
       await result.current.sendTurn('go north')
     })
-    expect(result.current.error).toMatch(/No instance ID/i)
+    expect(result.current.error).toMatch(/No active game/i)
   })
 
   it('sendTurn optimistically adds user message and then adds assistant', async () => {
@@ -99,12 +100,35 @@ describe('useGameSession', () => {
   })
 
   it('resetSession with instanceId loads state from API', async () => {
+    vi.mocked(client.getGameState).mockResolvedValue({
+      bot_memory: { player: { hp: 42 } },
+      client_messages: [
+        { role: 'user', content: 'look around' },
+        { role: 'assistant', content: 'You see a door.' },
+      ],
+      current_turn_id: 't-loaded',
+      last_user_input: 'look around',
+      last_parent_turn_id: 't-parent',
+    })
     const { result } = renderHook(() => useGameSession())
     await act(async () => {
       await result.current.resetSession('t-init')
     })
-    expect(result.current.messages[0]).toMatchObject({ role: 'assistant', content: 'Welcome, adventurer.' })
-    expect(result.current.botMemory).toEqual({ player: { hp: 100 } })
+    expect(result.current.messages).toHaveLength(2)
+    expect(result.current.botMemory).toEqual({ player: { hp: 42 } })
+    expect(result.current.currentTurnId).toBe('t-loaded')
+    vi.mocked(client.processTurn).mockResolvedValueOnce({
+      turn_id: 't-retry',
+      narrator_response: 'Retry response.',
+      yare_delta: {},
+    })
+    await act(async () => {
+      await result.current.retryLast()
+    })
+    expect(client.processTurn).toHaveBeenCalledWith('inst-1', {
+      parent_turn_id: 't-parent',
+      user_input: 'look around',
+    })
   })
 
   it('resetSession without instanceId clears state', async () => {
@@ -152,6 +176,21 @@ describe('useGameSession', () => {
     expect(result.current.messages).toHaveLength(2)
     expect(result.current.botMemory).toEqual({ player: { hp: 30 } })
     expect(result.current.currentTurnId).toBe('old-turn')
+  })
+
+  it('loadCheckpoint does nothing without an instanceId', async () => {
+    vi.mocked(client.getInstanceId).mockReturnValue('')
+    const { result } = renderHook(() => useGameSession())
+    await act(async () => {
+      await result.current.loadCheckpoint({
+        id: 's-1',
+        instance_id: 'inst-1',
+        turn_log_id: 'old-turn',
+        label: 'cp',
+        created_at: '2026-01-01',
+      })
+    })
+    expect(client.getGameState).not.toHaveBeenCalled()
   })
 
   it('retryLast does nothing if no previous input', async () => {
@@ -213,6 +252,15 @@ describe('useGameSession', () => {
     expect(result.current.saves).toHaveLength(1)
   })
 
+  it('refreshSaves does nothing without an instanceId', async () => {
+    vi.mocked(client.getInstanceId).mockReturnValue('')
+    const { result } = renderHook(() => useGameSession())
+    await act(async () => {
+      await result.current.refreshSaves()
+    })
+    expect(client.listSaves).not.toHaveBeenCalled()
+  })
+
   it('resetSession sets error when getGameState fails', async () => {
     vi.mocked(client.getGameState).mockRejectedValue(new Error('Reset failed'))
     const { result } = renderHook(() => useGameSession())
@@ -220,5 +268,35 @@ describe('useGameSession', () => {
       await result.current.resetSession('t-1')
     })
     expect(result.current.error).toBe('Reset failed')
+  })
+
+  it('clearSession resets all state and instance ID', async () => {
+    // Set up some state first
+    vi.mocked(client.getInstanceId).mockReturnValueOnce('inst-1')
+    vi.mocked(client.getGameState).mockResolvedValueOnce({
+      bot_memory: { hp: 100 },
+      client_messages: [{ role: 'user', content: 'Test' }],
+    })
+    const { result } = renderHook(() => useGameSession())
+    
+    // Load a session
+    await act(async () => {
+      await result.current.resetSession('t-1')
+    })
+    expect(result.current.messages).toHaveLength(1)
+    expect(result.current.botMemory).toEqual({ hp: 100 })
+    
+    // Clear the session
+    await act(async () => {
+      result.current.clearSession()
+    })
+    
+    expect(result.current.messages).toHaveLength(0)
+    expect(result.current.botMemory).toEqual({})
+    expect(result.current.currentTurnId).toBeNull()
+    expect(result.current.loading).toBe(false)
+    expect(result.current.error).toBeNull()
+    expect(result.current.saves).toHaveLength(0)
+    expect(client.setInstanceId).toHaveBeenCalledWith('')
   })
 })

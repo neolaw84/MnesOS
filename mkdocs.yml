@@ -30,18 +30,19 @@ theme:
 
 nav:
   - Home: index.md
-  - Cartridge Guide: cartridge-guide.md
-  - Reference:
-      - YARE Specification: yare-specification.md
-      - API: api.md
   - Guides:
-      - Play-Testing Guide (Linux/macOS): play-test.md
-      - Play-Testing Guide (Windows): play-test-win.md
-      - Advanced Combat Mechanics: guides/advanced-combat-mechanics.md
-  - Design Tracking:
-      - Architecture Analysis: design/0001-three-node-graph-architecture.md
-      - State and Turn Flow: design/0002-state-and-turn-flow.md
-      - Separate NPC Brain: design/separate-npc-brain.md
+      - Player Guide: guides/player-guide.md
+      - Cartridge Developer Guide: guides/cartridge-developer-guide.md
+  - Core Architecture:
+      - Architecture: design/architecture.md
+      - Philosophy: design/philosophy.md
+      - YARE Specification: yare-specification.md
+      - API Reference: api.md
+  - Development:
+      - Directory Map: development/directory-map.md
+      - CI/CD & Build Instructions: development/ci-cd.md
+  - AI Context:
+      - AI Knowledge Map: ai-index.md
 
 plugins:
   - search

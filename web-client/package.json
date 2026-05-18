@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "predev": "node scripts/generate-minigame-schema.js",
     "build": "tsc -b && vite build",
+    "prebuild": "node scripts/generate-minigame-schema.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",

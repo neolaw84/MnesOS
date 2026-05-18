@@ -12,7 +12,7 @@ vi.mock('../components/StateDebugger', () => ({ default: () => <div data-testid=
 vi.mock('../components/SaveManager', () => ({ default: () => <div data-testid="save-manager" /> }));
 vi.mock('../components/CartridgeLibrary', () => ({ default: () => <div data-testid="cartridge-library" /> }));
 vi.mock('../components/PersonaManager', () => ({ default: () => <div data-testid="persona-manager" /> }));
-vi.mock('../components/GameInstanceManager', () => ({ default: () => <div data-testid="game-instance-manager" /> }));
+vi.mock('../components/PlayHub', () => ({ default: () => <div data-testid="play-hub" /> }));
 vi.mock('../components/StartNewGameModal', () => ({ default: () => <div data-testid="start-new-game-modal" /> }));
 
 vi.mock('../utils/pkce', () => ({

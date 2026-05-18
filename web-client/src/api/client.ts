@@ -273,6 +273,7 @@ export async function uploadCartridgeVersion(
     yareFile?: File;
     loreFile?: File;
     directivesFile?: File;
+    firstMessageFile?: File;
   },
 ): Promise<CartridgeVersion> {
   const formData = new FormData();
@@ -284,6 +285,8 @@ export async function uploadCartridgeVersion(
     if (files.loreFile) formData.append("lore_file", files.loreFile);
     if (files.directivesFile)
       formData.append("directives_file", files.directivesFile);
+    if (files.firstMessageFile)
+      formData.append("first_message_file", files.firstMessageFile);
   }
 
   const headers: Record<string, string> = {};

@@ -17,19 +17,20 @@ import StateDebugger from "./components/StateDebugger";
 import SaveManager from "./components/SaveManager";
 import CartridgeLibrary from "./components/CartridgeLibrary";
 import PersonaManager from "./components/PersonaManager";
-import GameInstanceManager from "./components/GameInstanceManager";
+import PlayHub from "./components/PlayHub";
 import StartNewGameModal from "./components/StartNewGameModal";
 import { useGameSession } from "./hooks/useGameSession";
 import { exchangeCodeForKey } from "./utils/pkce";
-import { setOpenRouterKey } from "./api/client";
+import { setOpenRouterKey, getInstanceId } from "./api/client";
 import "./App.css";
 
-type View = "game" | "library" | "personas" | "active_games";
+type View = "play" | "library" | "personas";
 
 function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [debugVisible, setDebugVisible] = useState(false);
   const [view, setView] = useState<View>("library");
+  const [activeInstanceId, setActiveInstanceId] = useState<string | null>(null);
   const [startNewGameOpen, setStartNewGameOpen] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -64,8 +65,10 @@ function App() {
   useEffect(() => {
     const handlePlay = (e: Event) => {
       const customEvent = e as CustomEvent;
+      const instanceId = customEvent.detail?.instance_id || getInstanceId();
+      setActiveInstanceId(instanceId || null);
       session.resetSession(customEvent.detail?.turn_id);
-      setView("game");
+      setView("play");
     };
     window.addEventListener("mnesos-play-instance", handlePlay);
     return () => window.removeEventListener("mnesos-play-instance", handlePlay);
@@ -99,10 +102,10 @@ function App() {
         <span className="app-subtitle">Alpha — Agentic RPG Engine</span>
         <div style={{ display: "flex", gap: "0.5rem", marginLeft: "auto" }}>
           <button
-            className={`btn btn-small ${view === "game" ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => setView("game")}
+            className={`btn btn-small ${view === "play" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setView("play")}
           >
-            🕹 Play
+            🎮 Play
           </button>
           <button
             className={`btn btn-small ${view === "library" ? "btn-primary" : "btn-secondary"}`}
@@ -117,19 +120,6 @@ function App() {
             🎭 Personas
           </button>
           <button
-            className={`btn btn-small ${view === "active_games" ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => setView("active_games")}
-          >
-            📂 Active Games
-          </button>
-          <button
-            className="btn btn-small btn-primary"
-            style={{ backgroundColor: "var(--color-success)", color: "white" }}
-            onClick={() => setStartNewGameOpen(true)}
-          >
-            🚀 Start New Game
-          </button>
-          <button
             className="btn btn-small btn-secondary"
             onClick={() => setSettingsOpen(true)}
           >
@@ -139,7 +129,7 @@ function App() {
       </header>
 
       {/* Error banner */}
-      {session.error && view === "game" && (
+      {session.error && view === "play" && (
         <div className="error-banner">
           <span>{session.error}</span>
           <button className="btn btn-small" onClick={session.clearError}>
@@ -157,12 +147,21 @@ function App() {
         <div className="app-body" style={{ padding: "1rem", overflowY: "auto" }}>
           <PersonaManager />
         </div>
-      ) : view === "active_games" ? (
-        <div className="app-body" style={{ padding: "1rem", overflowY: "auto" }}>
-          <GameInstanceManager />
-        </div>
-      ) : (
+      ) : activeInstanceId ? (
+        // Play view with active instance — show chat
         <div className="app-body">
+          {/* Back to games button */}
+          <div style={{ padding: "0.5rem 1rem", borderBottom: "1px solid var(--border-color)" }}>
+            <button
+              className="btn btn-small btn-secondary"
+              onClick={() => {
+                setActiveInstanceId(null);
+                session.clearSession();
+              }}
+            >
+              ← My Games
+            </button>
+          </div>
           {/* Chat + Input column */}
           <main className="chat-column">
             <ChatPane messages={session.messages} loading={session.loading} />
@@ -191,6 +190,11 @@ function App() {
             onToggle={() => setDebugVisible((v) => !v)}
           />
         </div>
+      ) : (
+        // Play hub — no active instance
+        <div className="app-body play-hub">
+          <PlayHub onStartNewGame={() => setStartNewGameOpen(true)} />
+        </div>
       )}
 
       {/* Settings modal — key forces remount to re-read localStorage */}
@@ -204,11 +208,10 @@ function App() {
         open={startNewGameOpen}
         onClose={() => setStartNewGameOpen(false)}
         onStart={(turnId) => {
-          if (turnId) {
-            window.dispatchEvent(
-              new CustomEvent("mnesos-play-instance", { detail: { turn_id: turnId } })
-            );
-          }
+          // Always dispatch — turnId may be null if cartridge has no first_message
+          window.dispatchEvent(
+            new CustomEvent("mnesos-play-instance", { detail: { turn_id: turnId } })
+          );
         }}
       />
     </div>

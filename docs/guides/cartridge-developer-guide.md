@@ -50,7 +50,7 @@ state_schema:
 
 - `public` fields are eligible for narrator context.
 - omitted `visibility` defaults to `private`.
-- direct `@ state...` access to private fields is blocked by the interpreter.
+- `private` fields are excluded from the narrator context to keep hidden mechanics deterministic without leaking them into player-facing narration, but they remain fully accessible to the YARE interpreter for rules and logic.
 
 This keeps hidden mechanics deterministic without leaking them into player-facing narration.
 

@@ -226,10 +226,16 @@ describe('Cartridge API', () => {
       json: () => Promise.resolve(expected),
     }))
     const yareFile = new File(['yare'], 'yare.yaml', { type: 'text/yaml' })
-    await uploadCartridgeVersion('c-1', '3.0.0', { yareFile })
+    const loreFile = new File(['lore'], 'bot_lore.md', { type: 'text/markdown' })
+    const directivesFile = new File(['director: {}'], 'prompt_directives.yaml', { type: 'text/yaml' })
+    const firstMessageFile = new File(['hello'], 'first-message.md', { type: 'text/markdown' })
+    await uploadCartridgeVersion('c-1', '3.0.0', { yareFile, loreFile, directivesFile, firstMessageFile })
     const calls = (fetch as ReturnType<typeof vi.fn>).mock.calls
     const formData = calls[0][1].body as FormData
     expect(formData.get('yare_file')).toBeTruthy()
+    expect(formData.get('lore_file')).toBeTruthy()
+    expect(formData.get('directives_file')).toBeTruthy()
+    expect(formData.get('first_message_file')).toBeTruthy()
   })
 
   it('uploadCartridgeVersion throws on error', async () => {

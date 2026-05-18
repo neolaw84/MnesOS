@@ -20,8 +20,10 @@ MnesOS cleanly separates numerical stat tracking from narrative immersion to sol
 
 ### 2. Pure Stateless Core
 The backend engine (`src/MnesOS/graph.py`) retains no operational memory across network turns.
-- The state graph acts purely as a deterministic pure function: `f(State, Input) -> NewState`.
-- Persistence, checkpointing, and branch management are strictly owned by the caller/client storage layers, enabling infinite execution timeline branching and historical rewinds.
+- **Pure Functional Graph**: The state graph acts purely as a deterministic pure function: `f(State, Input) -> NewState`.
+- **Decoupled Persistence**: The engine is strictly decoupled from the storage layer. Game state is persisted as a versioned, event-sourced timeline in the database, enabling the client to request execution from any historical point (infinite branching) without the engine maintaining session memory across network turns.
+- **Event-Sourced World vs Framework State**: The game world state (`GameState`) is structurally decoupled from the AI framework's internal memory (e.g., LangGraph checkpointers). This ensures the game history is structured, queryable, and independent of the AI agent running it.
+- **Strict Input Constraining**: When the world state requires a specific interaction (e.g., a mini-game or UI form), the engine natively tracks this (`_pending_interaction`) and uses a hard gate (Input Router) to bypass the LLM intent parser entirely, forcing determinism during narrative locks.
 
 ### 3. Bounded Engine Constraints
 To prevent mechanical infinite loops and resource overruns, engine loops are strictly bounded:
