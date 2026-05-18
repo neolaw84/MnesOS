@@ -220,7 +220,7 @@ test.describe('Smoke – App loads without credentials', () => {
   test('navigation between views works', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('button', { name: /play/i }).click()
-    await expect(page.locator('.chat-pane')).toBeVisible()
+    await expect(page.getByText('Start New Game')).toBeVisible()
     await page.getByRole('button', { name: /library/i }).click()
     await expect(page.getByText('Cartridge Library')).toBeVisible()
   })

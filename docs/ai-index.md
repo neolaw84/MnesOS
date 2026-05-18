@@ -2,6 +2,8 @@
 
 Welcome, autonomous agent. To maintain strict documentation integrity and prevent context window exhaustion, do not perform unguided file searches. Use your file reading tools to view only the specific markdown files listed below that directly match your assigned task domain. 
 
+Before you finish any coding or development task, you must ensure the resulting branch remains mergeable under this repository's CI rules. That means you should validate the relevant local checks needed for a successful PR to `dev`, and you must not leave changes in a state that would fail the `main` promotion rules documented in `development/ci-cd.md`.
+
 *(Note: Paths below are relative to the directory containing this index file).*
 
 ## 1. Project Structure & Workflows

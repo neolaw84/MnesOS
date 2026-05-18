@@ -30,7 +30,7 @@ PIP=$(call P,$(VENV)/$(VENV_BIN)/pip)
 NPM=npm
 PLAYWRIGHT=npx playwright
 
-.PHONY: help setup python-test web-test build stage e2e package full-ci clean sync-refs
+.PHONY: help setup python-test web-test build stage playwright-install e2e package full-ci clean sync-refs
 
 help:
 	@echo "Usage: make <target>"
@@ -40,6 +40,7 @@ help:
 	@echo "  web-test      Run web unit tests (Vitest + coverage)"
 	@echo "  build         Build web-client (tsc + vite)"
 	@echo "  stage         Stage built web-client into src/MnesOS/static"
+	@echo "  playwright-install  Install Playwright Chromium browser binaries"
 	@echo "  e2e           Run Playwright E2E (unified mode)"
 	@echo "  run-web       Start frontend dev server (foreground)"
 	@echo "  run-python    Start backend dev server (uvicorn, foreground)"
@@ -49,7 +50,7 @@ help:
 	@echo "  full-ci       Run python-test, web-test, build+stage, e2e, package"
 	@echo "  clean         Clean build artifacts"
 
-setup:
+setup: playwright-install
 	python -m venv $(VENV)
 	$(PY) -m pip install --upgrade pip
 	$(PIP) install -e ".[dev]"
@@ -69,7 +70,16 @@ stage:
 	$(MKDIR) $(call FIXPATH,src/MnesOS/static)
 	$(CP) $(call FIXPATH,web-client/dist/.) $(call FIXPATH,src/MnesOS/static/)
 
-e2e: build stage
+playwright-install:
+	@if [ ! -d web-client/node_modules ]; then \
+		echo "Installing web-client dependencies (npm ci) for Playwright check..."; \
+		cd web-client && $(NPM) ci; \
+	fi
+	@cd web-client && node -e "const fs=require('fs'); const p=require('playwright'); process.exit(fs.existsSync(p.chromium.executablePath()) ? 0 : 1)" \
+		&& echo "Playwright Chromium already installed; skipping." \
+		|| (echo "Installing Playwright Chromium..." && cd web-client && $(PLAYWRIGHT) install --with-deps chromium)
+
+e2e: build stage playwright-install
 	cd web-client && CI=true $(PLAYWRIGHT) test --project chromium
 
 run-web:
@@ -93,7 +103,7 @@ sync-refs:
 package: sync-refs build stage
 	$(PY) -m build
 
-full-ci: python-test web-test e2e package
+full-ci: python-test web-test playwright-install e2e package
 
 clean:
 	$(RMDIR) dist build $(call FIXPATH,src/MnesOS/static) $(call FIXPATH,web-client/node_modules) || (exit 0)
