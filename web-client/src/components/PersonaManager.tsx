@@ -15,6 +15,13 @@ interface PersonaModalProps {
 }
 
 function PersonaModal({ open, persona, onClose, onSaved }: PersonaModalProps) {
+  const pronounPresets = {
+    he: { sub: "he", obj: "him", poss: "his", poss_obj: "his" },
+    she: { sub: "she", obj: "her", poss: "her", poss_obj: "hers" },
+    they: { sub: "they", obj: "them", poss: "their", poss_obj: "theirs" },
+  } as const;
+
+  const [pronounPreset, setPronounPreset] = useState<"he" | "she" | "they" | "custom">("they");
   const [name, setName] = useState("");
   const [pronounSub, setPronounSub] = useState("");
   const [pronounObj, setPronounObj] = useState("");
@@ -26,6 +33,47 @@ function PersonaModal({ open, persona, onClose, onSaved }: PersonaModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const applyPronounPreset = (preset: "he" | "she" | "they" | "custom") => {
+    setPronounPreset(preset);
+    if (preset === "custom") {
+      return;
+    }
+
+    const values = pronounPresets[preset];
+    setPronounSub(values.sub);
+    setPronounObj(values.obj);
+    setPronounPoss(values.poss);
+    setPronounPossObj(values.poss_obj);
+  };
+
+  const derivePronounPreset = (sub: string, obj: string, poss: string, possObj: string) => {
+    if (
+      sub === pronounPresets.he.sub &&
+      obj === pronounPresets.he.obj &&
+      poss === pronounPresets.he.poss &&
+      possObj === pronounPresets.he.poss_obj
+    ) {
+      return "he" as const;
+    }
+    if (
+      sub === pronounPresets.she.sub &&
+      obj === pronounPresets.she.obj &&
+      poss === pronounPresets.she.poss &&
+      possObj === pronounPresets.she.poss_obj
+    ) {
+      return "she" as const;
+    }
+    if (
+      sub === pronounPresets.they.sub &&
+      obj === pronounPresets.they.obj &&
+      poss === pronounPresets.they.poss &&
+      possObj === pronounPresets.they.poss_obj
+    ) {
+      return "they" as const;
+    }
+    return "custom" as const;
+  };
+
   useEffect(() => {
     if (open) {
       if (persona) {
@@ -34,15 +82,20 @@ function PersonaModal({ open, persona, onClose, onSaved }: PersonaModalProps) {
         setPronounObj(persona.pronoun_obj);
         setPronounPoss(persona.pronoun_poss);
         setPronounPossObj(persona.pronoun_poss_obj);
+        setPronounPreset(
+          derivePronounPreset(
+            persona.pronoun_sub,
+            persona.pronoun_obj,
+            persona.pronoun_poss,
+            persona.pronoun_poss_obj,
+          ),
+        );
         setAppearance(persona.appearance);
         setBackground(persona.background);
         setPersonality(persona.personality);
       } else {
         setName("");
-        setPronounSub("");
-        setPronounObj("");
-        setPronounPoss("");
-        setPronounPossObj("");
+        applyPronounPreset("they");
         setAppearance("");
         setBackground("");
         setPersonality("");
@@ -108,26 +161,56 @@ function PersonaModal({ open, persona, onClose, onSaved }: PersonaModalProps) {
           <input type="text" className="modal-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Robin" />
         </label>
 
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          <label className="modal-label" style={{ flex: 1 }}>
-            Pronoun (Sub) *
-            <input type="text" className="modal-input" value={pronounSub} onChange={(e) => setPronounSub(e.target.value)} placeholder="they" />
-          </label>
-          <label className="modal-label" style={{ flex: 1 }}>
-            Pronoun (Obj) *
-            <input type="text" className="modal-input" value={pronounObj} onChange={(e) => setPronounObj(e.target.value)} placeholder="them" />
-          </label>
-        </div>
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          <label className="modal-label" style={{ flex: 1 }}>
-            Pronoun (Poss) *
-            <input type="text" className="modal-input" value={pronounPoss} onChange={(e) => setPronounPoss(e.target.value)} placeholder="their" />
-          </label>
-          <label className="modal-label" style={{ flex: 1 }}>
-            Pronoun (Poss Obj) *
-            <input type="text" className="modal-input" value={pronounPossObj} onChange={(e) => setPronounPossObj(e.target.value)} placeholder="theirs" />
-          </label>
-        </div>
+        <label className="modal-label">
+          Pronoun preset
+          <select
+            className="modal-input"
+            value={pronounPreset}
+            onChange={(e) => applyPronounPreset(e.target.value as "he" | "she" | "they" | "custom")}
+          >
+            <option value="he">he/him/his/his</option>
+            <option value="she">she/her/her/hers</option>
+            <option value="they">they/them/their/theirs</option>
+            <option value="custom">custom</option>
+          </select>
+        </label>
+
+        {pronounPreset === "custom" && (
+          <>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <label className="modal-label" style={{ flex: 1 }}>
+                Pronoun (Sub) *
+                <input type="text" className="modal-input" value={pronounSub} onChange={(e) => {
+                  setPronounSub(e.target.value);
+                  setPronounPreset("custom");
+                }} placeholder="they" />
+              </label>
+              <label className="modal-label" style={{ flex: 1 }}>
+                Pronoun (Obj) *
+                <input type="text" className="modal-input" value={pronounObj} onChange={(e) => {
+                  setPronounObj(e.target.value);
+                  setPronounPreset("custom");
+                }} placeholder="them" />
+              </label>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <label className="modal-label" style={{ flex: 1 }}>
+                Pronoun (Poss) *
+                <input type="text" className="modal-input" value={pronounPoss} onChange={(e) => {
+                  setPronounPoss(e.target.value);
+                  setPronounPreset("custom");
+                }} placeholder="their" />
+              </label>
+              <label className="modal-label" style={{ flex: 1 }}>
+                Pronoun (Poss Obj) *
+                <input type="text" className="modal-input" value={pronounPossObj} onChange={(e) => {
+                  setPronounPossObj(e.target.value);
+                  setPronounPreset("custom");
+                }} placeholder="theirs" />
+              </label>
+            </div>
+          </>
+        )}
 
         <label className="modal-label">
           Appearance

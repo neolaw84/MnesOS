@@ -17,6 +17,7 @@ import {
   createSave,
   listSaves,
   getInstanceId,
+  setInstanceId,
 } from "../api/client";
 import type { GameSave } from "../types";
 
@@ -33,6 +34,7 @@ export interface GameSession {
   loadCheckpoint: (save: GameSave) => Promise<void>;
   refreshSaves: () => Promise<void>;
   clearError: () => void;
+  clearSession: () => void;
   resetSession: (initialTurnId?: string) => Promise<void>;
 }
 
@@ -203,7 +205,11 @@ export function useGameSession(): GameSession {
 
       setMessages(displayMsgs);
       setBotMemory(state.bot_memory);
-      setCurrentTurnId(save.turn_log_id);
+      setCurrentTurnId(state.current_turn_id ?? save.turn_log_id);
+      if (state.last_user_input) {
+        setLastUserInput(state.last_user_input);
+        setLastParentTurnId(state.last_parent_turn_id ?? null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -242,7 +248,11 @@ export function useGameSession(): GameSession {
         );
         setMessages(displayMsgs);
         setBotMemory(state.bot_memory);
-        setCurrentTurnId(initialTurnId || null);
+        setCurrentTurnId(state.current_turn_id ?? initialTurnId ?? null);
+        if (state.last_user_input) {
+          setLastUserInput(state.last_user_input);
+          setLastParentTurnId(state.last_parent_turn_id ?? null);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -260,6 +270,21 @@ export function useGameSession(): GameSession {
     }
   }, []);
 
+  // -----------------------------------------------------------------------
+  // Clear session
+  // -----------------------------------------------------------------------
+  const clearSession = useCallback(() => {
+    setMessages([]);
+    setBotMemory({});
+    setCurrentTurnId(null);
+    setLoading(false);
+    setError(null);
+    setSaves([]);
+    setLastParentTurnId(null);
+    setLastUserInput("");
+    setInstanceId("");
+  }, []);
+
   return {
     messages,
     botMemory,
@@ -273,6 +298,7 @@ export function useGameSession(): GameSession {
     loadCheckpoint,
     refreshSaves,
     clearError,
+    clearSession,
     resetSession,
   };
 }

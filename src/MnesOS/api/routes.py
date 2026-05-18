@@ -242,7 +242,7 @@ def get_game_state(
     instance_id: str = Depends(verify_instance_ownership),
     turn_log_id: Optional[str] = Query(
         None,
-        description="UUID of the turn to hydrate up to. If omitted, returns initial state.",
+        description="UUID of the turn to hydrate up to. If omitted, resumes from latest turn.",
     ),
     storage: AbstractStorageComponent = Depends(get_storage),
     orch: Orchestrator = Depends(_get_orchestrator),
@@ -251,10 +251,27 @@ def get_game_state(
     if turn_log_id:
         lineage = storage.get_turn_lineage(turn_log_id)
     else:
-        lineage = []
+        # If no turn_log_id specified, fetch the latest turn (by turn_index) and use it
+        turns = storage.get_turn_logs(instance_id)
+        if turns:
+            latest_turn = turns[-1]  # Last entry has highest turn_index
+            lineage = storage.get_turn_lineage(latest_turn.id)
+        else:
+            lineage = []
 
     state = StateHydrator.hydrate_state(lineage, orch.cartridge.initial_state)
+
+    current_turn_id = lineage[-1].id if lineage else None
+    last_player_turn = next(
+        (t for t in reversed(lineage) if t.actor == TurnActor.PLAYER), None
+    )
+    last_user_input = last_player_turn.input_text if last_player_turn else None
+    last_parent_turn_id = last_player_turn.parent_id if last_player_turn else None
+
     return HydratedStateResponse(
         bot_memory=state["bot_memory"],
         client_messages=state["client_messages"],
+        current_turn_id=current_turn_id,
+        last_user_input=last_user_input,
+        last_parent_turn_id=last_parent_turn_id,
     )

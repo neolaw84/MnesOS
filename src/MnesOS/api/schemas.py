@@ -241,6 +241,9 @@ class HydratedStateResponse(BaseModel):
 
     bot_memory: Dict[str, Any]
     client_messages: List[Dict[str, str]]
+    current_turn_id: Optional[str] = None
+    last_user_input: Optional[str] = None
+    last_parent_turn_id: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

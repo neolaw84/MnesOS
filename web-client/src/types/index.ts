@@ -93,6 +93,9 @@ export interface GameSave {
 export interface HydratedStateResponse {
   bot_memory: Record<string, unknown>;
   client_messages: ChatMessage[];
+  current_turn_id?: string | null;
+  last_user_input?: string | null;
+  last_parent_turn_id?: string | null;
 }
 
 // ---------------------------------------------------------------------------

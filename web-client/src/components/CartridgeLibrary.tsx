@@ -18,6 +18,23 @@ import {
   uploadCartridgeVersion,
 } from "../api/client";
 
+async function fetchWithRetry<T>(task: () => Promise<T>, attempts = 3, delayMs = 250): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await task();
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Request failed.");
+}
+
 // ---------------------------------------------------------------------------
 // CreateCartridgeModal
 // ---------------------------------------------------------------------------
@@ -174,6 +191,7 @@ function UploadVersionModal({ open, cartridgeId, onClose, onUploaded }: UploadVe
   const [yareFile, setYareFile] = useState<File | null>(null);
   const [loreFile, setLoreFile] = useState<File | null>(null);
   const [directivesFile, setDirectivesFile] = useState<File | null>(null);
+  const [firstMessageFile, setFirstMessageFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -206,7 +224,12 @@ function UploadVersionModal({ open, cartridgeId, onClose, onUploaded }: UploadVe
         versionTag.trim(),
         uploadMode === "zip"
           ? { zipFile: zipFile! }
-          : { yareFile: yareFile!, loreFile: loreFile!, directivesFile: directivesFile ?? undefined },
+          : {
+              yareFile: yareFile!,
+              loreFile: loreFile!,
+              directivesFile: directivesFile ?? undefined,
+              firstMessageFile: firstMessageFile ?? undefined,
+            },
       );
       onUploaded(uploaded);
       onClose();
@@ -215,6 +238,7 @@ function UploadVersionModal({ open, cartridgeId, onClose, onUploaded }: UploadVe
       setYareFile(null);
       setLoreFile(null);
       setDirectivesFile(null);
+      setFirstMessageFile(null);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Upload failed.");
     } finally {
@@ -299,6 +323,15 @@ function UploadVersionModal({ open, cartridgeId, onClose, onUploaded }: UploadVe
                 onChange={(e) => setDirectivesFile(e.target.files?.[0] ?? null)}
               />
             </label>
+            <label className="modal-label">
+              first-message.md (optional)
+              <input
+                type="file"
+                accept=".md"
+                className="modal-input"
+                onChange={(e) => setFirstMessageFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
           </>
         )}
 
@@ -340,7 +373,7 @@ function CartridgeDetail({ cartridge, onDeleted, onBack, onUpdated }: CartridgeD
   useEffect(() => {
     const fetchVersions = async () => {
       try {
-        const data = await listCartridgeVersions(cartridge.id);
+        const data = await fetchWithRetry(() => listCartridgeVersions(cartridge.id));
         setVersions(data);
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Failed to load versions.");
@@ -464,7 +497,7 @@ export default function CartridgeLibrary() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    listCartridges()
+    fetchWithRetry(() => listCartridges())
       .then(setCartridges)
       .catch((e: unknown) =>
         setError(e instanceof Error ? e.message : "Failed to load cartridges."),

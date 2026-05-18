@@ -477,3 +477,124 @@
   color: var(--text-muted);
   line-height: 1.4;
 }
+
+/* ===================================================================
+   Play Hub
+   =================================================================== */
+
+.play-hub {
+  overflow: hidden;
+}
+
+.play-hub-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem;
+}
+
+.play-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* "New Game" call-to-action card */
+.play-hub-new-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 160px;
+  border: 2px dashed var(--accent);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.play-hub-new-card:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  transform: translateY(-2px);
+}
+
+.play-hub-new-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+  font-weight: 300;
+}
+
+.play-hub-new-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* Instance cards */
+.play-hub-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 160px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.play-hub-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.play-hub-card-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.play-hub-card-status {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.play-hub-card-body {
+  flex: 1;
+}
+
+.play-hub-card-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0 0 0.25rem;
+}
+
+.play-hub-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.play-hub-delete-btn {
+  font-size: 0.75rem;
+  color: var(--color-error, #e05c5c);
+  padding: 4px 8px;
+}
+
+.play-hub-loading {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--text-muted);
+  padding: 2rem;
+}

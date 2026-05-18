@@ -41,6 +41,16 @@ describe('SettingsModal', () => {
     expect(pkce.initiateOpenRouterLogin).toHaveBeenCalledOnce()
   })
 
+  it('alerts when Connect OpenRouter fails', async () => {
+    vi.mocked(pkce.initiateOpenRouterLogin).mockRejectedValueOnce(new Error('Auth failed'))
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined)
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const user = userEvent.setup()
+    render(<SettingsModal open={true} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: /connect openrouter/i }))
+    expect(alertSpy).toHaveBeenCalledWith('Could not start OpenRouter connection: Auth failed')
+  })
+
   it('renders Disconnect button when key is present', async () => {
     vi.mocked(client.getOpenRouterKey).mockReturnValueOnce('sk-or-existing')
     const user = userEvent.setup()
