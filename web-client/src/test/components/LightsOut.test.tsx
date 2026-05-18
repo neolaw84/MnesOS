@@ -2,7 +2,7 @@
  * Unit tests for the LightsOut minigame component.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LightsOut from '../../components/minigames/LightsOut/LightsOut'
 
@@ -112,5 +112,45 @@ describe('LightsOut', () => {
       const status = onComplete.mock.calls[0][0].status
       expect(['completed', 'failed']).toContain(status)
     }
+  })
+
+  it('shows on_failure narrative hook text when moves are exhausted', async () => {
+    // Math.random = 0.99 → idx = floor(0.99 * 4) = 3 in a 2x2 grid (4 cells)
+    // scramble_depth=1: toggles cell 3 and its neighbours (cells 1, 2, 3) → lit
+    // Clicking cell 0 toggles cells 0, 1, 2 → only cell 3 remains lit → failed
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const onComplete = vi.fn()
+    const user = userEvent.setup()
+    const config = {
+      difficulty: { grid_size: 2, max_moves: 1, scramble_depth: 1 },
+      assets: {},
+      narrative_hooks: { on_failure: 'Game over!' },
+    }
+    render(<LightsOut config={config} onComplete={onComplete} />)
+    const cellButtons = screen
+      .getAllByRole('button')
+      .filter((b) => b.getAttribute('aria-label')?.startsWith('Cell '))
+    await user.click(cellButtons[0])
+    await waitFor(() => expect(screen.getByText('Game over!')).toBeInTheDocument())
+    vi.restoreAllMocks()
+  })
+
+  it('shows on_near_miss narrative hook when few cells remain lit', async () => {
+    // Same scramble setup; with only on_near_miss (no on_failure), after
+    // clicking cell 0: cell 3 remains lit (litCount=1 ≤ 2) → shows hook text.
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const user = userEvent.setup()
+    const config = {
+      difficulty: { grid_size: 2, max_moves: 5, scramble_depth: 1 },
+      assets: {},
+      narrative_hooks: { on_near_miss: 'Almost there!' },
+    }
+    render(<LightsOut config={config} onComplete={vi.fn()} />)
+    const cellButtons = screen
+      .getAllByRole('button')
+      .filter((b) => b.getAttribute('aria-label')?.startsWith('Cell '))
+    await user.click(cellButtons[0])
+    await waitFor(() => expect(screen.getByText('Almost there!')).toBeInTheDocument())
+    vi.restoreAllMocks()
   })
 })

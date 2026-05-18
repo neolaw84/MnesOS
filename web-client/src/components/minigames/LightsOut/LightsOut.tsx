@@ -157,12 +157,7 @@ export default function LightsOut({ config, onComplete }: MinigameComponentProps
     [finished, movesLeft, gridSize],
   );
 
-  cons{currentHookText && (
-        <div className="lights-out-narrative" style={{ marginBottom: '0.5rem', fontStyle: 'italic', color: 'var(--text-secondary)', textAlign: 'center' }}>
-          {currentHookText}
-        </div>
-      )}
-      t handleAbort = useCallback(() => {
+  const handleAbort = useCallback(() => {
     if (finished) return;
     setFinished(true);
     onCompleteRef.current({
@@ -199,6 +194,12 @@ export default function LightsOut({ config, onComplete }: MinigameComponentProps
           </button>
         ))}
       </div>
+
+      {currentHookText && (
+        <div className="lights-out-narrative" style={{ marginBottom: '0.5rem', fontStyle: 'italic', color: 'var(--text-secondary)', textAlign: 'center' }}>
+          {currentHookText}
+        </div>
+      )}
 
       {!finished && (
         <div className="lights-out-footer">
