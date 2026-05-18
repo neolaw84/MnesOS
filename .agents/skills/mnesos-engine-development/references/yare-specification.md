@@ -9,6 +9,8 @@ version: "1.0"
 state_schema:
   domain:
     field: { type: int|float|string|bool|list, default: 0, min: 0, max: 10, visibility: public }
+# NOTE: It is strongly recommended to use flat snake_case variables (e.g. `domain_field_name`) 
+# rather than nesting dictionaries deeply, to guarantee deterministic updates and state overrides in the engine.
 macros:
   macro_name: "@ expression"
 events:

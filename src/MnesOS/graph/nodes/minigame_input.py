@@ -10,7 +10,7 @@ from ...interpreter import YAREInterpreter
 from ..state import GameState
 
 
-def input_router_node(state: GameState, config: RunnableConfig) -> dict:
+def minigame_input_node(state: GameState, config: RunnableConfig) -> dict:
     """Securely route structured interaction payloads into deterministic YARE events.
 
     Currently supports:
@@ -71,19 +71,17 @@ def input_router_node(state: GameState, config: RunnableConfig) -> dict:
     new_notes.extend(interpreter.notes)
 
     # Inform the Director about the outcome via agent_messages
-    agent_messages = list(state.get("agent_messages") or [])
     outcome_msg = (
         f"MINIGAME RESOLVED: {pending_minigame_id}\n"
         f"Status: {interaction.get('status')}\n"
         f"Metrics: {interaction.get('metrics')}\n"
         f"System Notes: {', '.join(interpreter.notes)}"
     )
-    agent_messages.append(HumanMessage(content=outcome_msg))
 
     return {
         "bot_memory": new_memory,
         "system_notes": new_notes,
-        "agent_messages": agent_messages,
+        "agent_messages": [HumanMessage(content=outcome_msg)],
         "incoming_interaction": None,
     }
 

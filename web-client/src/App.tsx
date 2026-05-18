@@ -37,6 +37,7 @@ function App() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   const session = useGameSession();
+  const [minigameOpen, setMinigameOpen] = useState(false);
 
   // PKCE OAuth callback handling
   useEffect(() => {
@@ -165,7 +166,12 @@ function App() {
           </div>
           {/* Chat + Input column */}
           <main className="chat-column">
-            <ChatPane messages={session.messages} loading={session.loading} />
+            <ChatPane
+              messages={session.messages}
+              loading={session.loading}
+              pendingInteraction={session.pendingInteraction}
+              onOpenMinigame={() => setMinigameOpen(true)}
+            />
 
             <SaveManager
               saves={session.saves}
@@ -178,26 +184,10 @@ function App() {
               hasMessages={session.messages.length > 0}
             />
 
-            {session.pendingInteraction ? (
-              <MinigameWrapper
-                pendingInteraction={session.pendingInteraction as {
-                  interaction_type: string;
-                  minigame_id: string;
-                  resolver_event?: string;
-                  config?: {
-                    difficulty?: Record<string, unknown>;
-                    assets?: Record<string, unknown>;
-                    narrative_hooks?: Record<string, unknown>;
-                  };
-                }}
-                onInteractionComplete={session.sendInteraction}
-              />
-            ) : (
-              <ChatInput
+            <ChatInput
                 onSend={session.sendTurn}
                 disabled={session.loading}
               />
-            )}
           </main>
 
           {/* Debug sidebar */}
@@ -206,6 +196,20 @@ function App() {
             visible={debugVisible}
             onToggle={() => setDebugVisible((v) => !v)}
           />
+
+
+
+                    {session.pendingInteraction && minigameOpen && (
+            <div className="modal-overlay minigame-modal-overlay">
+              <MinigameWrapper
+                pendingInteraction={session.pendingInteraction as any}
+                onInteractionComplete={(payload) => {
+                  setMinigameOpen(false);
+                  session.sendInteraction(payload);
+                }}
+              />
+            </div>
+          )}
         </div>
       ) : (
         // Play hub — no active instance

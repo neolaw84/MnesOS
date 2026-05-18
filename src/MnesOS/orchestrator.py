@@ -311,4 +311,7 @@ class Orchestrator:
         for key in post:
             if key not in pre or pre[key] != post[key]:
                 diff[key] = copy.deepcopy(post[key])
+        for key in pre:
+            if key not in post:
+                diff[key] = None
         return diff

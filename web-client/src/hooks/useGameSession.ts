@@ -59,13 +59,24 @@ export function useGameSession(): GameSession {
 
   /** Extract `_pending_interaction` from a bot_memory dict and sync both states. */
   const applyBotMemory = useCallback((memory: Record<string, unknown>) => {
+    console.log("Applying Bot Memory:", memory);
     setBotMemory(memory);
+    
     const pending = memory["_pending_interaction"];
-    setPendingInteraction(
-      pending && typeof pending === "object" && !Array.isArray(pending)
-        ? (pending as Record<string, unknown>)
-        : null,
-    );
+
+    let parsedPending = null;
+    if (typeof pending === "string" && pending.trim() !== "") {
+      try {
+        parsedPending = JSON.parse(pending.replace(/'/g, '"'));
+      } catch (e) {
+        console.error("Failed to parse pending interaction string:", e);
+      }
+    } else if (pending && typeof pending === "object" && Object.keys(pending).length > 0) {
+      parsedPending = pending;
+    }
+
+    console.log("Final parsedPending for state:", parsedPending);
+    setPendingInteraction(parsedPending);
   }, []);
 
   // -----------------------------------------------------------------------
@@ -146,6 +157,9 @@ export function useGameSession(): GameSession {
           payload,
           currentTurnId,
         );
+        
+        // Optimistically clear the interaction so the overlay disappears immediately
+        setPendingInteraction(null);
 
         const assistantMsg: DisplayMessage = {
           role: "assistant",
@@ -168,6 +182,8 @@ export function useGameSession(): GameSession {
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
+        // Clear interaction on error too, otherwise the overlay gets stuck
+        setPendingInteraction(null);
       } finally {
         setLoading(false);
       }
@@ -320,6 +336,8 @@ export function useGameSession(): GameSession {
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
+        // Clear interaction on error too, otherwise the overlay gets stuck
+        setPendingInteraction(null);
       } finally {
         setLoading(false);
       }

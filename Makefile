@@ -94,7 +94,7 @@ run-e2e: build stage
 	@echo "Starting backend for manual E2E (uses real OpenRouter)."
 	@echo "Visit http://localhost:8000 in your browser to exercise the SPA."
 	@echo "Press Ctrl-C to stop the server when finished."
-	$(call SET_ENV,PYTHONPATH=src) $(call SET_ENV,MNESOS_DB_PATH=artifacts/mnesos.db) $(call SET_ENV,MNESOS_STATIC_DIR=src/MnesOS/static) $(call SET_ENV,OPENROUTER_BASE_URL=$(OPENROUTER_BASE_URL)) $(PY) -m uvicorn MnesOS.api.app:app --reload --host 0.0.0.0 --port 8000
+	$(call SET_ENV,PYTHONPATH=src) $(call SET_ENV,MNESOS_DB_PATH=artifacts/mnesos.db) $(call SET_ENV,MNESOS_STATIC_DIR=src/MnesOS/static) $(call SET_ENV,OPENROUTER_BASE_URL=$(OPENROUTER_BASE_URL)) $(PY) -m uvicorn MnesOS.api.app:app --host 0.0.0.0 --port 8000
 
 sync-refs:
 	@echo "Synchronizing docs/ to standalone agent skill references/ directories"

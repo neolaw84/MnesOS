@@ -4,22 +4,20 @@ version: "1.0"
 # State Schema
 # ---------------------------------------------------------------------------
 state_schema:
-  player:
-    hp:           { type: int,    default: 100, min: 0, max: 100, visibility: public }
-    name:         { type: string, default: "Hacker",              visibility: public }
-    credits:      { type: int,    default: 50,  min: 0,           visibility: public }
-    skill_level:  { type: int,    default: 1,   min: 1, max: 5,   visibility: private }
+  player_hp:           { type: int,    default: 100, min: 0, max: 100, visibility: public }
+  player_name:         { type: string, default: "Hacker",              visibility: public }
+  player_credits:      { type: int,    default: 50,  min: 0,           visibility: public }
+  player_skill_level:  { type: int,    default: 1,   min: 1, max: 5,   visibility: private }
 
-  terminal:
-    locked:        { type: bool,   default: true,  visibility: public }
-    attempts:      { type: int,    default: 0,     visibility: public }
-    reward_tier:   { type: string, default: "none", visibility: private }
+  terminal_locked:        { type: bool,   default: true,  visibility: public }
+  terminal_attempts:      { type: int,    default: 0,     visibility: public }
+  terminal_reward_tier:   { type: string, default: "none", visibility: private }
+  terminal_hack_interacted: { type: bool, default: false, visibility: private }
 
-  world:
-    current_room:  { type: string, default: "entry_corridor", visibility: public }
-    alarm_active:  { type: bool,   default: false,             visibility: public }
+  world_current_room:  { type: string, default: "entry_corridor", visibility: public }
+  world_alarm_active:  { type: bool,   default: false,             visibility: public }
 
-  _pending_interaction: { type: string, default: "", visibility: private }
+  _pending_interaction: { type: dict, default: {}, visibility: private }
 
 # ---------------------------------------------------------------------------
 # Events
@@ -31,14 +29,27 @@ events:
     steps:
       - action: branch
         conditions:
-          - if: "@ state.terminal.locked == false"
+          - if: "@ state.terminal_hack_interacted == true"
             steps:
+              - action: set
+                var: state._pending_interaction
+                value: {}
+              - action: note
+                message: "[SYSTEM LOG: Terminal security has engaged a permanent lockout after the previous attempt.]"
+          - if: "@ state.terminal_locked == false"
+            steps:
+              - action: set
+                var: state._pending_interaction
+                value: {}
               - action: note
                 message: "[SYSTEM LOG: Terminal is already unlocked. No need to hack.]"
           - else: true
             steps:
+              - action: set
+                var: state.terminal_hack_interacted
+                value: true
               - action: mutate
-                var: state.terminal.attempts
+                var: state.terminal_attempts
                 op: add
                 value: 1
               - action: set
@@ -59,7 +70,7 @@ events:
                       on_combo: "Circuit breakers are tripping one by one."
                       on_near_miss: "Sparks fly as you nearly short the panel."
               - action: note
-                message: "[SYSTEM LOG: Hack terminal mini-game triggered. Attempt #{state.terminal.attempts}.]"
+                message: "[SYSTEM LOG: Hack terminal mini-game triggered. Attempt #{state.terminal_attempts}.]"
 
   # ---------- Resolver — called by the Input Router with mini-game result ----------
   resolve_hack:
@@ -70,28 +81,28 @@ events:
           - if: "@ inputs.status == 'completed'"
             steps:
               - action: set
-                var: state.terminal.locked
+                var: state.terminal_locked
                 value: false
               - action: mutate
-                var: state.player.credits
+                var: state.player_credits
                 op: add
                 value: 100
               - action: set
-                var: state.terminal.reward_tier
+                var: state.terminal_reward_tier
                 value: "standard"
               - action: note
                 message: "[SYSTEM LOG: Terminal unlocked! +100 credits. Moves used: {inputs.minigame_specific_data.moves_made}]"
           - if: "@ inputs.status == 'failed'"
             steps:
               - action: set
-                var: state.world.alarm_active
+                var: state.world_alarm_active
                 value: true
               - action: mutate
-                var: state.player.hp
+                var: state.player_hp
                 op: sub
                 value: 15
               - action: note
-                message: "[SYSTEM LOG: Hack failed. Alarm triggered! HP -{inputs.minigame_specific_data.grid_remaining} penalty. Player HP: {state.player.hp}]"
+                message: "[SYSTEM LOG: Hack failed. Alarm triggered! HP -{inputs.minigame_specific_data.grid_remaining} penalty. Player HP: {state.player_hp}]"
           - else: true
             steps:
               - action: note
@@ -102,14 +113,14 @@ events:
     steps:
       - action: branch
         conditions:
-          - if: "@ state.terminal.locked == true"
+          - if: "@ state.terminal_locked == true"
             steps:
               - action: note
                 message: "[SYSTEM LOG: Server room door requires an unlocked terminal. Access denied.]"
           - else: true
             steps:
               - action: set
-                var: state.world.current_room
+                var: state.world_current_room
                 value: "server_room"
               - action: note
                 message: "[SYSTEM LOG: Player entered the server room.]"
@@ -117,7 +128,7 @@ events:
   disable_alarm:
     steps:
       - action: set
-        var: state.world.alarm_active
+        var: state.world_alarm_active
         value: false
       - action: note
         message: "[SYSTEM LOG: Alarm disabled.]"

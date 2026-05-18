@@ -159,7 +159,8 @@ We employ a **Tree-based Event Source** model, allowing branching timelines.
 To reconstruct `bot_memory` at any given node:
 1. Traverse up the `parent_id` chain to the root.
 2. Reverse the list (Root -> Target Node).
-3. Sequentially apply every `yare_delta` and message to a blank state object.
+3. Sequentially apply every `yare_delta` and message to a blank state object. 
+*(Note: To handle deletions over time, the `_extract_delta` engine produces `None` tombstones when a key is removed, which the hydrator honors by actively popping the key out of the dictionary.)*
 
 > **Note:** A periodic snapshotting of `bot_memory` (to avoid reconstructing everything at turn 1024 from turn 0) is something to consider.
 > 
