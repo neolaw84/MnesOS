@@ -11,8 +11,6 @@ vi.mock('../../api/client', () => ({
   setOpenRouterKey: vi.fn(),
   getUserId: vi.fn(() => ''),
   setUserId: vi.fn(),
-  getInstanceId: vi.fn(() => ''),
-  setInstanceId: vi.fn(),
 }))
 
 vi.mock('../../utils/pkce', () => ({
@@ -34,7 +32,6 @@ describe('SettingsModal', () => {
     expect(screen.getByRole('button', { name: /connect openrouter/i })).toBeInTheDocument()
     expect(screen.getByPlaceholderText('sk-or-...')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('user-uuid')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('instance-uuid')).toBeInTheDocument()
   })
 
   it('calls initiateOpenRouterLogin when Connect OpenRouter is clicked', async () => {

@@ -57,7 +57,7 @@ export function useGameSession(): GameSession {
     async (input: string) => {
       const instanceId = getInstanceId();
       if (!instanceId) {
-        setError("No instance ID configured. Open Settings to configure.");
+        setError("No active game. Start or resume a game from the dashboard.");
         return;
       }
 

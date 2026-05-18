@@ -40,7 +40,7 @@ describe('useGameSession', () => {
     await act(async () => {
       await result.current.sendTurn('go north')
     })
-    expect(result.current.error).toMatch(/No instance ID/i)
+    expect(result.current.error).toMatch(/No active game/i)
   })
 
   it('sendTurn optimistically adds user message and then adds assistant', async () => {
