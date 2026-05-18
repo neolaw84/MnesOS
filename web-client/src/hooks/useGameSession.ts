@@ -151,6 +151,13 @@ export function useGameSession(): GameSession {
       setLoading(true);
       setError(null);
 
+      // Record the minigame interaction in the chat history
+      const interactionMsg: DisplayMessage = {
+        role: "user",
+        content: `[minigame:${payload.minigame_id} status=${payload.status}]`,
+      };
+      setMessages((prev) => [...prev, interactionMsg]);
+
       try {
         const result: TurnResponse = await apiSendInteraction(
           instanceId,

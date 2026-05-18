@@ -82,6 +82,7 @@ function countLit(grid: boolean[]): number {
 export default function LightsOut({ config, onComplete }: MinigameComponentProps) {
   const difficulty = (config.difficulty ?? {}) as Record<string, unknown>;
   const assets = (config.assets ?? {}) as Record<string, unknown>;
+  const narrativeHooks = (config.narrative_hooks ?? {}) as Record<string, string>;
 
   const gridSize = typeof difficulty.grid_size === "number" ? difficulty.grid_size : 4;
   const maxMoves = typeof difficulty.max_moves === "number" ? difficulty.max_moves : 20;
@@ -102,6 +103,18 @@ export default function LightsOut({ config, onComplete }: MinigameComponentProps
   const movesLeft = maxMoves - movesMade;
   const litCount = countLit(grid);
   const solved = litCount === 0;
+
+  // Determine current narrative hook based on game state
+  let currentHookText = "";
+  if (solved && narrativeHooks["on_success"]) {
+    currentHookText = narrativeHooks["on_success"];
+  } else if (movesLeft <= 0 && movesMade > 0 && narrativeHooks["on_failure"]) {
+    currentHookText = narrativeHooks["on_failure"];
+  } else if (movesLeft === 1 && narrativeHooks["on_near_miss"]) {
+    currentHookText = narrativeHooks["on_near_miss"];
+  } else if (litCount <= 2 && narrativeHooks["on_near_miss"]) {
+    currentHookText = narrativeHooks["on_near_miss"];
+  }
 
   // Check win/lose after each move
   useEffect(() => {
@@ -144,7 +157,12 @@ export default function LightsOut({ config, onComplete }: MinigameComponentProps
     [finished, movesLeft, gridSize],
   );
 
-  const handleAbort = useCallback(() => {
+  cons{currentHookText && (
+        <div className="lights-out-narrative" style={{ marginBottom: '0.5rem', fontStyle: 'italic', color: 'var(--text-secondary)', textAlign: 'center' }}>
+          {currentHookText}
+        </div>
+      )}
+      t handleAbort = useCallback(() => {
     if (finished) return;
     setFinished(true);
     onCompleteRef.current({
