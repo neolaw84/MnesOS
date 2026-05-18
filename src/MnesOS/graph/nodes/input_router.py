@@ -26,7 +26,10 @@ def input_router_node(state: GameState, config: RunnableConfig) -> dict:
     bot_memory: Dict[str, Any] = dict(state.get("bot_memory") or {})
     pending = bot_memory.get("_pending_interaction")
     if not isinstance(pending, dict):
-        raise InteractionRoutingError("No pending minigame interaction to resolve.")
+        raise InteractionRoutingError(
+            f"No valid pending minigame interaction to resolve "
+            f"(expected dict, got {type(pending).__name__})."
+        )
 
     if pending.get("interaction_type") != "minigame":
         raise InteractionRoutingError("Pending interaction is not a minigame.")

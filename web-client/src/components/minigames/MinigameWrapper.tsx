@@ -40,6 +40,20 @@ export default function MinigameWrapper({
           Unknown minigame: <strong>{minigame_id}</strong>. Please update your
           client.
         </p>
+        <button
+          className="btn btn-secondary btn-small"
+          onClick={() =>
+            onInteractionComplete({
+              interaction_type: "minigame",
+              minigame_id,
+              status: "aborted",
+              metrics: {},
+              minigame_specific_data: {},
+            })
+          }
+        >
+          Dismiss (abort)
+        </button>
       </div>
     );
   }

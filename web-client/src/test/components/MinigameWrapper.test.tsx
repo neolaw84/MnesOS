@@ -41,6 +41,23 @@ describe('MinigameWrapper', () => {
     )
     expect(screen.getByText(/Unknown minigame/i)).toBeInTheDocument()
     expect(screen.getByText('unknown_game')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Dismiss/i })).toBeInTheDocument()
+  })
+
+  it('calls onInteractionComplete with aborted when Dismiss is clicked for unknown game', async () => {
+    const onInteractionComplete = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <MinigameWrapper
+        pendingInteraction={{ ...lightsOutPending, minigame_id: 'unknown_game' }}
+        onInteractionComplete={onInteractionComplete}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: /Dismiss/i }))
+    expect(onInteractionComplete).toHaveBeenCalledOnce()
+    expect(onInteractionComplete).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'aborted', minigame_id: 'unknown_game' }),
+    )
   })
 
   it('calls onInteractionComplete with correct payload when game is aborted', async () => {

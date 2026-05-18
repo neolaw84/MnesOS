@@ -102,8 +102,8 @@ describe('LightsOut', () => {
     for (let i = 0; i < 2 && !onComplete.mock.calls.length; i++) {
       const btns = cellButtons()
       if (btns.length === 0) break
-      // Pick a cell that is currently lit (if any) to avoid a trivial solve
-      const litCell = btns.find((b) => b.textContent?.includes('💡') || b.classList.contains('lights-out-cell--on')) ?? btns[0]
+      // Pick a cell that is currently ON (if any) to avoid a trivial solve
+      const litCell = btns.find((b) => b.classList.contains('lights-out-cell--on')) ?? btns[0]
       await user.click(litCell)
     }
 
