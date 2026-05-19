@@ -11,34 +11,41 @@ import type {
   TurnResponse,
   HydratedStateResponse,
 } from "../types";
+import type { MinigameInteractionPayload } from "../types/minigames";
 import {
   processTurn,
+  sendInteraction as apiSendInteraction,
   getGameState,
   createSave,
   listSaves,
   getInstanceId,
+  setInstanceId,
 } from "../api/client";
 import type { GameSave } from "../types";
 
 export interface GameSession {
   messages: DisplayMessage[];
   botMemory: Record<string, unknown>;
+  pendingInteraction: Record<string, unknown> | null;
   currentTurnId: string | null;
   loading: boolean;
   error: string | null;
   saves: GameSave[];
   sendTurn: (input: string) => Promise<void>;
+  sendInteraction: (payload: MinigameInteractionPayload) => Promise<void>;
   retryLast: () => Promise<void>;
   saveCheckpoint: (label: string) => Promise<void>;
   loadCheckpoint: (save: GameSave) => Promise<void>;
   refreshSaves: () => Promise<void>;
   clearError: () => void;
+  clearSession: () => void;
   resetSession: (initialTurnId?: string) => Promise<void>;
 }
 
 export function useGameSession(): GameSession {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [botMemory, setBotMemory] = useState<Record<string, unknown>>({});
+  const [pendingInteraction, setPendingInteraction] = useState<Record<string, unknown> | null>(null);
   const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +57,28 @@ export function useGameSession(): GameSession {
 
   const clearError = useCallback(() => setError(null), []);
 
+  /** Extract `_pending_interaction` from a bot_memory dict and sync both states. */
+  const applyBotMemory = useCallback((memory: Record<string, unknown>) => {
+    console.log("Applying Bot Memory:", memory);
+    setBotMemory(memory);
+    
+    const pending = memory["_pending_interaction"];
+
+    let parsedPending = null;
+    if (typeof pending === "string" && pending.trim() !== "") {
+      try {
+        parsedPending = JSON.parse(pending.replace(/'/g, '"'));
+      } catch (e) {
+        console.error("Failed to parse pending interaction string:", e);
+      }
+    } else if (pending && typeof pending === "object" && Object.keys(pending).length > 0) {
+      parsedPending = pending;
+    }
+
+    console.log("Final parsedPending for state:", parsedPending);
+    setPendingInteraction(parsedPending);
+  }, []);
+
   // -----------------------------------------------------------------------
   // Send a new turn
   // -----------------------------------------------------------------------
@@ -57,7 +86,7 @@ export function useGameSession(): GameSession {
     async (input: string) => {
       const instanceId = getInstanceId();
       if (!instanceId) {
-        setError("No instance ID configured. Open Settings to configure.");
+        setError("No active game. Start or resume a game from the dashboard.");
         return;
       }
 
@@ -93,7 +122,7 @@ export function useGameSession(): GameSession {
             instanceId,
             result.turn_id,
           );
-          setBotMemory(state.bot_memory);
+          applyBotMemory(state.bot_memory);
         } catch {
           // Non-fatal: the chat still works
         }
@@ -105,7 +134,75 @@ export function useGameSession(): GameSession {
         setLoading(false);
       }
     },
-    [currentTurnId],
+    [currentTurnId, applyBotMemory],
+  );
+
+  // -----------------------------------------------------------------------
+  // Send a minigame interaction result
+  // -----------------------------------------------------------------------
+  const sendInteraction = useCallback(
+    async (payload: MinigameInteractionPayload) => {
+      const instanceId = getInstanceId();
+      if (!instanceId) {
+        setError("No active game. Start or resume a game from the dashboard.");
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      // Record the minigame interaction in the chat history
+      const hookTextSection = payload.triggered_hooks && payload.triggered_hooks.length > 0
+        ? "\n" + payload.triggered_hooks.map((txt) => `"${txt}"`).join("\n")
+        : "";
+
+      const metricsStr = Object.entries(payload.metrics || {})
+        .map(([k, v]) => `${k}=${v}`)
+        .join(", ");
+      const interactionMsg: DisplayMessage = {
+        role: "user",
+        content: `[minigame:${payload.minigame_id} status=${payload.status}${metricsStr ? " " + metricsStr : ""}]${hookTextSection}`,
+      };
+      setMessages((prev) => [...prev, interactionMsg]);
+
+      try {
+        const result: TurnResponse = await apiSendInteraction(
+          instanceId,
+          payload,
+          currentTurnId,
+        );
+        
+        // Optimistically clear the interaction so the overlay disappears immediately
+        setPendingInteraction(null);
+
+        const assistantMsg: DisplayMessage = {
+          role: "assistant",
+          content: result.narrator_response,
+          turnId: result.turn_id,
+        };
+
+        setMessages((prev) => [...prev, assistantMsg]);
+        setCurrentTurnId(result.turn_id);
+
+        // Refresh bot_memory — clears _pending_interaction server-side
+        try {
+          const state: HydratedStateResponse = await getGameState(
+            instanceId,
+            result.turn_id,
+          );
+          applyBotMemory(state.bot_memory);
+        } catch {
+          // Non-fatal
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        // Clear interaction on error too, otherwise the overlay gets stuck
+        setPendingInteraction(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [currentTurnId, applyBotMemory],
   );
 
   // -----------------------------------------------------------------------
@@ -145,7 +242,7 @@ export function useGameSession(): GameSession {
 
       try {
         const state = await getGameState(instanceId, result.turn_id);
-        setBotMemory(state.bot_memory);
+        applyBotMemory(state.bot_memory);
       } catch {
         // Non-fatal
       }
@@ -154,7 +251,7 @@ export function useGameSession(): GameSession {
     } finally {
       setLoading(false);
     }
-  }, [lastParentTurnId, lastUserInput]);
+  }, [lastParentTurnId, lastUserInput, applyBotMemory]);
 
   // -----------------------------------------------------------------------
   // Save checkpoint
@@ -202,14 +299,18 @@ export function useGameSession(): GameSession {
       );
 
       setMessages(displayMsgs);
-      setBotMemory(state.bot_memory);
-      setCurrentTurnId(save.turn_log_id);
+      applyBotMemory(state.bot_memory);
+      setCurrentTurnId(state.current_turn_id ?? save.turn_log_id);
+      if (state.last_user_input) {
+        setLastUserInput(state.last_user_input);
+        setLastParentTurnId(state.last_parent_turn_id ?? null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyBotMemory]);
 
   // -----------------------------------------------------------------------
   // Refresh saves
@@ -241,16 +342,23 @@ export function useGameSession(): GameSession {
           (m) => ({ role: m.role as "user" | "assistant", content: m.content, turnId: m.role === "assistant" ? initialTurnId || undefined : undefined }),
         );
         setMessages(displayMsgs);
-        setBotMemory(state.bot_memory);
-        setCurrentTurnId(initialTurnId || null);
+        applyBotMemory(state.bot_memory);
+        setCurrentTurnId(state.current_turn_id ?? initialTurnId ?? null);
+        if (state.last_user_input) {
+          setLastUserInput(state.last_user_input);
+          setLastParentTurnId(state.last_parent_turn_id ?? null);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
+        // Clear interaction on error too, otherwise the overlay gets stuck
+        setPendingInteraction(null);
       } finally {
         setLoading(false);
       }
     } else {
       setMessages([]);
       setBotMemory({});
+      setPendingInteraction(null);
       setCurrentTurnId(null);
       setLoading(false);
       setError(null);
@@ -258,21 +366,40 @@ export function useGameSession(): GameSession {
       setLastParentTurnId(null);
       setLastUserInput("");
     }
+  }, [applyBotMemory]);
+
+  // -----------------------------------------------------------------------
+  // Clear session
+  // -----------------------------------------------------------------------
+  const clearSession = useCallback(() => {
+    setMessages([]);
+    setBotMemory({});
+    setPendingInteraction(null);
+    setCurrentTurnId(null);
+    setLoading(false);
+    setError(null);
+    setSaves([]);
+    setLastParentTurnId(null);
+    setLastUserInput("");
+    setInstanceId("");
   }, []);
 
   return {
     messages,
     botMemory,
+    pendingInteraction,
     currentTurnId,
     loading,
     error,
     saves,
     sendTurn,
+    sendInteraction,
     retryLast,
     saveCheckpoint,
     loadCheckpoint,
     refreshSaves,
     clearError,
+    clearSession,
     resetSession,
   };
 }

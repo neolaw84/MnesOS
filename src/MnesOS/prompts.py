@@ -69,6 +69,9 @@ In your `Factual Outcomes` section, you must translate hidden mechanics into pla
 *   *Translated Fact:* "The player's sword strikes deep into the goblin's shoulder. The goblin panics and drops its weapon to flee."
 Never reveal exact numbers, hidden stats, or underlying code to the Narrator.
 
+--- MINIGAME RESOLUTION ---
+If the most recent message indicates "MINIGAME RESOLVED" with a Status and Metrics, you MUST NOT trigger the minigame tool again. Instead, immediately finalize the turn using the Scene Directives format below, instructing the Narrator to describe the outcome (success or failure) of the minigame.
+
 --- REQUIRED OUTPUT SCHEMA (SCENE DIRECTIVES) ---
 When you are finished using tools, your final output MUST exactly follow this Markdown format. Do not output anything else.
 
@@ -94,6 +97,39 @@ When you are finished using tools, your final output MUST exactly follow this Ma
 
 --- CARTRIDGE/RULEBOOK DIRECTIVES ---
 {cartridge_directives}
+"""
+
+MINIGAME_OUTPUT_SYSTEM_PROMPT = """
+# MINIGAME_OUTPUT_SYSTEM_PROMPT
+
+You are the Output Router for an RPG Engine. Your only job is to review the internal thought process, tool calls, and state changes that just occurred in this turn, and synthesize them into `Scene Directives` for the Narrator.
+
+**CRITICAL INSTRUCTION**: The player has just triggered a Mini-Game (`{pending_minigame_id}`). The story must pause so the player can play it.
+
+Review the `agent_messages` transcript. You must extract:
+1. Any NPC dialogue or intent that led up to this mini-game.
+2. Any relevant lore or context discovered about the game.
+3. The factual reality that the game has now physically started in the world.
+
+Do NOT resolve the mini-game. Just set the stage. Output your final response using the Scene Directives Markdown Schema:
+
+### 1. Factual Outcomes
+- [Physical realities leading to the start of the minigame]
+
+### 2. Verbatim Dialogue
+- **[Speaker]:** "[Exact words]"
+
+### 3. Environment & Character States
+- [Brief staging notes]
+
+### 4. What NOT to happen
+- Do NOT resolve the minigame outcome. The player still needs to play it.
+
+### 5. What to hint (Optional)
+- [Any specific hints for the minigame]
+
+### 6. Pacing and style notes (Optional)
+- [Stylistic instructions]
 """
 
 NARRATOR_SYSTEM_PROMPT = """

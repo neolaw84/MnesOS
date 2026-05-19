@@ -7,9 +7,9 @@ Aligned with ``docs/design/0005-interfaces-and-contracts.md`` §1.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # UserAccount schemas
@@ -75,6 +75,28 @@ class UpdatePersonaRequest(BaseModel):
 # §1.1 Process Turn
 # ---------------------------------------------------------------------------
 
+class MinigameInteractionPayload(BaseModel):
+    """Structured payload for client-side interactions (e.g. minigames)."""
+
+    interaction_type: Literal["minigame"] = Field(
+        default="minigame",
+        description="Discriminator for interaction routing.",
+    )
+    minigame_id: str = Field(..., min_length=1, description="The minigame registry id.")
+    status: Literal["completed", "failed", "aborted"]
+    metrics: Dict[str, str | int | float | bool] = Field(
+        default_factory=dict,
+        description="Flat metrics map used for scoring/telemetry.",
+    )
+    minigame_specific_data: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Deeply nested game-specific payload.",
+    )
+    triggered_hooks: List[str] = Field(
+        default_factory=list,
+        description="Narrative hook texts triggered in sequence.",
+    )
+
 
 class TurnRequest(BaseModel):
     """``POST /api/instances/{instance_id}/turn`` request body."""
@@ -83,10 +105,14 @@ class TurnRequest(BaseModel):
         None,
         description="UUID of the previous turn (None for the first turn).",
     )
-    user_input: str = Field(
-        ...,
+    user_input: Optional[str] = Field(
+        None,
         min_length=1,
-        description="The player's raw text input.",
+        description="The player's raw text input. Required unless interaction is provided.",
+    )
+    interaction: Optional[MinigameInteractionPayload] = Field(
+        None,
+        description="Structured interaction payload (e.g. minigame result).",
     )
     player_settings: Dict[str, Any] = Field(
         default_factory=dict,
@@ -96,6 +122,14 @@ class TurnRequest(BaseModel):
         default_factory=dict,
         description="Per-request config overrides for this turn (highest precedence).",
     )
+
+    @model_validator(mode="after")
+    def _validate_one_of_user_input_or_interaction(self) -> "TurnRequest":
+        has_user_input = bool(self.user_input)
+        has_interaction = self.interaction is not None
+        if has_user_input == has_interaction:
+            raise ValueError("Provide exactly one of 'user_input' or 'interaction'.")
+        return self
 
 
 class TurnResponse(BaseModel):
@@ -211,6 +245,9 @@ class HydratedStateResponse(BaseModel):
 
     bot_memory: Dict[str, Any]
     client_messages: List[Dict[str, str]]
+    current_turn_id: Optional[str] = None
+    last_user_input: Optional[str] = None
+    last_parent_turn_id: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

@@ -1,8 +1,8 @@
 /**
  * SettingsModal — BYOK configuration modal (MNS-401).
  *
- * Accepts and persists OpenRouter API key, user ID, and instance ID
- * to localStorage. The API client reads these automatically.
+ * Accepts and persists OpenRouter API key and user ID to localStorage.
+ * The API client reads these automatically.
  */
 
 import { useState } from "react";
@@ -11,8 +11,6 @@ import {
   setOpenRouterKey,
   getUserId,
   setUserId,
-  getInstanceId,
-  setInstanceId,
 } from "../api/client";
 import { initiateOpenRouterLogin } from "../utils/pkce";
 
@@ -25,14 +23,12 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   // Initializers run once per mount; the parent uses `key` to remount on open.
   const [apiKey, setApiKey] = useState(getOpenRouterKey);
   const [userId, setUserIdLocal] = useState(getUserId);
-  const [instanceId, setInstanceIdLocal] = useState(getInstanceId);
 
   if (!open) return null;
 
   const handleSave = () => {
     setOpenRouterKey(apiKey.trim());
     setUserId(userId.trim());
-    setInstanceId(instanceId.trim());
     onClose();
   };
 
@@ -95,17 +91,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             value={userId}
             onChange={(e) => setUserIdLocal(e.target.value)}
             placeholder="user-uuid"
-          />
-        </label>
-
-        <label className="modal-label">
-          Game Instance ID
-          <input
-            type="text"
-            className="modal-input"
-            value={instanceId}
-            onChange={(e) => setInstanceIdLocal(e.target.value)}
-            placeholder="instance-uuid"
           />
         </label>
 

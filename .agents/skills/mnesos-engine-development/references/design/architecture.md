@@ -5,80 +5,115 @@
 This document defines the strategic architecture for MnesOS, a stateless, event-sourced RPG engine. It outlines a modular system that decouples deterministic rules execution (YARE) from high-fidelity narrative orchestration (LangGraph), supporting branching timelines and a scalable four-tier physical deployment model.
 
 **Core Architectural Pillars:**
+
 - **Deterministic Logic**: The YARE Agentic Rules Engine (YARE) provides a safe, bounded environment for mechanics resolution.
-- **Agentic Orchestration**: A specialized two-node graph (Director/Narrator) manages intent and prose generation, supported by tool-based NPC intent and RAG lore retrieval.
+
+- **Agentic Orchestration**: A specialized graph (Director, Narrator, MinigameInput, MinigameOutput) manages intent, minigame interactive components, and prose generation, supported by tool-based NPC intent and RAG lore retrieval.
+
 - **Stateless & Branchable**: A tree-based state model and the Registry Pattern ensure consistent, environment-agnostic execution and timeline manipulation.
+
 - **Interface Driven**: Clear contracts for REST API, storage, and authentication enable cross-platform integration between web clients and backend services.
 
 ---
 
 ## 0. In-scope Problems MnesOS Aims to Solve
 
-MnesOS is designed to address the specific failure modes of traditional "LLM-only" RPG engines, categorized into four core domains:
+MnesOS targets three primary, product-level problems that undermine RPG play when an LLM is trusted to do both mechanics and story:
 
-### 1. Logic & Integrity Problems
-*   **The Determinism Gap**: LLMs are probabilistic and fundamentally unreliable at math, inventory management, and strict time-tracking.
+### 0.1. Product-level Problems
+
+*   **The Determinism Gap**: LLMs are probabilistic and fundamentally unreliable at math, inventory management, deterministic (such as `if/else`) logic, dice rolls and strict time-tracking.
     *   *Solution*: **YARE (YARE Agentic Rules Engine)**. All state mutation is handled by a deterministic, code-based engine. The LLM only *triggers* the rules; it does not perform the calculations.
+
+*   **Lore Forgetting & Continuity Drift**: LLMs forget, omit or inconsistently apply world lore and prior gameplay context over time. Naively dumping large lore blobs into the prompt increases token cost, adds irrelevant context, and still does not reliably preserve continuity.
+    *   *Solution*: **On-Demand RAG Tool (`multi_lore_lookup`)**. Bind a dedicated lore-retrieval tool to the graph so the Director can issue focused, batched lore queries at the moment they are needed. This surfaces concise, relevant snippets from the knowledge base instead of relying on the model to remember everything from prompt history alone.
+
+*   **The Immersion Gap (The "Out-of-Context Numbers")**: When a single LLM resolves mechanics and writes the story simultaneously, it tends to leak raw spreadsheet data into the prose ("You have 14 HP").
+    *   *Solution*: **Air-gapped Graph**. The **Director** LLM handles the mechanics and reads the raw "system notes". The **Narrator** LLM is isolated, receiving only the updated `public_state` and scene directives, forcing it to write pure prose. Additional routing nodes (**MinigameInput**, **MinigameOutput**) ensure that structured inputs from interactive components are deterministically processed.
+
+The sections below capture the implementation, design, and operational considerations MnesOS uses to solve these product problems.
+
+### 0.2. Implementation, Design & Operational Considerations
+
+The following design-focused problems explain how the product-level issues are addressed in practice.
+
 *   **The Reliability Gap (Infinite Execution Risks)**: Permitting user-generated game rules (Cartridges) in a Turing-complete language risks catastrophic infinite loops that would hang a game play session.
     *   *Solution*: **Bounded DSL Design**. YARE is intentionally non-Turing complete. It relies on bounded iteration (`foreach`) and strict recursion limits (`max_call_depth`) to guarantee that every turn finishes in a predictable timeframe.
 
-### 2. Narrative & Immersion Problems
-*   **The Immersion Gap (The "Out-of-Context Numbers")**: When a single LLM resolves mechanics and writes the story simultaneously, it tends to hallucinate outcomes ("You roll a 20!") or leak raw spreadsheet data into the prose ("You have 14 HP").
-    *   *Solution*: **Air-gapped Two-Node Graph**. The **Director** LLM handles the mechanics and reads the raw "system notes". The **Narrator** LLM is isolated, receiving only the updated `public_state` and scene directives, forcing it to write pure, immersive prose.
-*   **NPC Meta-Knowledge ("Prompt Bleed")**: If NPCs are injected into the global context, they often act on "meta" information the player knows but the character shouldn't.
+*   **Context Window Inflation**: Automatically including all the  Lore (or keyword-based Lore retrieval and inclusion) or computing NPC logic at the start of every turn (via pre-nodes) wastes tokens and slows down execution for trivial actions (e.g., "I open the door").
+    *   *Solution*: **On-Demand Batch Tooling**. The Director actively "asks" for Lore (`multi_lore_lookup`) or NPC reactions (`query_npc_intent`) only when the tactical or emotional complexity of the turn requires it, keeping contexts small and fast.
+
+*   **NPC Meta-Knowledge ("Prompt Bleed")**: If actions/dialogues of NPCs are generated along with the story direction, they often act on "meta" information the player or director knows but the character shouldn't.
     *   *Solution*: **Schema-driven Visibility**. NPCs are not in the main prompt. The Director queries them via the `query_npc_intent` tool, which strictly filters context to only include data tagged with `npc_visibility: true`.
 
-### 3. Performance & Optimization Problems
-*   **Context Window Inflation**: Automatically including all the  Lore (or keyword-based Lore retrieval and inclusion) or computing NPC logic at the start of every turn (via pre-nodes) wastes tokens and slows down execution for trivial actions (e.g., "I open the door").
-    *   *Solution*: **On-Demand Batch Tooling**. The Director actively "asks" for Lore (`multi_lore_lookup`) or NPC reactions only when the tactical or emotional complexity of the turn requires it, keeping contexts small and fast.
-*   **Multi-NPC Rigidity**: Hardcoding a single graph node for "The NPC" makes it difficult and expensive to handle scenes with a dynamic number of characters.
+*   **Multi-NPC Rigidity**: Hardcoding a single (or a set number of) graph node(s) for "NPC intent" makes it difficult and expensive to handle scenes with a dynamic number of characters.
     *   *Solution*: **Tool-based Intent Batching**. The Director can pass a dynamic list of relevant characters to a single `query_npc_intent` call.
 
-### 4. Infrastructure & Deployment Problems
-*   **The Persistence & Branching Problem**: Standard overwriting databases prevent players from exploring alternative timelines ("save scumming").
+*   **The Persistence & Branching Problem**: Standard overwriting databases prevent players from exploring alternative timelines (therefore, they resort to "save scumming").
     *   *Solution*: **Stateless Event Sourcing (Tree-based State)**. The backend holds no active state. The game is rebuilt on the fly by applying a chronological chain of `yare_delta` mutations from a specific `TurnLog` ID, natively supporting infinite branching.
+
 *   **The Environment & Security Lock-in Problem**: Storing third-party LLM API keys (OpenRouter) on the backend creates a security liability (a "honey pot"), and tightly coupling the engine makes it hard to run locally.
     *   *Solution*: **Registry Pattern & Side-by-Side Auth**. The client holds its own API keys and passes them "in-flight" per request. The Registry Pattern injects dependencies dynamically, ensuring the exact same code runs locally as a desktop app or in the cloud.
 
 ---
 ## 1. Core Architecture
 
-### YARE Interpreter
-The YARE Agentic Rules Engine (YARE) is **not strictly Turing Complete** — and this is an optimal and intentional design choice. 
+### 1.1. YARE Interpreter
+
+The YARE Agentic Rules Engine (YARE) is **not strictly Turing Complete** — and this is an intentional design choice. 
+
 - **What it lacks**: It does not support **unbounded** looping (no `while` loops within the DSL) and explicitly limits recursion (nested event calling depth is capped at `max_call_depth = 10`). 
+
 - **What it provides**: It supports bounded iteration via the `foreach` action, robust conditional branching, sequential execution, arbitrary nested state mutation, deterministic RNG (`roll`), and nested state reading.
+
 - **Why it fits**: Evaluating deterministic game logic *must always* halt in a predictable timeframe. Allowing Turing-complete boundless loops inside a configuration file would risk the game entering an infinite loop. By capping recursion and ensuring all iteration is bounded, YARE guarantees safe, total, and deterministic execution.
 
 #### Influence on Narration
+
 YARE solves the **narrative/mechanical decoupling** problem (defined in [Section 0](#0-in-scope-problems-mnesos-aims-to-solve) as "Out-of-Context Numbers") by air-gapping the system output from the narrative output:
+
 - YARE modifies the state backstage and emits structured logging details (e.g., `"Player rolled 12 on lockpicking, Chest unlocked"`).
-- These logs are collected as `system_notes`, which are passed along with the full `bot_memory` state to the **Director** node as invisible, LLM-only context.
+
+- These logs are collected as `system_notes`, which are passed along with the full `bot_memory` state to the **Director** node as context, using which the Directory returns final **Scene Directives**.
+
 - The filtered `public_state` and the Director's finalized **Scene Directives** are routed to an independent **Narrator** LLM node, which acts as the "renderer", converting deterministic outcomes into high-quality prose without exposing literal dice rolls or internal system logs.
 
 ### Agentic Graph Analysis
-The engine leverages a LangGraph state machine structured across two primary LLM decision nodes: `Director` and `Narrator`. The third logical role, to have independent NPC tactics, is implemented as the **`query_npc_intent` tool** called by the Director.
+The engine leverages a LangGraph state machine structured across two primary LLM decision nodes (`Director`, `Narrator`) and two minor yet important minigame routing nodes (`MinigameInput`, `MinigameOutput`). The third logical role, to have independent NPC tactics, is implemented as the **`query_npc_intent` tool** called by the Director.
 
 ```mermaid
 graph TD
     Client[Client] --> Reset[Reset Agent Messages]
     Reset --> Cycle[Cycle Tick]
-    Cycle --> Director[Director Node]
+    Cycle --> MinigameInput[MinigameInput Node]
+    MinigameInput --> Director[Director Node]
     Director -->|Tool Call| PreTools[PreTools Node]
     Director -->|Final Summary| Narrator[Narrator Node]
     PreTools --> Tools[ToolNode]
     Tools --> PostTools[PostTools Node]
-    PostTools --> Director
+    PostTools -->|Return to Director| Director
+    PostTools -->|Pending Minigame| MinigameOutput[MinigameOutput Node]
+    MinigameOutput --> Narrator
     Narrator --> Cleanup[Cleanup Agent Messages]
     Cleanup --> Client
 ```
 
 The architecture mimics a classic Turn-Based RPG:
-1. **Director Node**: The Orchestrator. Maps player intent, resolves mechanics via tools, and queries NPCs.
-2. **NPC Intent Tool (`query_npc_intent`)**: The Actor. Provides autonomous character dialogue/intent without the overhead of a separate graph node.
-3. **Lore Tool (`multi_lore_lookup`)**: The Librarian. Allows the Director to actively retrieve world lore for multiple queries in a single batch call.
+1. **MinigameInput Node**: Deterministically handles structured incoming minigame interaction payloads.
+
+2. **Director Node**: The Orchestrator. Maps player intent, resolves mechanics via tools, and queries NPCs.
+
+3. **MinigameOutput Node**: A tool-less router node that sets up scene directives immediately after a minigame is requested.
+
 4. **Narrator Node**: The Storyteller. Renders finalized outcomes into prose.
 
-The **two-node architecture with specialized tools** provides the optimal balance of isolation and performance, preventing "prompt bleed" and reducing latency compared to assigning a full graph node to NPCs.
+5. **NPC Intent Tool (`query_npc_intent`)**: The Actor. Provides autonomous character dialogue/intent without the overhead of a separate graph node.
+
+6. **Lore Tool (`multi_lore_lookup`)**: The Librarian. Allows the Director to actively retrieve world lore for multiple queries in a single batch call.
+
+7. **YARE Tools (built by `build_yare_event_tools`)**: The Rules Engine Bridge. Compiles cartridge events into typed, sandboxed LangGraph tools the `Director` can call; tools return deterministic `yare_delta`s, `system_notes`, and execution traces.
+
+The **architecture with specialized tools and routing nodes** provides the optimal balance of isolation and performance, preventing "prompt bleed" and reducing latency compared to assigning a full graph node to NPCs, while ensuring seamless minigame interactivity.
 
 ### State and Turn Flow
 The agent is **stateless across invocations**. The client owns persistence.
@@ -97,9 +132,13 @@ There are two distinct message concepts:
 
 ### NPC Interaction Model
 MnesOS uses a **Tool-Based Intent Model** to handle NPCs. 
+
 1. **Director** identifies qualifying NPCs from `bot_memory`.
+
 2. **Director** calls `query_npc_intent(present_npcs=[...], scene_context="...")`.
+
 3. **`query_npc_intent` tool** generates a JSON response containing `dialogue`, `action_intent`, and `internal_monologue`.
+
 4. **Director** receives the intents, resolves mechanics via YARE, and summarizes the results for the Narrator.
 
 To prevent NPCs from being overwhelmed by global state or acting on meta-knowledge, only variables marked with `npc_visibility: true` are passed to the NPC intent tool context. NPCs utilize a mix of **Name Mode** (unique individuals) and **Tag Mode** (archetypes).
@@ -127,13 +166,15 @@ We employ a **Tree-based Event Source** model, allowing branching timelines.
 To reconstruct `bot_memory` at any given node:
 1. Traverse up the `parent_id` chain to the root.
 2. Reverse the list (Root -> Target Node).
-3. Sequentially apply every `yare_delta` and message to a blank state object.
+3. Sequentially apply every `yare_delta` and message to a blank state object. 
+*(Note: To handle deletions over time, the `_extract_delta` engine produces `None` tombstones when a key is removed, which the hydrator honors by actively popping the key out of the dictionary.)*
 
 > **Note:** A periodic snapshotting of `bot_memory` (to avoid reconstructing everything at turn 1024 from turn 0) is something to consider.
 > 
 > This is a future **TO-DO**.
 
-### GameState Cleanup
+### Dynamic State (`GameState`) vs Static State (`RunnableConfig`)
+
 Redundant static data (`yare_config`, `prompt_directives`, `lore_path`, `lore_content`, `persona_context`) are passed via `RunnableConfig`. Only `client_messages` and `bot_memory` are kept in persistent state.
 
 ### Four-Tier Physical Deployment Model
@@ -147,6 +188,30 @@ Redundant static data (`yare_config`, `prompt_directives`, `lore_path`, `lore_co
 ---
 
 ## 3. Interfaces & Contracts
+
+The following sequence diagram shows a single game turn flowing across all four tiers:
+
+```mermaid
+sequenceDiagram
+    participant C as Client (Tier 1)
+    participant A as App Server / Orchestrator (Tier 2)
+    participant P as Persistence / DB (Tier 3)
+    participant L as LLM Provider (Tier 4)
+
+    C->>A: POST /api/instances/{id}/turn<br/>(GameState + LLM key in headers)
+    A->>P: get_turn_lineage(turn_log_id)
+    P-->>A: TurnLog chain (parent_id chain)
+    A->>A: StateHydrator: apply yare_deltas → bot_memory
+    loop Director ↔ Tools (until final summary)
+        A->>L: Director LLM call (agent_messages + bot_memory)
+        L-->>A: Tool call (YARE / lore / NPC intent)
+    end
+    A->>L: Narrator LLM call (public_state + Scene Directives)
+    L-->>A: narrator_text (immersive prose)
+    A->>P: create_turn_log(yare_delta, narrator_text)
+    P-->>A: new TurnLog.id
+    A-->>C: Updated GameState (client_messages + bot_memory)
+```
 
 ### REST API Contracts (Tier 1 <-> Tier 2)
 We use a **Side-by-Side Auth** approach. Endpoints require the client to pass their identity credential and their LLM Provider configuration/PKCE token "in-flight" via headers. Keys are never stored server-side.
@@ -173,36 +238,3 @@ To keep the codebase identical across environments (Server vs. Local) and minimi
 2. **Hierarchical Configuration**: `ConfigMerger` creates a `MnesOSRuntimeConfig` via Request Overrides > Player Settings > Cartridge Defaults.
 3. **LLM Provider Factory**: Instantiates specific `BaseChatModel` and `Embeddings` instances depending on the configuration (OpenRouter, MnesOS, Local).
 4. **Batch RAG Tooling**: `multi_lore_lookup` is bound as a tool. The Director searches lore efficiently mid-turn rather than relying entirely on pre-node injection.
-
----
-
-## 4. Discarded Ideas & Abandoned Choices
-
-This section preserves alternatives explored during early MnesOS brainstorming and the rationale for their rejection.
-
-### 1. Dual-Gateway Architecture
-* **Description:** The MnesOS backend only handles MnesOS DB auth; for OpenRouter LLM calls, the client talks directly to OpenRouter (or a passthrough proxy) using the PKCE token, bypassing the main MnesOS game engine.
-* **Reason for Abandonment:** The backend uses a managed LangGraph graph that needs direct access to the LLM to orchestrate gameplay turns. Bypassing the backend for LLM calls breaks the orchestration engine entirely.
-
-### 2. Linked Identity (Server-side Persistence of OpenRouter Tokens)
-* **Description:** The MnesOS backend stores the OpenRouter OAuth tokens/refresh tokens in the user's profile once authenticated, providing a seamless "set up once and forget" experience.
-* **Reason for Abandonment:** Storing third-party OAuth/Refresh tokens in the database makes the MnesOS DB a high-value target ("honey pot"), introducing severe security liability.
-* **Adopted Alternative:** Side-by-Side / Frontend Managed Auth, where keys exist only in the client's secure storage and the backend's RAM during the request lifecycle.
-
-### 3. Context-Driven Strategy
-* **Description:** The `Orchestrator` is initialized with a "Context Object" containing the `User`, `Storage`, and a `ClientFactory`. Every node in the LangGraph extracts the context and resolves its own client dynamically mid-execution.
-* **Reason for Abandonment:** While it provides high developer ergonomics, it requires rewriting every single file in `graph/nodes/` and `graph/tools/` (~15% to 20% codebase impact). The Context object risks becoming a "God Object" that is hard to mock and test in isolation.
-* **Adopted Alternative:** The Registry Pattern, which limits refactoring to the API boundary (`deps.py`) and graph setup (`factory.py`), keeping the core engine pure.
-
-### 4. Standalone NPC Brain Node
-* **Description:** Dedicated nodes in the LangGraph assigned to process NPC logic and dialogue independently before returning control to the Director.
-* **Reason for Abandonment:** 
-  1. **Redundancy for Obvious Outcomes:** For simple physical certainties (e.g., an NPC reacting to being stabbed), the Director can use "GM Fiat" to determine the reaction directly without the latency of a separate LLM call. A fixed graph node would trigger regardless of necessity.
-  2. **Rigidity vs. Multi-NPC Batching:** A single graph node is poorly suited for turns involving multiple NPCs. Toolizing the intent allows the Director to pass a dynamic list of NPCs to a single batched call (`query_npc_intent`) only when tactical or emotional complexity warrants it.
-* **Adopted Alternative:** The **NPC Intent Tool**, which gives the Director granular control over when to "ask" the NPCs for their intent and allows for efficient batching of multiple character reactions in one call.
-
-### 5. Per-Turn Lore Pre-Node Injection
-* **Description:** A specialized "Lore" node that triggers at the beginning of every turn to perform RAG retrieval and inject world data into the state before the Director even sees the player's input.
-* **Reason for Abandonment:** Inefficiency ("Context Inflation"). Pre-injecting lore for every turn consumes significant token budget even for trivial interactions (like "I walk north"). It also forced the RAG system to guess what might be relevant without knowing the Director's specific plan.
-* **Adopted Alternative:** **Batch RAG Tooling (`multi_lore_lookup`)**, where the Director actively requests specific information only when needed, allowing for more precise retrieval and smaller context windows.
-

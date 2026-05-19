@@ -12,6 +12,8 @@ from .nodes.system import (
     post_tools_node,
     cycle_tick_node,
 )
+from .nodes.minigame_input import minigame_input_node
+from .nodes.minigame_output import minigame_output_node
 from .nodes.director import director_node, _get_last_ai_tool_calls
 from .nodes.narrator import narrator_node
 from .tools.yare import build_yare_event_tools
@@ -28,8 +30,11 @@ def route_director(state: GameState) -> Literal["PreTools", "Narrator"]:
         return "PreTools"
     return "Narrator"
 
-def route_rules(state: GameState) -> Literal["Director"]:
-    """After ToolNode fires, always return to the Director."""
+def route_rules(state: GameState) -> Literal["Director", "MinigameOutput"]:
+    """After ToolNode fires, route to MinigameOutput if a minigame was queued, else return to Director."""
+    bot_memory = state.get("bot_memory", {})
+    if bot_memory.get("_pending_interaction"):
+        return "MinigameOutput"
     return "Director"
 
 def build_graph(
@@ -67,7 +72,9 @@ def build_graph(
 
     graph.add_node("ResetAgentMessages", reset_agent_messages_node)
     graph.add_node("CycleTick", cycle_tick_node)
+    graph.add_node("MinigameInput", minigame_input_node)
     graph.add_node("Director", functools.partial(director_node, llm=llm_director, tools=dynamic_tools))
+    graph.add_node("MinigameOutput", functools.partial(minigame_output_node, llm=llm_director))
     graph.add_node("PreTools", pre_tools_node)
 
     if dynamic_tools:
@@ -81,7 +88,8 @@ def build_graph(
 
     graph.set_entry_point("ResetAgentMessages")
     graph.add_edge("ResetAgentMessages", "CycleTick")
-    graph.add_edge("CycleTick", "Director")
+    graph.add_edge("CycleTick", "MinigameInput")
+    graph.add_edge("MinigameInput", "Director")
 
     graph.add_conditional_edges(
         "Director", route_director, {"PreTools": "PreTools", "Narrator": "Narrator"}
@@ -89,8 +97,10 @@ def build_graph(
     graph.add_edge("PreTools", "Tools")
     graph.add_edge("Tools", "PostTools")
     graph.add_conditional_edges(
-        "PostTools", route_rules, {"Director": "Director"}
+        "PostTools", route_rules, {"Director": "Director", "MinigameOutput": "MinigameOutput"}
     )
+    
+    graph.add_edge("MinigameOutput", "Narrator")
 
     graph.add_edge("Narrator", "CleanupAgentMessages")
     graph.add_edge("CleanupAgentMessages", END)

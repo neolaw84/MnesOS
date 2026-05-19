@@ -17,7 +17,7 @@ class TestBuildGraphFactory:
         app = build_graph(yare_config=_DEFAULT_YARE_CONFIG)
         node_names = set(app.get_graph().nodes.keys())
         for expected in (
-            "ResetAgentMessages", "CycleTick", "Director",
+            "ResetAgentMessages", "CycleTick", "MinigameInput", "Director",
             "PreTools", "Tools", "PostTools", "Narrator", "CleanupAgentMessages",
         ):
             assert expected in node_names, f"Missing expected node: {expected!r}"

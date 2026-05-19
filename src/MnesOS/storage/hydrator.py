@@ -30,10 +30,13 @@ def _deep_merge(base: Dict[str, Any], overlay: Dict[str, Any]) -> Dict[str, Any]
     """
     result = copy.deepcopy(base)
     for key, value in overlay.items():
-        if (
+        if value is None:
+            result.pop(key, None)
+        elif (
             key in result
             and isinstance(result[key], dict)
             and isinstance(value, dict)
+            and value
         ):
             result[key] = _deep_merge(result[key], value)
         else:

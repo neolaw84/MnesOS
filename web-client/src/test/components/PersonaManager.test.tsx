@@ -21,10 +21,27 @@ const mockPersonas: Persona[] = [
 
 async function fillPersonaForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByPlaceholderText('e.g. Robin'), 'Test Hero')
-  await user.type(screen.getByPlaceholderText('they'), 'they')
-  await user.type(screen.getByPlaceholderText('them'), 'them')
-  await user.type(screen.getByPlaceholderText('their'), 'their')
-  await user.type(screen.getByPlaceholderText('theirs'), 'theirs')
+}
+
+async function setCustomPronouns(user: ReturnType<typeof userEvent.setup>, values: {
+  sub: string
+  obj: string
+  poss: string
+  possObj: string
+}) {
+  await user.selectOptions(screen.getByRole('combobox', { name: /pronoun preset/i }), 'custom')
+  const subField = screen.getByPlaceholderText('they')
+  const objField = screen.getByPlaceholderText('them')
+  const possField = screen.getByPlaceholderText('their')
+  const possObjField = screen.getByPlaceholderText('theirs')
+  await user.clear(subField)
+  await user.type(subField, values.sub)
+  await user.clear(objField)
+  await user.type(objField, values.obj)
+  await user.clear(possField)
+  await user.type(possField, values.poss)
+  await user.clear(possObjField)
+  await user.type(possObjField, values.possObj)
 }
 
 describe('PersonaManager', () => {
@@ -64,6 +81,7 @@ describe('PersonaManager', () => {
     await waitFor(() => screen.getByRole('button', { name: /new persona/i }))
     await user.click(screen.getByRole('button', { name: /new persona/i }))
     expect(screen.getByText('Create Persona')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /pronoun preset/i })).toHaveValue('they')
   })
 
   it('creates a new persona', async () => {
@@ -77,6 +95,54 @@ describe('PersonaManager', () => {
     await fillPersonaForm(user)
     await user.click(screen.getByRole('button', { name: /save persona/i }))
     await waitFor(() => expect(client.createPersona).toHaveBeenCalled())
+    expect(client.createPersona).toHaveBeenCalledWith(expect.objectContaining({
+      pronoun_sub: 'they',
+      pronoun_obj: 'them',
+      pronoun_poss: 'their',
+      pronoun_poss_obj: 'theirs',
+    }))
+  })
+
+  it('keeps pronoun inputs hidden for preset selections', async () => {
+    vi.mocked(client.listPersonas).mockResolvedValue([])
+    const user = userEvent.setup()
+
+    render(<PersonaManager />)
+    await waitFor(() => screen.getByRole('button', { name: /new persona/i }))
+    await user.click(screen.getByRole('button', { name: /new persona/i }))
+    await user.selectOptions(screen.getByRole('combobox', { name: /pronoun preset/i }), 'he')
+
+      expect(screen.getByRole('combobox', { name: /pronoun preset/i })).toHaveValue('he')
+    expect(screen.queryByPlaceholderText('they')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('them')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('their')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('theirs')).not.toBeInTheDocument()
+  })
+
+  it('allows custom pronouns when the preset is custom', async () => {
+    vi.mocked(client.listPersonas).mockResolvedValue([])
+    const customPersona: Persona = { ...mockPersonas[0], id: 'p-custom', name: 'Custom Hero' }
+    vi.mocked(client.createPersona).mockResolvedValue(customPersona)
+    const user = userEvent.setup()
+
+    render(<PersonaManager />)
+    await waitFor(() => screen.getByRole('button', { name: /new persona/i }))
+    await user.click(screen.getByRole('button', { name: /new persona/i }))
+    await fillPersonaForm(user)
+    await setCustomPronouns(user, {
+      sub: 'ze',
+      obj: 'zir',
+      poss: 'zir',
+      possObj: 'zirs',
+    })
+    await user.click(screen.getByRole('button', { name: /save persona/i }))
+
+    await waitFor(() => expect(client.createPersona).toHaveBeenCalledWith(expect.objectContaining({
+      pronoun_sub: 'ze',
+      pronoun_obj: 'zir',
+      pronoun_poss: 'zir',
+      pronoun_poss_obj: 'zirs',
+    })))
   })
 
   it('shows validation error when required fields are empty', async () => {
@@ -98,6 +164,20 @@ describe('PersonaManager', () => {
     expect(screen.getByText('Edit Persona')).toBeInTheDocument()
     // Name field should be pre-filled
     expect(screen.getByDisplayValue('Aria')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /pronoun preset/i })).toHaveValue('she')
+  })
+
+  it('deletes a persona after confirmation', async () => {
+    vi.mocked(client.listPersonas).mockResolvedValue(mockPersonas)
+    vi.mocked(client.deletePersona).mockResolvedValue(undefined)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+
+    render(<PersonaManager />)
+    await waitFor(() => screen.getByRole('button', { name: /delete/i }))
+    await user.click(screen.getByRole('button', { name: /delete/i }))
+
+    await waitFor(() => expect(client.deletePersona).toHaveBeenCalledWith('p-1'))
   })
 
   it('updates a persona', async () => {

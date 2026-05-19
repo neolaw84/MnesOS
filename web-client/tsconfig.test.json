@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "composite": true,
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node", "vitest/globals", "@testing-library/jest-dom"],
+    "allowJs": true,
+    "checkJs": false,
+    "moduleResolution": "Bundler"
+  },
+  "include": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**/*", "src/**/*.ts", "src/**/*.tsx", "scripts/**/*.js"]
+}
