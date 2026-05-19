@@ -72,15 +72,15 @@ stage:
 
 playwright-install:
 	@if [ ! -d web-client/node_modules ]; then \
-		echo "Installing web-client dependencies (npm ci) for Playwright check..."; \
-		cd web-client && $(NPM) ci; \
-	fi
-	@cd web-client && node -e "const fs=require('fs'); const p=require('playwright'); process.exit(fs.existsSync(p.chromium.executablePath()) ? 0 : 1)" \
+			echo "Installing web-client dependencies (npm ci) for Playwright check..."; \
+			cd web-client && $(NPM) ci; \
+		fi
+	@(cd web-client && node -e "const fs=require('fs'); const p=require('playwright'); process.exit(fs.existsSync(p.chromium.executablePath()) ? 0 : 1)") \
 		&& echo "Playwright Chromium already installed; skipping." \
 		|| (echo "Installing Playwright Chromium..." && cd web-client && $(PLAYWRIGHT) install --with-deps chromium)
 
 e2e: build stage playwright-install
-	cd web-client && CI=true $(PLAYWRIGHT) test --project chromium
+	cd web-client && CI=true PYTHON_BIN=$(abspath $(PY)) $(PLAYWRIGHT) test --project chromium
 
 run-web:
 	@echo "Starting web dev server in web-client (foreground)"

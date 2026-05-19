@@ -74,7 +74,6 @@ async function apiFetch<T>(
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "X-Provider": "local",
     ...(init.headers as Record<string, string> | undefined),
   };
 
