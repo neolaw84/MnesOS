@@ -87,6 +87,7 @@ def _load_and_validate(
     yare_bytes: bytes,
     lore_bytes: bytes,
     directives_bytes: bytes,
+    first_message_bytes: bytes,
 ) -> CartridgeLoader:
     """Write uploaded bytes to a temp directory, run CartridgeLoader validation.
 
@@ -99,6 +100,8 @@ def _load_and_validate(
         (tmp / "bot_lore.md").write_bytes(lore_bytes)
         if directives_bytes:
             (tmp / "prompt_directives.yaml").write_bytes(directives_bytes)
+        if first_message_bytes:
+            (tmp / "first-message.md").write_bytes(first_message_bytes)
         return CartridgeLoader().load(str(tmp))
 
 
@@ -258,6 +261,7 @@ async def create_cartridge_version(
     yare_file: UploadFile = File(None, description="yare.yaml file"),
     lore_file: UploadFile = File(None, description="bot_lore.md file"),
     directives_file: UploadFile = File(None, description="prompt_directives.yaml (optional)"),
+    first_message_file: UploadFile = File(None, description="first-message.md (optional)"),
     zip_file: UploadFile = File(None, description="ZIP archive containing yare.yaml, bot_lore.md, optional prompt_directives.yaml"),
     user_id: str = Depends(get_current_user),
     storage: AbstractStorageComponent = Depends(get_storage),
@@ -279,6 +283,7 @@ async def create_cartridge_version(
     yare_bytes = b""
     lore_bytes = b""
     directives_bytes = b""
+    first_message_bytes = b""
 
     if zip_file is not None:
         # Extract from ZIP
@@ -290,6 +295,7 @@ async def create_cartridge_version(
                 yare_candidates = [n for n in names if n.endswith("yare.yaml")]
                 lore_candidates = [n for n in names if n.endswith("bot_lore.md")]
                 dir_candidates = [n for n in names if n.endswith("prompt_directives.yaml")]
+                first_message_candidates = [n for n in names if n.endswith("first-message.md")]
 
                 if not yare_candidates:
                     raise HTTPException(
@@ -305,6 +311,8 @@ async def create_cartridge_version(
                 lore_bytes = zf.read(lore_candidates[0])
                 if dir_candidates:
                     directives_bytes = zf.read(dir_candidates[0])
+                if first_message_candidates:
+                    first_message_bytes = zf.read(first_message_candidates[0])
         except zipfile.BadZipFile:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -320,10 +328,17 @@ async def create_cartridge_version(
         lore_bytes = await lore_file.read()
         if directives_file is not None:
             directives_bytes = await directives_file.read()
+        if first_message_file is not None:
+            first_message_bytes = await first_message_file.read()
 
     # ── Validation boundary ───────────────────────────────────────────────
     try:
-        loaded = _load_and_validate(yare_bytes, lore_bytes, directives_bytes)
+        loaded = _load_and_validate(
+            yare_bytes,
+            lore_bytes,
+            directives_bytes,
+            first_message_bytes,
+        )
     except (ValueError, FileNotFoundError) as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

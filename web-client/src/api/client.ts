@@ -74,7 +74,6 @@ async function apiFetch<T>(
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "X-Provider": "local",
     ...(init.headers as Record<string, string> | undefined),
   };
 
@@ -113,6 +112,24 @@ export async function processTurn(
   return apiFetch<TurnResponse>(
     `/api/instances/${instanceId}/turn`,
     { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+/** §1.1 Send minigame interaction result */
+export async function sendInteraction(
+  instanceId: string,
+  interaction: import("../types/minigames").MinigameInteractionPayload,
+  parentTurnId?: string | null,
+): Promise<TurnResponse> {
+  return apiFetch<TurnResponse>(
+    `/api/instances/${instanceId}/turn`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        parent_turn_id: parentTurnId ?? null,
+        interaction,
+      } satisfies TurnRequest),
+    },
   );
 }
 
@@ -273,6 +290,7 @@ export async function uploadCartridgeVersion(
     yareFile?: File;
     loreFile?: File;
     directivesFile?: File;
+    firstMessageFile?: File;
   },
 ): Promise<CartridgeVersion> {
   const formData = new FormData();
@@ -284,6 +302,8 @@ export async function uploadCartridgeVersion(
     if (files.loreFile) formData.append("lore_file", files.loreFile);
     if (files.directivesFile)
       formData.append("directives_file", files.directivesFile);
+    if (files.firstMessageFile)
+      formData.append("first_message_file", files.firstMessageFile);
   }
 
   const headers: Record<string, string> = {};

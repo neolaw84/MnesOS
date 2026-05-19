@@ -1,4 +1,6 @@
 import '@testing-library/jest-dom'
 
 // jsdom does not implement scrollIntoView
-window.HTMLElement.prototype.scrollIntoView = () => {}
+if (typeof window !== "undefined") {
+  window.HTMLElement.prototype.scrollIntoView = () => {}
+}

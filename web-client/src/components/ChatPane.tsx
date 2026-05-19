@@ -11,9 +11,16 @@ import type { DisplayMessage } from "../types";
 interface ChatPaneProps {
   messages: DisplayMessage[];
   loading: boolean;
+  pendingInteraction?: any;
+  onOpenMinigame?: () => void;
 }
 
-export default function ChatPane({ messages, loading }: ChatPaneProps) {
+export default function ChatPane({
+  messages,
+  loading,
+  pendingInteraction,
+  onOpenMinigame,
+}: ChatPaneProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,6 +44,18 @@ export default function ChatPane({ messages, loading }: ChatPaneProps) {
             {msg.role === "user" ? "🗡️ Player" : "📜 Narrator"}
           </div>
           <div className="chat-text">{msg.content}</div>
+          {idx === messages.length - 1 &&
+            msg.role === "assistant" &&
+            pendingInteraction && (
+              <div className="chat-actions" style={{ marginTop: "0.5rem" }}>
+                <button
+                  className="btn btn-primary btn-small"
+                  onClick={onOpenMinigame}
+                >
+                  🧩 Play {pendingInteraction.minigame_id}
+                </button>
+              </div>
+            )}
         </div>
       ))}
 

@@ -971,7 +971,7 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
             user_id=row["user_id"],
             persona_id=row["persona_id"],
             version_id=row["version_id"],
-            status=GameStatus(row["status"]),
+            status=GameStatus(row["status"]) if row["status"] else GameStatus.ACTIVE,
             created_at=_str_to_ts(row["created_at"]),
             last_played_at=_str_to_ts(row["last_played_at"]),
         )

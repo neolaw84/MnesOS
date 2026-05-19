@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from ..orchestrator import Orchestrator
+from ..exceptions import InteractionRoutingError
 from ..storage import (
     AbstractStorageComponent,
     StateHydrator,
@@ -96,13 +97,26 @@ def process_turn(
 ) -> TurnResponse:
     """Submit a user action, extending the timeline from a specific node."""
     # 1. Invoke orchestrator (stateless — no DB write)
-    result = orch.process_turn(
-        body.user_input,
-        parent_turn_id=body.parent_turn_id,
-        llm_clients=llm_clients,
-        player_settings=body.player_settings or {},
-        request_overrides=body.request_overrides or {},
-    )
+    interaction = body.interaction.model_dump() if body.interaction is not None else None
+    input_text = body.user_input
+    if interaction is not None:
+        metrics_parts = [f"{k}={v}" for k, v in (interaction.get("metrics") or {}).items()]
+        metrics_str = " ".join(metrics_parts)
+        triggered_hooks = interaction.get("triggered_hooks") or []
+        hook_text_section = "\n" + "\n".join(f'"{txt}"' for txt in triggered_hooks) if triggered_hooks else ""
+        input_text = f"[minigame:{interaction.get('minigame_id')} status={interaction.get('status')}{f' {metrics_str}' if metrics_str else ''}]{hook_text_section}"
+
+    try:
+        result = orch.process_turn(
+            input_text or "",
+            interaction=interaction,
+            parent_turn_id=body.parent_turn_id,
+            llm_clients=llm_clients,
+            player_settings=body.player_settings or {},
+            request_overrides=body.request_overrides or {},
+        )
+    except InteractionRoutingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # 2. Persist TurnLog (API route responsibility per 0005 §3.2)
     lineage = (
@@ -114,7 +128,7 @@ def process_turn(
         instance_id=instance_id,
         turn_index=len(lineage),
         actor=TurnActor.PLAYER,
-        input_text=body.user_input,
+        input_text=input_text or "",
         yare_delta=result["yare_delta"],
         narrator_text=result["narrator_text"],
         parent_id=body.parent_turn_id,
@@ -232,7 +246,7 @@ def get_game_state(
     instance_id: str = Depends(verify_instance_ownership),
     turn_log_id: Optional[str] = Query(
         None,
-        description="UUID of the turn to hydrate up to. If omitted, returns initial state.",
+        description="UUID of the turn to hydrate up to. If omitted, resumes from latest turn.",
     ),
     storage: AbstractStorageComponent = Depends(get_storage),
     orch: Orchestrator = Depends(_get_orchestrator),
@@ -241,10 +255,27 @@ def get_game_state(
     if turn_log_id:
         lineage = storage.get_turn_lineage(turn_log_id)
     else:
-        lineage = []
+        # If no turn_log_id specified, fetch the latest turn (by turn_index) and use it
+        turns = storage.get_turn_logs(instance_id)
+        if turns:
+            latest_turn = turns[-1]  # Last entry has highest turn_index
+            lineage = storage.get_turn_lineage(latest_turn.id)
+        else:
+            lineage = []
 
     state = StateHydrator.hydrate_state(lineage, orch.cartridge.initial_state)
+
+    current_turn_id = lineage[-1].id if lineage else None
+    last_player_turn = next(
+        (t for t in reversed(lineage) if t.actor == TurnActor.PLAYER), None
+    )
+    last_user_input = last_player_turn.input_text if last_player_turn else None
+    last_parent_turn_id = last_player_turn.parent_id if last_player_turn else None
+
     return HydratedStateResponse(
         bot_memory=state["bot_memory"],
         client_messages=state["client_messages"],
+        current_turn_id=current_turn_id,
+        last_user_input=last_user_input,
+        last_parent_turn_id=last_parent_turn_id,
     )
