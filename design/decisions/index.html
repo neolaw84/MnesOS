@@ -12,13 +12,9 @@
         <meta name="author" content="neolaw84">
       
       
-        <link rel="canonical" href="https://neolaw84.github.io/MnesOS/design/philosophy/">
+        <link rel="canonical" href="https://neolaw84.github.io/MnesOS/design/decisions/">
       
       
-        <link rel="prev" href="../architecture/">
-      
-      
-        <link rel="next" href="../../yare-specification/">
       
       
         
@@ -29,7 +25,7 @@
     
     
       
-        <title>Philosophy - MnesOS</title>
+        <title>MnesOS Architecture Decision Records (ADR) - MnesOS</title>
       
     
     
@@ -82,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#mnesos-core-design-philosophy" class="md-skip">
+        <a href="#mnesos-architecture-decision-records-adr" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Philosophy
+              MnesOS Architecture Decision Records (ADR)
             
           </span>
         </div>
@@ -266,12 +262,10 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../architecture/" class="md-tabs__link">
           
   
@@ -517,31 +511,26 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   
@@ -559,7 +548,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -602,37 +591,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Philosophy
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../philosophy/" class="md-nav__link">
         
   
   
@@ -648,87 +610,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#ai-engineering-mindset" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        AI Engineering Mindset
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#engine-architecture-philosophies" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Engine Architecture Philosophies
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Engine Architecture Philosophies">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-air-gapping-determinism-from-narration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Air-Gapping Determinism from Narration
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-pure-stateless-core" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Pure Stateless Core
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-bounded-engine-constraints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Bounded Engine Constraints
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1019,31 +900,169 @@
   
 
 
-<h1 id="mnesos-core-design-philosophy">MnesOS Core Design Philosophy<a class="headerlink" href="#mnesos-core-design-philosophy" title="Permanent link">&para;</a></h1>
-<p>This document outlines the core engineering philosophy behind MnesOS and the expected mindset for developers and AI contributors working on the project.</p>
-<h2 id="ai-engineering-mindset">AI Engineering Mindset<a class="headerlink" href="#ai-engineering-mindset" title="Permanent link">&para;</a></h2>
-<p>When contributing to MnesOS, adhere to the following behavioral expectations:
-- <strong>Autonomous Senior Ownership</strong>: Do not blindly follow superficial prompts or surface-level bug reports. Evaluate the deeper systemic root cause.
-- <strong>Holistic Stack Alignment</strong>: Always maintain semantic alignment across system boundaries. If backend API structures or return models are modified, proactively locate and refactor the corresponding client ingestion logic (<code>web-client/</code>) without waiting for explicit instruction.
-- <strong>Proactive Refactoring</strong>: If supporting files, utilities, or validation schemas must be modernized to implement a feature cleanly, perform the refactor immediately.
-- <strong>Rigorous Multi-Step Reasoning</strong>: Think methodically through complex logic patterns, clearly stating operational assumptions and evaluating edge cases before modifying core engine state flows.</p>
+<h1 id="mnesos-architecture-decision-records-adr">MnesOS Architecture Decision Records (ADR)<a class="headerlink" href="#mnesos-architecture-decision-records-adr" title="Permanent link">&para;</a></h1>
+<p>This document serves as the standalone registry for all major architectural and design decisions made for MnesOS. It captures the "Why" behind the core engine, the chosen implementation patterns, and the alternatives that were considered and discarded.</p>
 <hr />
-<h2 id="engine-architecture-philosophies">Engine Architecture Philosophies<a class="headerlink" href="#engine-architecture-philosophies" title="Permanent link">&para;</a></h2>
-<h3 id="1-air-gapping-determinism-from-narration">1. Air-Gapping Determinism from Narration<a class="headerlink" href="#1-air-gapping-determinism-from-narration" title="Permanent link">&para;</a></h3>
-<p>MnesOS cleanly separates numerical stat tracking from narrative immersion to solve hallucination and out-of-context mechanics reporting.
-- <strong>Deterministic Mechanics (YARE)</strong>: All mathematical operations, item transactions, checks, and time transitions execute purely inside code-based logic triggered by the LLM. 
-- <strong>Isolated Narration</strong>: The resulting mechanical traces are hidden as system backstage logs (<code>system_notes</code>). A decoupled <code>Narrator</code> LLM node receives only filtered public state buffers to craft rich, immersive prose without leaking raw variable states into dialogue.</p>
-<h3 id="2-pure-stateless-core">2. Pure Stateless Core<a class="headerlink" href="#2-pure-stateless-core" title="Permanent link">&para;</a></h3>
-<p>The backend engine (<code>src/MnesOS/graph.py</code>) retains no operational memory across network turns.
-- <strong>Pure Functional Graph</strong>: The state graph acts purely as a deterministic pure function: <code>f(State, Input) -&gt; NewState</code>.
-- <strong>Decoupled Persistence</strong>: The engine is strictly decoupled from the storage layer. Game state is persisted as a versioned, event-sourced timeline in the database, enabling the client to request execution from any historical point (infinite branching) without the engine maintaining session memory across network turns.
-- <strong>Event-Sourced World vs Framework State</strong>: The game world state (<code>GameState</code>) is structurally decoupled from the AI framework's internal memory (e.g., LangGraph checkpointers). This ensures the game history is structured, queryable, and independent of the AI agent running it.
-- <strong>Strict Input Constraining</strong>: When the world state requires a specific interaction (e.g., a mini-game or UI form), the engine natively tracks this (<code>_pending_interaction</code>) and uses a hard gate (Input Router) to bypass the LLM intent parser entirely, forcing determinism during narrative locks.</p>
-<h3 id="3-bounded-engine-constraints">3. Bounded Engine Constraints<a class="headerlink" href="#3-bounded-engine-constraints" title="Permanent link">&para;</a></h3>
-<p>To prevent mechanical infinite loops and resource overruns, engine loops are strictly bounded:
-- <strong>Max Iterations</strong>: LangGraph turn limits enforce a strict cap (<code>MAX_ITERATIONS = 3</code>) on consecutive autonomous tool invocations per turn.
-- <strong>Encapsulated Event Procedures</strong>: Cartridge developers must encapsulate intricate procedural workflows within deterministic event chains (<code>call</code> directives in <code>yare.yaml</code>) rather than relying on endless recursive LLM tool-calling.
-- <strong>Modernized Evaluator Context</strong>: The engine natively parses bracket notation (<code>arr[i]</code>), attribute access (<code>obj.val</code>), and nested literals directly inside configuration expressions without requiring core interpreter modifications.</p>
+<h2 id="1-core-engine-architecture">1. Core Engine Architecture<a class="headerlink" href="#1-core-engine-architecture" title="Permanent link">&para;</a></h2>
+<h3 id="11-deterministic-rules-execution-yare">1.1. Deterministic Rules Execution (YARE)<a class="headerlink" href="#11-deterministic-rules-execution-yare" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Decouple game mechanics from the LLM using a custom, non-Turing complete rules engine called YARE (YARE Agentic Rules Engine).</li>
+<li><strong>Rationale</strong>: LLMs are probabilistic and unreliable for math, inventory management, and deterministic logic. YARE ensures that state mutation is safe, predictable, and bounded (preventing infinite loops), while the LLM acts only as a high-level trigger for these rules.</li>
+<li><strong>Status</strong>: Active / Implemented.</li>
+</ul>
+<h3 id="12-air-gapped-graph-directorminigame-routersnarrator">1.2. Air-Gapped Graph (Director/Minigame Routers/Narrator)<a class="headerlink" href="#12-air-gapped-graph-directorminigame-routersnarrator" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Split narrative orchestration into distinct nodes: the <strong>Director</strong> (mechanics/intent), the <strong>Narrator</strong> (prose/rendering), and two minor but important routing nodes: <strong>MinigameInput</strong> and <strong>MinigameOutput</strong>.</li>
+<li><strong>Rationale</strong>: Prevents "The Immersion Gap" where raw system data leaks into the story. The Narrator is "air-gapped" and only receives immersive scene directives. The minigame nodes handle structured entry and exit from interactive minigame components without causing the Director to get stuck or misroute the narrative.</li>
+<li><strong>Status</strong>: Active / Implemented.</li>
+</ul>
+<h3 id="13-stateless-event-sourcing-tree-based-state">1.3. Stateless Event Sourcing (Tree-based State)<a class="headerlink" href="#13-stateless-event-sourcing-tree-based-state" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Rebuild the game state on-the-fly for every turn by applying a chronological chain of mutations (<code>yare_delta</code>) from a root state.</li>
+<li><strong>Rationale</strong>: Enables native support for branching timelines and prevents the "save scumming" problem. The backend remains stateless, and players can explore alternative outcomes by branching from any prior <code>TurnLog</code> ID.</li>
+<li><strong>Status</strong>: Active / Implemented in backend. Not implemented in UI.</li>
+</ul>
+<h3 id="14-the-registry-pattern-side-by-side-auth">1.4. The Registry Pattern &amp; Side-by-Side Auth<a class="headerlink" href="#14-the-registry-pattern-side-by-side-auth" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Use a dynamic Registry Pattern to inject dependencies (Auth, LLM, Storage) at runtime, and adopt a "Side-by-Side" authentication model where the client manages its own LLM keys (for LLM authentications regardless of which LLM) along with the backend auth for the engine/storage.</li>
+<li><strong>Rationale</strong>: Minimizes security liability by never storing user API keys server-side (avoiding a "honey pot"). It also ensures the codebase is environment-agnostic, allowing the exact same engine to run in a cloud SaaS or as a local desktop app.</li>
+<li><strong>Status</strong>: Active / Implemented.</li>
+</ul>
+<hr />
+<h2 id="2-agentic-strategy-tooling">2. Agentic Strategy &amp; Tooling<a class="headerlink" href="#2-agentic-strategy-tooling" title="Permanent link">&para;</a></h2>
+<h3 id="21-tool-based-npc-intent-model">2.1. Tool-Based NPC Intent Model<a class="headerlink" href="#21-tool-based-npc-intent-model" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Implement NPCs as tools (<code>query_npc_intent</code>) called by the Director rather than assigning them dedicated nodes in the LangGraph or Director acting as the NPCs.</li>
+<li><strong>Rationale</strong>: Reduces latency and token costs compared to independent graph nodes. It allows the Director to batch multiple NPC reactions into a single call and provides better control over "Prompt Bleed" (i.e. NPC acting with information they should not know) by strictly filtering NPC context via schema-driven visibility.</li>
+<li><strong>Status</strong>: Active / Implemented.</li>
+</ul>
+<h3 id="22-batch-rag-tooling-multi_lore_lookup">2.2. Batch RAG Tooling (<code>multi_lore_lookup</code>)<a class="headerlink" href="#22-batch-rag-tooling-multi_lore_lookup" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: World-building retrieval as an on-demand tool called by the Director rather than a pre-turn (blind) injection phase.</li>
+<li><strong>Rationale</strong>: Prevents "Context Inflation" by only retrieving lore when relevant to the directing tasks required for current turn. It allows the Director to issue focused, batched queries rather than guessing relevance before the player's intent is processed.</li>
+<li><strong>Status</strong>: Active / Implemented.</li>
+</ul>
+<h3 id="23-llm-tool-based-logic-bridge-yare-to-tools">2.3. LLM Tool-based Logic Bridge (YARE to Tools)<a class="headerlink" href="#23-llm-tool-based-logic-bridge-yare-to-tools" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Convert YARE events defined in a cartridge's <code>yare.yaml</code> into native LLM tools rather than using long-form system prompts or dedicated logic nodes.</li>
+<li><strong>Rationale</strong>: <ol>
+<li><strong>Minimal Prompts</strong>: Keeps the Director prompt clean by avoiding long lists of available events.</li>
+<li><strong>Capability Discovery</strong>: Enables the LLM to perform native parameter validation and capability discovery.</li>
+<li><strong>Clean Decoupling</strong>: Preserves strict separation between narrative rendering (Narrator) and deterministic state mutation (YARE).</li>
+</ol>
+</li>
+<li><strong>Status</strong>: Active / Implemented.</li>
+</ul>
+<hr />
+<h2 id="3-llm-backend-model-strategy">3. LLM Backend &amp; Model Strategy<a class="headerlink" href="#3-llm-backend-model-strategy" title="Permanent link">&para;</a></h2>
+<h3 id="31-llm-consumption-models-local-byok-hosted">3.1. LLM Consumption Models (Local, BYOK, Hosted)<a class="headerlink" href="#31-llm-consumption-models-local-byok-hosted" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Provide three distinct consumption models for LLMs under a unified Strategy Pattern, all utilizing the "Side-by-Side" authentication model.<ul>
+<li><strong>Local</strong>: Executes on the user's hardware (Desktop App only). Requires local storage. (Status: Backlog)</li>
+<li><strong>BYOK (Bring Your Own Key)</strong>: Uses third-party aggregators or providers (OpenRouter, Gemini, OpenAI). (Status: Implemented for OpenRouter)</li>
+<li><strong>Hosted</strong>: Uses a MnesOS-provided API with operator-managed models. Requires a credit/billing management system. (Status: Backlog)</li>
+</ul>
+</li>
+<li><strong>Rationale</strong>: Ensures maximum flexibility for different user personas while maintaining a single code path for orchestration. The <strong>BYOK</strong> model specifically eliminates developer liability for user-generated API traffic in cloud environments.</li>
+<li><strong>Status</strong>: Active.</li>
+</ul>
+<h3 id="32-hardware-specific-local-model-tiers">3.2. Hardware-Specific Local Model Tiers<a class="headerlink" href="#32-hardware-specific-local-model-tiers" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Optimize for three distinct local hardware tiers: <strong>Tiny</strong> (&lt;4GB VRAM), <strong>Small</strong> (6-8GB), and <strong>Midsize</strong> (12-16GB).</li>
+<li><strong>Rationale</strong>: MnesOS is designed for both cloud and local play. Tailoring model selection (e.g., Qwen 7B vs Llama 70B) ensures a performant experience regardless of the user's available hardware.</li>
+<li><strong>Status</strong>: Active / Planning.</li>
+</ul>
+<h3 id="33-model-selection-criteria-json-uncensored">3.3. Model Selection Criteria (JSON &amp; Uncensored)<a class="headerlink" href="#33-model-selection-criteria-json-uncensored" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Prioritize models that maintain Hydraulically reliable JSON tool-calling even when uncensored (e.g., Qwen 3 Instruct, Dolphin-Qwen).</li>
+<li><strong>Rationale</strong>: The Director must reliably output tool calls to drive the engine. Uncensored models are required for narrative freedom in RPG settings without triggering mainstream safety filters that break roleplay immersion.</li>
+<li><strong>Status</strong>: Active.</li>
+</ul>
+<h3 id="34-the-downloader-pattern-local-distribution">3.4. The Downloader Pattern (Local Distribution)<a class="headerlink" href="#34-the-downloader-pattern-local-distribution" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Configure the engine to fetch model weights from Hugging Face at runtime rather than bundling them.</li>
+<li><strong>Rationale</strong>: Mitigates developer legal liability for model weights by navigating the complexities of OSI-approved vs AUP licenses (e.g., Llama Community License). Shifting download responsibility to the user at runtime ensures the developer does not "distribute" restricted weights directly, assuming liability transfer for the weight usage.</li>
+<li><strong>Status</strong>: Backlog.</li>
+</ul>
+<hr />
+<h2 id="4-security-operational-strategy">4. Security &amp; Operational Strategy<a class="headerlink" href="#4-security-operational-strategy" title="Permanent link">&para;</a></h2>
+<h3 id="41-multi-layered-guardrail-strategy-pattern">4.1. Multi-Layered Guardrail Strategy Pattern<a class="headerlink" href="#41-multi-layered-guardrail-strategy-pattern" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Implement a <code>GuardrailStrategy</code> interface that allows dynamic swapping between safety strictness levels (e.g., <code>StrictSFW</code> vs <code>UncensoredRP</code>).</li>
+<li><strong>Rationale</strong>: Allows the engine to support both safe public play and private mature roleplay. Guardrails are applied at the Input (Prompt Guard), Execution (Guardrails AI), and Output (Llama Guard 3) layers.</li>
+<li><strong>Status</strong>: Backlog.</li>
+</ul>
+<h3 id="42-permissive-aggregator-endpoints">4.2. Permissive Aggregator Endpoints<a class="headerlink" href="#42-permissive-aggregator-endpoints" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Route mature or roleplay-heavy traffic exclusively through permissive aggregator endpoints (OpenRouter) or direct IaaS providers (RunPod, Together) rather than mainstream corporate APIs (e.g., OpenAI, Google).</li>
+<li><strong>Rationale</strong>: Prevents service interruption from mainstream Trust &amp; Safety proxy bans, ensuring that narrative freedom in RPG contexts is not restricted by rigid corporate filters.</li>
+<li><strong>Status</strong>: Backlog.</li>
+</ul>
+<h3 id="43-regional-geo-blocking-australia">4.3. Regional Geo-Blocking (Australia)<a class="headerlink" href="#43-regional-geo-blocking-australia" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Apply IP-based geo-blocking for the hosted cloud service targeting Australia.</li>
+<li><strong>Rationale</strong>: Immediate mitigation of regulatory risks in jurisdictions with restrictive or ambiguous internet safety laws.</li>
+<li><strong>Note</strong>: This is an <strong>operational/infrastructure</strong> task (e.g., via Cloudflare or Load Balancer rules) and is outside the scope of the MnesOS engine codebase.</li>
+<li><strong>Status</strong>: Not Applicable.</li>
+</ul>
+<hr />
+<h2 id="5-deployment-interaction-architecture">5. Deployment &amp; Interaction Architecture<a class="headerlink" href="#5-deployment-interaction-architecture" title="Permanent link">&para;</a></h2>
+<h3 id="51-decoupled-cdn-deployment">5.1. Decoupled CDN Deployment<a class="headerlink" href="#51-decoupled-cdn-deployment" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Separate the backend (pure API) from the frontend (served via CDN), controlled by environment variables.</li>
+<li><strong>Rationale</strong>: Reduces expensive compute costs by serving static assets from cheap edge networks, allowing the Python backend to scale independently based purely on LLM orchestration load.</li>
+<li><strong>Note</strong>: This architecture is specifically designed to support cloud operators providing MnesOS as a service, enabling enterprise-grade deployment flexibility from within the core codebase.</li>
+<li><strong>Status</strong>: Backlog.</li>
+</ul>
+<h3 id="52-stateless-interactive-routing-_pending_interaction">5.2. Stateless Interactive Routing (<code>_pending_interaction</code>)<a class="headerlink" href="#52-stateless-interactive-routing-_pending_interaction" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Handle UI constraints (forms, mini-games) by tracking a <code>_pending_interaction</code> flag in the YARE database state, resolving it via a deterministic "Minigame Input Node" that bypasses the Director LLM.</li>
+<li><strong>Rationale</strong>: Avoids the "Interrupt Trap" (LangGraph checkpointers pausing mid-tool). It keeps the backend purely RESTful and stateless. It guarantees that players cannot bypass narrative constraints by typing free-text, as the Minigame Input Node enforces structured JSON submission.</li>
+<li><strong>Status</strong>: Active / Implemented.</li>
+</ul>
+<h3 id="53-high-level-language-authoring-yarepy-yarejs">5.3. High-Level Language Authoring (yare.py / yare.js)<a class="headerlink" href="#53-high-level-language-authoring-yarepy-yarejs" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: Provide cartridge developers with the ability to author the YARE specification using conventional programming languages, beginning with Python and JavaScript.</li>
+<li><strong>Rationale</strong>: YAML is excellent for engine execution but lacks the modularity, type-safety, and logic-reuse capabilities (loops, helper functions) required for complex cartridges. Providing Py/JS SDKs improves developer productivity and allows for programmatic generation of rules while maintaining YAML as the underlying portable engine standard.</li>
+<li><strong>Status</strong>: Backlog.</li>
+</ul>
+<h3 id="54-explicit-pyjs-1-to-1-compiler-mapping">5.4. Explicit Py/JS 1-to-1 Compiler Mapping<a class="headerlink" href="#54-explicit-pyjs-1-to-1-compiler-mapping" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Decision</strong>: SDKs (<code>yare.py</code>, <code>yare.js</code>) must maintain a strict 1-to-1 mapping between high-level language functions and YARE YAML events, requiring developers to explicitly manage state transitions and asynchronous multi-turn interactions.</li>
+<li><strong>Rationale</strong>: Prevents building "compiler magic" that attempts to implicitly untangle asynchronous game loops (e.g., automatically splitting a single procedural function into multiple turn-based states). By keeping the YAML as a strict Intermediate Representation (IR) and forcing explicit event handling, the engine remains predictable, deterministic, and easy to debug.</li>
+<li><strong>Status</strong>: Backlog.</li>
+</ul>
+<hr />
+<h2 id="6-discarded-ideas-abandoned-patterns">6. Discarded Ideas &amp; Abandoned Patterns<a class="headerlink" href="#6-discarded-ideas-abandoned-patterns" title="Permanent link">&para;</a></h2>
+<h3 id="61-dual-gateway-client-side-llm-calls">6.1. Dual-Gateway (Client-Side LLM Calls)<a class="headerlink" href="#61-dual-gateway-client-side-llm-calls" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Abandoned In Favor Of</strong>: Backend Managed Orchestration.</li>
+<li><strong>Rationale</strong>: Bypassing the backend for LLM calls (talking directly to OpenRouter from the client) breaks the orchestration engine, as the LangGraph graph needs direct access to the model to drive game turns.</li>
+</ul>
+<h3 id="62-linked-identity-server-side-persistence-of-api-keys">6.2. Linked Identity (Server-side Persistence of API Keys)<a class="headerlink" href="#62-linked-identity-server-side-persistence-of-api-keys" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Abandoned In Favor Of</strong>: Side-by-Side / Frontend Managed Auth.</li>
+<li><strong>Rationale</strong>: Storing third-party OAuth/Refresh tokens or API keys in the MnesOS database creates a severe security liability ("honey pot"). Client-managed keys ensure user security and engine portability.</li>
+</ul>
+<h3 id="63-context-driven-strategy">6.3. Context-Driven Strategy<a class="headerlink" href="#63-context-driven-strategy" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Abandoned In Favor Of</strong>: The Registry Pattern.</li>
+<li><strong>Rationale</strong>: Initializing the <code>Orchestrator</code> with a "Context Object" (User, Storage, Factory) provided high ergonomics but would require refactoring 15-20% of the codebase across all nodes and tools. Furthermore, a central Context object risks becoming a "God Object" that is difficult to mock and test in isolation. The Registry Pattern achieves similar goals by limiting refactoring to the API boundary and graph setup.</li>
+</ul>
+<h3 id="64-standalone-npc-brain-nodes">6.4. Standalone NPC Brain Nodes<a class="headerlink" href="#64-standalone-npc-brain-nodes" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Abandoned In Favor Of</strong>: NPC Intent Tool.</li>
+<li><strong>Rationale</strong>: Dedicated graph nodes for NPCs added unnecessary latency and were too rigid for dynamic scenes.<ul>
+<li><strong>Redundancy</strong>: For simple physical certainties (e.g., an NPC's reaction to an injury), the Director can use "GM Fiat" to determine the outcome without an extra LLM call.</li>
+<li><strong>Multi-NPC Rigidity</strong>: A fixed node cannot efficiently handle a dynamic number of NPCs. Toolizing the intent allows the Director to batch multiple reactions into a single call only when tactical or emotional complexity warrants it.</li>
+</ul>
+</li>
+</ul>
+<h3 id="65-per-turn-lore-pre-node-injection">6.5. Per-Turn Lore Pre-Node Injection<a class="headerlink" href="#65-per-turn-lore-pre-node-injection" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Abandoned In Favor Of</strong>: Batch RAG Tooling.</li>
+<li><strong>Rationale</strong>: Injecting lore at the start of every turn results in context inflation and wasted tokens for trivial actions. Active retrieval by the Director is more precise and efficient as it only requests information after the player's intent is known.</li>
+</ul>
 
 
 

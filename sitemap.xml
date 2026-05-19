@@ -2,50 +2,70 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://neolaw84.github.io/MnesOS/</loc>
-         <lastmod>2026-05-12</lastmod>
+         <lastmod>2026-05-19</lastmod>
     </url>
     <url>
          <loc>https://neolaw84.github.io/MnesOS/ai-index/</loc>
-         <lastmod>2026-05-12</lastmod>
+         <lastmod>2026-05-19</lastmod>
     </url>
     <url>
          <loc>https://neolaw84.github.io/MnesOS/api/</loc>
-         <lastmod>2026-05-12</lastmod>
+         <lastmod>2026-05-19</lastmod>
+    </url>
+    <url>
+         <loc>https://neolaw84.github.io/MnesOS/high_level_mini_game_implementation_plan/</loc>
+         <lastmod>2026-05-19</lastmod>
+    </url>
+    <url>
+         <loc>https://neolaw84.github.io/MnesOS/mini_game_implementation_plan/</loc>
+         <lastmod>2026-05-19</lastmod>
     </url>
     <url>
          <loc>https://neolaw84.github.io/MnesOS/to-do-260507/</loc>
-         <lastmod>2026-05-12</lastmod>
+         <lastmod>2026-05-19</lastmod>
     </url>
     <url>
          <loc>https://neolaw84.github.io/MnesOS/to-do-260510/</loc>
-         <lastmod>2026-05-12</lastmod>
+         <lastmod>2026-05-19</lastmod>
+    </url>
+    <url>
+         <loc>https://neolaw84.github.io/MnesOS/to-do-260516/</loc>
+         <lastmod>2026-05-19</lastmod>
     </url>
     <url>
          <loc>https://neolaw84.github.io/MnesOS/yare-specification/</loc>
-         <lastmod>2026-05-12</lastmod>
+         <lastmod>2026-05-19</lastmod>
     </url>
     <url>
          <loc>https://neolaw84.github.io/MnesOS/design/architecture/</loc>
-         <lastmod>2026-05-12</lastmod>
+         <lastmod>2026-05-19</lastmod>
+    </url>
+    <url>
+         <loc>https://neolaw84.github.io/MnesOS/design/decisions/</loc>
+         <lastmod>2026-05-19</lastmod>
     </url>
     <url>
          <loc>https://neolaw84.github.io/MnesOS/design/philosophy/</loc>
-         <lastmod>2026-05-12</lastmod>
+         <lastmod>2026-05-19</lastmod>
+    </url>
+    <url>
+         <loc>https://neolaw84.github.io/MnesOS/design/yare-bridge/</loc>
+         <lastmod>2026-05-19</lastmod>
     </url>
     <url>
          <loc>https://neolaw84.github.io/MnesOS/development/ci-cd/</loc>
-         <lastmod>2026-05-12</lastmod>
+         <lastmod>2026-05-19</lastmod>
     </url>
     <url>
          <loc>https://neolaw84.github.io/MnesOS/development/directory-map/</loc>
-         <lastmod>2026-05-12</lastmod>
+         <lastmod>2026-05-19</lastmod>
     </url>
     <url>
          <loc>https://neolaw84.github.io/MnesOS/guides/cartridge-developer-guide/</loc>
-         <lastmod>2026-05-12</lastmod>
+         <lastmod>2026-05-19</lastmod>
     </url>
     <url>
          <loc>https://neolaw84.github.io/MnesOS/guides/player-guide/</loc>
-         <lastmod>2026-05-12</lastmod>
+         <lastmod>2026-05-19</lastmod>
     </url>
 </urlset>

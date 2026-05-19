@@ -12,7 +12,7 @@
         <meta name="author" content="neolaw84">
       
       
-        <link rel="canonical" href="https://neolaw84.github.io/MnesOS/to-do-260507/">
+        <link rel="canonical" href="https://neolaw84.github.io/MnesOS/mini_game_implementation_plan/">
       
       
       
@@ -25,7 +25,7 @@
     
     
       
-        <title>MnesOS Implementation Plan – 2026-05-07 - MnesOS</title>
+        <title>MnesOS Minigame Implementation Plan - MnesOS</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#mnesos-implementation-plan-2026-05-07" class="md-skip">
+        <a href="#mnesos-minigame-implementation-plan" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              MnesOS Implementation Plan – 2026-05-07
+              MnesOS Minigame Implementation Plan
             
           </span>
         </div>
@@ -900,135 +900,90 @@
   
 
 
-<h1 id="mnesos-implementation-plan-2026-05-07">MnesOS Implementation Plan – 2026-05-07<a class="headerlink" href="#mnesos-implementation-plan-2026-05-07" title="Permanent link">&para;</a></h1>
-<p>This plan outlines the Foundation and Gameplay tracks for parallel development. Tasks are structured as JIRA-style cards to enable clear ownership for 2-3 engineers.</p>
+<h1 id="mnesos-minigame-implementation-plan">MnesOS Minigame Implementation Plan<a class="headerlink" href="#mnesos-minigame-implementation-plan" title="Permanent link">&para;</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>This document outlines the step-by-step implementation plan for the MnesOS minigame suite. It is designed to be highly specific so that a junior developer or an AI agent can execute these tasks independently.</p>
+<p>The architecture decouples the frontend minigame logic from the backend YARE (YARE Agentic Rules Engine) execution. Minigame definitions and schemas are exclusively owned by the React frontend, while the backend routes states safely and deterministically.</p>
 <hr />
-<h2 id="phase-1-foundation-cicd">Phase 1: Foundation (CI/CD)<a class="headerlink" href="#phase-1-foundation-cicd" title="Permanent link">&para;</a></h2>
-<h3 id="mnesos-260507-01-ci-implement-path-filtering-gatekeeper-pattern">[MnesOS-260507-01] CI – Implement Path-Filtering &amp; Gatekeeper Pattern<a class="headerlink" href="#mnesos-260507-01-ci-implement-path-filtering-gatekeeper-pattern" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Done</strong></li>
-<li><strong>Objective:</strong> Prevent PR blocking when specific sub-systems (Python or Web) are skipped.</li>
-<li><strong>Description:</strong> <ul>
-<li>Implement a <code>paths-filter</code> job to detect changes in <code>src/</code> vs <code>web-client/</code>.</li>
-<li>Create a <code>ci-success</code> gatekeeper job that depends on all test workers.</li>
-<li>Implement logic in <code>ci-success</code> to treat <code>skipped</code> results as <code>success</code>.</li>
-<li><strong>Contract:</strong> This will be the only required status check for branch protection.</li>
-</ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-02-ci-web-client-unit-tests-coverage-enforcement">[MnesOS-260507-02] CI – Web-Client Unit Tests &amp; Coverage Enforcement<a class="headerlink" href="#mnesos-260507-02-ci-web-client-unit-tests-coverage-enforcement" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Done</strong></li>
-<li><strong>Objective:</strong> Establish quality standards for the frontend.</li>
-<li><strong>Description:</strong><ul>
-<li>Configure Vitest/Jest in the <code>web-client</code> directory.</li>
-<li>Update GitHub Actions to run frontend tests when <code>web-client/</code> changes.</li>
-<li>Enforce a hard-fail threshold of 80% code coverage.</li>
-</ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-03-ci-full-system-e2e-integration-pipeline">[MnesOS-260507-03] CI – Full System E2E Integration Pipeline<a class="headerlink" href="#mnesos-260507-03-ci-full-system-e2e-integration-pipeline" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Done</strong></li>
-<li><strong>Objective:</strong> Verify the unified application artifact.</li>
-<li><strong>Description:</strong><ul>
-<li>Update CI to build the web-client and mount the static output to the FastAPI backend.</li>
-<li>Implement a Playwright test suite that boots the unified service.</li>
-<li>Enforce E2E "Happy Path" verification (Auth -&gt; New Game -&gt; First Turn).</li>
-</ul>
-</li>
-</ul>
+<h2 id="phase-1-frontend-registry-schema-generation">Phase 1: Frontend Registry &amp; Schema Generation<a class="headerlink" href="#phase-1-frontend-registry-schema-generation" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Establish the minigame registry as the single source of truth and automate the discovery mechanism.</p>
+<h3 id="11-define-minigame-interface">1.1 Define Minigame Interface<a class="headerlink" href="#11-define-minigame-interface" title="Permanent link">&para;</a></h3>
+<p><strong>Location:</strong> Frontend React Repository (<code>/src/types/minigames.ts</code> or similar)
+- Create a TypeScript interface for the minigame manifest.
+- The manifest must include:
+  - <code>minigame_id</code> (string)
+  - <code>difficulty_schema</code> (JSON Schema object defining properties like <code>grid_size</code>, <code>time_limit</code>)
+  - <code>assets_schema</code> (JSON Schema object defining required visual assets like <code>icon_on</code>)
+  - <code>events_schema</code> (Array of strings defining narrative hooks, e.g., <code>["on_combo"]</code>)
+  - <code>output_schema</code> (JSON Schema defining minigame-specific return values)</p>
+<h3 id="12-create-build-time-schema-aggregator">1.2 Create Build-Time Schema Aggregator<a class="headerlink" href="#12-create-build-time-schema-aggregator" title="Permanent link">&para;</a></h3>
+<p><strong>Location:</strong> Frontend React Repository (<code>/scripts/generate-minigame-schema.ts</code> or similar)
+- Write a Node.js script that:
+  1. Scans a dedicated directory (e.g., <code>/src/components/minigames/</code>) for all minigame manifests (e.g., <code>manifest.json</code> or exported TypeScript objects).
+  2. Aggregates these manifests into a single <code>minigames.schema.json</code> file.
+  3. Writes this aggregated file to the frontend's public folder (e.g., <code>/public/schemas/minigames.json</code>) so it can be hosted statically.
+  4. Copies the aggregated file to the project's root <code>docs/</code> folder for repository documentation.
+- Update <code>package.json</code> to ensure this script runs automatically before the <code>build</code> and <code>dev</code> scripts.</p>
 <hr />
-<h2 id="phase-2-gameplay-abstractions">Phase 2: Gameplay &amp; Abstractions<a class="headerlink" href="#phase-2-gameplay-abstractions" title="Permanent link">&para;</a></h2>
-<h3 id="mnesos-260507-04-auth-implement-stateless-auth-abstraction-layer">[MnesOS-260507-04] Auth – Implement Stateless Auth Abstraction Layer<a class="headerlink" href="#mnesos-260507-04-auth-implement-stateless-auth-abstraction-layer" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Done</strong></li>
-<li><strong>Objective:</strong> Decouple the engine from specific auth providers.</li>
-<li><strong>Description:</strong><ul>
-<li>Define <code>AuthProvider</code> and <code>AuthValidator</code> abstract base classes.</li>
-<li>Implement the <code>OpenRouterPKCE</code> strategy.</li>
-<li>Refactor API middleware/dependencies to use an <code>AuthFactory</code> based on <code>X-Provider</code> headers.</li>
-</ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-05-engine-implement-llm-provider-factory">[MnesOS-260507-05] Engine – Implement LLM Provider Factory<a class="headerlink" href="#mnesos-260507-05-engine-implement-llm-provider-factory" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Done</strong></li>
-<li><strong>Objective:</strong> Enable multi-model and multi-provider support.</li>
-<li><strong>Description:</strong><ul>
-<li>Define the <code>LLMProvider</code> interface (generate, embed).</li>
-<li>Implement <code>OpenRouter</code> and <code>Gemini</code> concrete strategies.</li>
-<li>Update LangGraph nodes to receive an injected <code>LLMProvider</code> rather than calling specific APIs.</li>
-</ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-06-engine-hierarchical-config-runnableconfig-mapping">[MnesOS-260507-06] Engine – Hierarchical Config &amp; RunnableConfig Mapping<a class="headerlink" href="#mnesos-260507-06-engine-hierarchical-config-runnableconfig-mapping" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Done</strong></li>
-<li><strong>Objective:</strong> Grant players and developers control over LLM parameters.</li>
-<li><strong>Description:</strong><ul>
-<li>Implement the <code>MnesOSRuntimeConfig</code> schema.</li>
-<li>Create a <code>ConfigMerger</code> to combine Cartridge defaults, Player settings, and Request-level overrides.</li>
-<li>Update the <code>Orchestrator</code> to map the merged config into the LangGraph <code>RunnableConfig["configurable"]</code> dictionary.</li>
-</ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-07-gameplay-director-batch-rag-tool">[MnesOS-260507-07] Gameplay – Director Batch RAG Tool<a class="headerlink" href="#mnesos-260507-07-gameplay-director-batch-rag-tool" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Done</strong></li>
-<li><strong>Objective:</strong> Optimize cost and performance of lore retrieval.</li>
-<li><strong>Description:</strong><ul>
-<li>Implement the <code>multi_lore_lookup(queries: List[str])</code> tool.</li>
-<li>Update the Director node’s system prompt to mandate batching of information lookups.</li>
-<li>Refactor the graph to make RAG an active tool call instead of a pre-node injection.</li>
-</ul>
-</li>
-</ul>
-<h2 id="phase-3-cartridge-developer-features">Phase 3: Cartridge Developer Features<a class="headerlink" href="#phase-3-cartridge-developer-features" title="Permanent link">&para;</a></h2>
-<h3 id="mnesos-260507-08-builder-ui-ide-lite-split-pane-layout">[MnesOS-260507-08] Builder UI – IDE-lite Split-Pane Layout<a class="headerlink" href="#mnesos-260507-08-builder-ui-ide-lite-split-pane-layout" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Backlog</strong></li>
-<li><strong>Objective:</strong> Provide a high-productivity authoring environment.</li>
-<li><strong>Description:</strong><ul>
-<li>Implement the split-pane layout: Chat Agent (Left) and 4-Tab Live Preview (Right).</li>
-<li><strong>Tabs:</strong> World Lore (<code>.md</code>), Game Rules (<code>.yaml</code>), AI Directives (<code>.yaml</code>), and Intro Message (<code>.md</code>).</li>
-<li><strong>Bi-directional Sync:</strong> Ensure manual edits in the preview pane are reflected back into the Agent's context.</li>
-</ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-09-builder-backend-architect-specialist-multi-agent-system">[MnesOS-260507-09] Builder Backend – Architect &amp; Specialist Multi-Agent System<a class="headerlink" href="#mnesos-260507-09-builder-backend-architect-specialist-multi-agent-system" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Backlog</strong></li>
-<li><strong>Objective:</strong> Ensure high-quality generation across narrative and technical domains.</li>
-<li><strong>Description:</strong><ul>
-<li>Implement a LangGraph orchestrator (Architect) that delegates to specialized workers.</li>
-<li><strong>Lore Master Node:</strong> Handles markdown worldbuilding and consistency.</li>
-<li><strong>Mechanic Node (YARE Expert):</strong> Handles English-to-YAML translation.</li>
-<li><strong>Prompter Node:</strong> Handles role steering and intro narrative.</li>
-<li><strong>Contract:</strong> The Mechanic node MUST include rich YAML comments for every generated state/event.</li>
-</ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-10-builder-tools-yare-translator-auto-validator">[MnesOS-260507-10] Builder Tools – YARE Translator &amp; Auto-Validator<a class="headerlink" href="#mnesos-260507-10-builder-tools-yare-translator-auto-validator" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Backlog</strong></li>
-<li><strong>Objective:</strong> Enable deterministic logic generation with auto-correction.</li>
-<li><strong>Description:</strong><ul>
-<li>Build the <code>yare_translate</code> tool: English -&gt; (YAML Block + Logic Explanation).</li>
-<li>Build the <code>cartridge_validate</code> tool: Wraps the existing <code>CartridgeLoader</code> to provide agents with immediate feedback for auto-correction loops.</li>
-</ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-11-builder-persistence-versioned-drafts-zip-export">[MnesOS-260507-11] Builder Persistence – Versioned Drafts &amp; ZIP Export<a class="headerlink" href="#mnesos-260507-11-builder-persistence-versioned-drafts-zip-export" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Backlog</strong></li>
-<li><strong>Objective:</strong> Ensure user work is safe and portable.</li>
-<li><strong>Description:</strong><ul>
-<li>Implement the <code>cartridge_drafts</code> table with <strong>Auto-save</strong> and <strong>Version History</strong> (Retention: k=3).</li>
-<li>Implement a one-click <strong>ZIP Export</strong> feature that packages the 4 draft files into a standard MnesOS cartridge structure.</li>
-</ul>
-</li>
-</ul>
+<h2 id="phase-2-backend-input-routing-security">Phase 2: Backend Input Routing &amp; Security<a class="headerlink" href="#phase-2-backend-input-routing-security" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Implement the logic in the backend <code>Input Router</code> to safely resolve minigame interactions without allowing prompt injection.</p>
+<h3 id="21-standardize-_pending_interaction-schema">2.1 Standardize <code>_pending_interaction</code> Schema<a class="headerlink" href="#21-standardize-_pending_interaction-schema" title="Permanent link">&para;</a></h3>
+<p><strong>Location:</strong> Backend (<code>yare</code> schema definitions / LangGraph state models)
+- Update the GameState schema to formally support a <code>_pending_interaction</code> object with the following shape:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;interaction_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;minigame&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">&quot;minigame_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">&quot;resolver_event&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">&quot;difficulty&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dict&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nt">&quot;assets&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dict&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">&quot;narrative_hooks&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dict&quot;</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="22-update-the-input-router-node">2.2 Update the Input Router Node<a class="headerlink" href="#22-update-the-input-router-node" title="Permanent link">&para;</a></h3>
+<p><strong>Location:</strong> Backend LangGraph definition (<code>Input Router</code> node)
+- Update the router to intercept incoming interactions of type <code>minigame</code>.
+- <strong>Validation:</strong> 
+  - Check that the <code>GameState</code> currently contains a <code>_pending_interaction</code>.
+  - Verify that the incoming <code>minigame_id</code> matches the <code>minigame_id</code> in the backend state.
+- <strong>Security &amp; Extraction:</strong>
+  - <strong>Crucial:</strong> Extract the <code>resolver_event</code> from the trusted <strong>server-side</strong> <code>_pending_interaction</code>, NOT from the incoming API payload.
+- <strong>State Cleanup:</strong>
+  - Remove <code>_pending_interaction</code> from the <code>GameState</code> to prevent replay attacks.
+- <strong>Execution:</strong>
+  - Route the incoming payload as <code>inputs</code> to the dynamically extracted YARE <code>resolver_event</code>.</p>
+<hr />
+<h2 id="phase-3-frontend-minigame-framework-payload-dispatch">Phase 3: Frontend Minigame Framework &amp; Payload Dispatch<a class="headerlink" href="#phase-3-frontend-minigame-framework-payload-dispatch" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Implement the universal return value structure and the React wrapper for minigames.</p>
+<h3 id="31-define-the-universal-payload-interface">3.1 Define the Universal Payload Interface<a class="headerlink" href="#31-define-the-universal-payload-interface" title="Permanent link">&para;</a></h3>
+<p><strong>Location:</strong> Frontend (<code>/src/types/minigames.ts</code>)
+- Define the <code>InteractivePayload</code> interface that will be sent back to the API:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">InteractivePayload</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nx">interaction_type</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;minigame&quot;</span><span class="p">;</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nx">minigame_id</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nx">status</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;completed&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;failed&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;aborted&quot;</span><span class="p">;</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nx">metrics</span><span class="o">:</span><span class="w"> </span><span class="kt">Record</span><span class="o">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kt">number</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kt">boolean</span><span class="o">&gt;</span><span class="p">;</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nx">minigame_specific_data</span><span class="o">:</span><span class="w"> </span><span class="kt">Record</span><span class="o">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">any</span><span class="o">&gt;</span><span class="p">;</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="32-implement-the-minigame-wrapper-component">3.2 Implement the Minigame Wrapper Component<a class="headerlink" href="#32-implement-the-minigame-wrapper-component" title="Permanent link">&para;</a></h3>
+<p><strong>Location:</strong> Frontend (<code>/src/components/minigames/MinigameWrapper.tsx</code>)
+- Create a higher-order React component or wrapper that:
+  1. Reads <code>_pending_interaction</code> from the current GameState.
+  2. Dynamically loads the corresponding minigame component based on <code>minigame_id</code>.
+  3. Passes the <code>config</code> (difficulty, assets, narrative hooks) down as props.
+  4. Provides a callback function (e.g., <code>onComplete(payload)</code>) that the child minigame calls upon finishing.
+  5. The wrapper handles formatting the final <code>InteractivePayload</code> and posting it to the backend's <code>/api/instances/{id}/turn</code> endpoint.</p>
+<hr />
+<h2 id="phase-4-dx-ai-skill-updating">Phase 4: DX &amp; AI Skill Updating<a class="headerlink" href="#phase-4-dx-ai-skill-updating" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Ensure the AI tooling and Cartridge Developers can effortlessly utilize the new minigame suite.</p>
+<h3 id="41-update-the-cartridge-development-skill">4.1 Update the Cartridge Development Skill<a class="headerlink" href="#41-update-the-cartridge-development-skill" title="Permanent link">&para;</a></h3>
+<p><strong>Location:</strong> <code>.agents/skills/mnesos-cartridge-development/SKILL.md</code>
+- Update the skill document to instruct AI agents on how to construct a <code>_pending_interaction</code> state mutation using YARE.
+- Explain the separation of the initial request event and the <code>resolver_event</code>.
+- Explicitly instruct the AI to reference the newly generated <code>minigames.schema.json</code> when determining what properties belong in <code>config.difficulty</code>, <code>config.assets</code>, and <code>config.narrative_hooks</code> for a specific minigame.
+- Provide a clear template in the skill file showing a request event and a resolver event.</p>
 
 
 

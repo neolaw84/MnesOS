@@ -12,7 +12,7 @@
         <meta name="author" content="neolaw84">
       
       
-        <link rel="canonical" href="https://neolaw84.github.io/MnesOS/to-do-260507/">
+        <link rel="canonical" href="https://neolaw84.github.io/MnesOS/design/yare-bridge/">
       
       
       
@@ -20,19 +20,19 @@
         
       
       
-      <link rel="icon" href="../assets/images/favicon.png">
+      <link rel="icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>MnesOS Implementation Plan – 2026-05-07 - MnesOS</title>
+        <title>YARE-to-Tool Bridge Specification - MnesOS</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -51,9 +51,9 @@
       
     
     
-      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#mnesos-implementation-plan-2026-05-07" class="md-skip">
+        <a href="#yare-to-tool-bridge-specification" class="md-skip">
           Skip to content
         </a>
       
@@ -92,7 +92,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="MnesOS" class="md-header__button md-logo" aria-label="MnesOS" data-md-component="logo">
+    <a href="../.." title="MnesOS" class="md-header__button md-logo" aria-label="MnesOS" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              MnesOS Implementation Plan – 2026-05-07
+              YARE-to-Tool Bridge Specification
             
           </span>
         </div>
@@ -225,7 +225,7 @@
   
   
     <li class="md-tabs__item">
-      <a href=".." class="md-tabs__link">
+      <a href="../.." class="md-tabs__link">
         
   
   
@@ -246,7 +246,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../guides/player-guide/" class="md-tabs__link">
+        <a href="../../guides/player-guide/" class="md-tabs__link">
           
   
   
@@ -266,7 +266,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../design/architecture/" class="md-tabs__link">
+        <a href="../architecture/" class="md-tabs__link">
           
   
   
@@ -286,7 +286,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../development/directory-map/" class="md-tabs__link">
+        <a href="../../development/directory-map/" class="md-tabs__link">
           
   
   
@@ -306,7 +306,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../ai-index/" class="md-tabs__link">
+        <a href="../../ai-index/" class="md-tabs__link">
           
   
   
@@ -342,7 +342,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="MnesOS" class="md-nav__button md-logo" aria-label="MnesOS" data-md-component="logo">
+    <a href="../.." title="MnesOS" class="md-nav__button md-logo" aria-label="MnesOS" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -372,7 +372,7 @@
   
   
     <li class="md-nav__item">
-      <a href=".." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -451,7 +451,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guides/player-guide/" class="md-nav__link">
+      <a href="../../guides/player-guide/" class="md-nav__link">
         
   
   
@@ -479,7 +479,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guides/cartridge-developer-guide/" class="md-nav__link">
+      <a href="../../guides/cartridge-developer-guide/" class="md-nav__link">
         
   
   
@@ -566,7 +566,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../design/architecture/" class="md-nav__link">
+      <a href="../architecture/" class="md-nav__link">
         
   
   
@@ -594,7 +594,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../design/philosophy/" class="md-nav__link">
+      <a href="../philosophy/" class="md-nav__link">
         
   
   
@@ -622,7 +622,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../yare-specification/" class="md-nav__link">
+      <a href="../../yare-specification/" class="md-nav__link">
         
   
   
@@ -650,7 +650,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/" class="md-nav__link">
+      <a href="../../api/" class="md-nav__link">
         
   
   
@@ -737,7 +737,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../development/directory-map/" class="md-nav__link">
+      <a href="../../development/directory-map/" class="md-nav__link">
         
   
   
@@ -765,7 +765,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../development/ci-cd/" class="md-nav__link">
+      <a href="../../development/ci-cd/" class="md-nav__link">
         
   
   
@@ -852,7 +852,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../ai-index/" class="md-nav__link">
+      <a href="../../ai-index/" class="md-nav__link">
         
   
   
@@ -900,134 +900,62 @@
   
 
 
-<h1 id="mnesos-implementation-plan-2026-05-07">MnesOS Implementation Plan – 2026-05-07<a class="headerlink" href="#mnesos-implementation-plan-2026-05-07" title="Permanent link">&para;</a></h1>
-<p>This plan outlines the Foundation and Gameplay tracks for parallel development. Tasks are structured as JIRA-style cards to enable clear ownership for 2-3 engineers.</p>
-<hr />
-<h2 id="phase-1-foundation-cicd">Phase 1: Foundation (CI/CD)<a class="headerlink" href="#phase-1-foundation-cicd" title="Permanent link">&para;</a></h2>
-<h3 id="mnesos-260507-01-ci-implement-path-filtering-gatekeeper-pattern">[MnesOS-260507-01] CI – Implement Path-Filtering &amp; Gatekeeper Pattern<a class="headerlink" href="#mnesos-260507-01-ci-implement-path-filtering-gatekeeper-pattern" title="Permanent link">&para;</a></h3>
+<h1 id="yare-to-tool-bridge-specification">YARE-to-Tool Bridge Specification<a class="headerlink" href="#yare-to-tool-bridge-specification" title="Permanent link">&para;</a></h1>
+<p>This document defines the technical implementation of how YARE events are compiled and exposed as native tools to the MnesOS Agentic Orchestrator.</p>
+<h2 id="1-overview">1. Overview<a class="headerlink" href="#1-overview" title="Permanent link">&para;</a></h2>
+<p>YARE events defined in a cartridge's <code>yare.yaml</code> are compiled at cartridge load time into a set of typed, sandboxed LangGraph tools that the <code>Director</code> can invoke directly. Each generated tool runs the corresponding YARE event against the provided <code>GameState</code> and returns a canonical <code>yare_delta</code>, <code>system_notes</code> (engine observations), and an execution trace.</p>
+<h2 id="2-generation-pipeline">2. Generation Pipeline<a class="headerlink" href="#2-generation-pipeline" title="Permanent link">&para;</a></h2>
+<p>The pipeline triggers during session initialization or when a cartridge is swapped:
+1. <strong>Validation</strong>: The Orchestrator parses and validates the cartridge's <code>yare.yaml</code> against the formal <code>YARE</code> specification.
+2. <strong>Translation</strong>: Each top-level event/action is converted into a LangGraph-compatible tool description (name, typed input schema, examples).
+3. <strong>Metadata Injection</strong>: Metadata such as timeout, <code>max_call_depth</code>, and resource caps are attached.
+4. <strong>Wrapper Generation</strong>: A small runner wrapper is generated that:
+    - Injects the current <code>GameState</code> (filtering for allowed fields).
+    - Seeds the deterministic RNG from the current turn ID.
+    - Executes the <code>YAREInterpreter</code> against the event.
+    - Packages the output into a LangGraph <code>Command</code>.
+    - Auto-injects an <code>engine_time_delta</code> parameter for time synchronization.
+5. <strong>Caching</strong>: Compiled tool artifacts (schemas and runner metadata) are cached by cartridge checksum for re-use.</p>
+<h2 id="3-tool-surface-contract">3. Tool Surface &amp; Contract<a class="headerlink" href="#3-tool-surface-contract" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Status:</strong> <strong>Done</strong></li>
-<li><strong>Objective:</strong> Prevent PR blocking when specific sub-systems (Python or Web) are skipped.</li>
-<li><strong>Description:</strong> <ul>
-<li>Implement a <code>paths-filter</code> job to detect changes in <code>src/</code> vs <code>web-client/</code>.</li>
-<li>Create a <code>ci-success</code> gatekeeper job that depends on all test workers.</li>
-<li>Implement logic in <code>ci-success</code> to treat <code>skipped</code> results as <code>success</code>.</li>
-<li><strong>Contract:</strong> This will be the only required status check for branch protection.</li>
+<li><strong>Input</strong>: Strictly typed parameters declared by the YARE event plus:</li>
+<li><code>tool_call_id</code>: Injected by the orchestrator.</li>
+<li><code>state</code>: Injected <code>GameState</code> snapshot.</li>
+<li><code>engine_time_delta</code>: String (ISO-8601 duration) representing action duration (defaults to <code>PT0S</code>).</li>
+<li><strong>Output</strong>: Returns a LangGraph <code>Command</code> with the following updates:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;update&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">&quot;bot_memory_staging&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;GameState&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">&quot;system_notes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;List[str]&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">&quot;agent_messages&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;List[ToolMessage]&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">}</span>
+</code></pre></div></li>
+<li><strong>Side-effects</strong>: Strictly prohibited outside of the returned <code>Command</code>. All state mutation is expressed as a state snapshot in <code>bot_memory_staging</code> which is reconciled by the <code>post_tools_node</code>.</li>
 </ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-02-ci-web-client-unit-tests-coverage-enforcement">[MnesOS-260507-02] CI – Web-Client Unit Tests &amp; Coverage Enforcement<a class="headerlink" href="#mnesos-260507-02-ci-web-client-unit-tests-coverage-enforcement" title="Permanent link">&para;</a></h3>
+<h2 id="4-lifecycle-execution">4. Lifecycle &amp; Execution<a class="headerlink" href="#4-lifecycle-execution" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Status:</strong> <strong>Done</strong></li>
-<li><strong>Objective:</strong> Establish quality standards for the frontend.</li>
-<li><strong>Description:</strong><ul>
-<li>Configure Vitest/Jest in the <code>web-client</code> directory.</li>
-<li>Update GitHub Actions to run frontend tests when <code>web-client/</code> changes.</li>
-<li>Enforce a hard-fail threshold of 80% code coverage.</li>
+<li><strong>Binding</strong>: Tools are registered into the graph's <code>RunnableConfig.tools</code> for the duration of the session.</li>
+<li><strong>Unregistering</strong>: On session end or cartridge change, the Orchestrator unregisters the tools and releases cached runners.</li>
+<li><strong>Concurrency</strong>: By default, the Director calls YARE tools synchronously to avoid state races.</li>
+<li><strong>Future Feature (Parallelism)</strong>: Non-mutating tools (lore lookups, NPC intent) may run in parallel; the Orchestrator will enforce that at most one active tool produces a <code>yare_delta</code> per commit window.</li>
 </ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-03-ci-full-system-e2e-integration-pipeline">[MnesOS-260507-03] CI – Full System E2E Integration Pipeline<a class="headerlink" href="#mnesos-260507-03-ci-full-system-e2e-integration-pipeline" title="Permanent link">&para;</a></h3>
+<h2 id="5-security-determinism">5. Security &amp; Determinism<a class="headerlink" href="#5-security-determinism" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Status:</strong> <strong>Done</strong></li>
-<li><strong>Objective:</strong> Verify the unified application artifact.</li>
-<li><strong>Description:</strong><ul>
-<li>Update CI to build the web-client and mount the static output to the FastAPI backend.</li>
-<li>Implement a Playwright test suite that boots the unified service.</li>
-<li>Enforce E2E "Happy Path" verification (Auth -&gt; New Game -&gt; First Turn).</li>
+<li><strong>Sandboxing</strong>: Events run inside a bounded <code>YAREInterpreter</code> that enforces recursion limits (<code>max_call_depth</code>), bounded iteration (<code>foreach</code>), and container size limits.</li>
+<li><strong>Isolation</strong>: The interpreter runs in a restricted environment with CPU/wall-clock timeouts and no network/filesystem access.</li>
+<li><strong>Determinism</strong>: RNG is derived from a per-turn seed, ensuring repeated replays produce identical deltas.</li>
 </ul>
-</li>
-</ul>
-<hr />
-<h2 id="phase-2-gameplay-abstractions">Phase 2: Gameplay &amp; Abstractions<a class="headerlink" href="#phase-2-gameplay-abstractions" title="Permanent link">&para;</a></h2>
-<h3 id="mnesos-260507-04-auth-implement-stateless-auth-abstraction-layer">[MnesOS-260507-04] Auth – Implement Stateless Auth Abstraction Layer<a class="headerlink" href="#mnesos-260507-04-auth-implement-stateless-auth-abstraction-layer" title="Permanent link">&para;</a></h3>
+<h2 id="6-error-handling-invariants">6. Error Handling &amp; Invariants<a class="headerlink" href="#6-error-handling-invariants" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Status:</strong> <strong>Done</strong></li>
-<li><strong>Objective:</strong> Decouple the engine from specific auth providers.</li>
-<li><strong>Description:</strong><ul>
-<li>Define <code>AuthProvider</code> and <code>AuthValidator</code> abstract base classes.</li>
-<li>Implement the <code>OpenRouterPKCE</code> strategy.</li>
-<li>Refactor API middleware/dependencies to use an <code>AuthFactory</code> based on <code>X-Provider</code> headers.</li>
+<li><strong>Fail-Safe</strong>: If an event execution raises an error (schema violation, recursion limit), the tool execution may fail or return a <code>Command</code> with no state changes. </li>
+<li><strong>Remediation</strong>: The Director receives <code>system_notes</code> describing the failure (if captured) and can choose fallback actions (GM fiat).</li>
+<li><strong>Validation</strong>: The Orchestrator validates the staged state against the global <code>state_schema</code> in the <code>post_tools_node</code> before final commit.</li>
 </ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-05-engine-implement-llm-provider-factory">[MnesOS-260507-05] Engine – Implement LLM Provider Factory<a class="headerlink" href="#mnesos-260507-05-engine-implement-llm-provider-factory" title="Permanent link">&para;</a></h3>
+<h2 id="7-observability-testing">7. Observability &amp; Testing<a class="headerlink" href="#7-observability-testing" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Status:</strong> <strong>Done</strong></li>
-<li><strong>Objective:</strong> Enable multi-model and multi-provider support.</li>
-<li><strong>Description:</strong><ul>
-<li>Define the <code>LLMProvider</code> interface (generate, embed).</li>
-<li>Implement <code>OpenRouter</code> and <code>Gemini</code> concrete strategies.</li>
-<li>Update LangGraph nodes to receive an injected <code>LLMProvider</code> rather than calling specific APIs.</li>
-</ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-06-engine-hierarchical-config-runnableconfig-mapping">[MnesOS-260507-06] Engine – Hierarchical Config &amp; RunnableConfig Mapping<a class="headerlink" href="#mnesos-260507-06-engine-hierarchical-config-runnableconfig-mapping" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Done</strong></li>
-<li><strong>Objective:</strong> Grant players and developers control over LLM parameters.</li>
-<li><strong>Description:</strong><ul>
-<li>Implement the <code>MnesOSRuntimeConfig</code> schema.</li>
-<li>Create a <code>ConfigMerger</code> to combine Cartridge defaults, Player settings, and Request-level overrides.</li>
-<li>Update the <code>Orchestrator</code> to map the merged config into the LangGraph <code>RunnableConfig["configurable"]</code> dictionary.</li>
-</ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-07-gameplay-director-batch-rag-tool">[MnesOS-260507-07] Gameplay – Director Batch RAG Tool<a class="headerlink" href="#mnesos-260507-07-gameplay-director-batch-rag-tool" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Done</strong></li>
-<li><strong>Objective:</strong> Optimize cost and performance of lore retrieval.</li>
-<li><strong>Description:</strong><ul>
-<li>Implement the <code>multi_lore_lookup(queries: List[str])</code> tool.</li>
-<li>Update the Director node’s system prompt to mandate batching of information lookups.</li>
-<li>Refactor the graph to make RAG an active tool call instead of a pre-node injection.</li>
-</ul>
-</li>
-</ul>
-<h2 id="phase-3-cartridge-developer-features">Phase 3: Cartridge Developer Features<a class="headerlink" href="#phase-3-cartridge-developer-features" title="Permanent link">&para;</a></h2>
-<h3 id="mnesos-260507-08-builder-ui-ide-lite-split-pane-layout">[MnesOS-260507-08] Builder UI – IDE-lite Split-Pane Layout<a class="headerlink" href="#mnesos-260507-08-builder-ui-ide-lite-split-pane-layout" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Backlog</strong></li>
-<li><strong>Objective:</strong> Provide a high-productivity authoring environment.</li>
-<li><strong>Description:</strong><ul>
-<li>Implement the split-pane layout: Chat Agent (Left) and 4-Tab Live Preview (Right).</li>
-<li><strong>Tabs:</strong> World Lore (<code>.md</code>), Game Rules (<code>.yaml</code>), AI Directives (<code>.yaml</code>), and Intro Message (<code>.md</code>).</li>
-<li><strong>Bi-directional Sync:</strong> Ensure manual edits in the preview pane are reflected back into the Agent's context.</li>
-</ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-09-builder-backend-architect-specialist-multi-agent-system">[MnesOS-260507-09] Builder Backend – Architect &amp; Specialist Multi-Agent System<a class="headerlink" href="#mnesos-260507-09-builder-backend-architect-specialist-multi-agent-system" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Backlog</strong></li>
-<li><strong>Objective:</strong> Ensure high-quality generation across narrative and technical domains.</li>
-<li><strong>Description:</strong><ul>
-<li>Implement a LangGraph orchestrator (Architect) that delegates to specialized workers.</li>
-<li><strong>Lore Master Node:</strong> Handles markdown worldbuilding and consistency.</li>
-<li><strong>Mechanic Node (YARE Expert):</strong> Handles English-to-YAML translation.</li>
-<li><strong>Prompter Node:</strong> Handles role steering and intro narrative.</li>
-<li><strong>Contract:</strong> The Mechanic node MUST include rich YAML comments for every generated state/event.</li>
-</ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-10-builder-tools-yare-translator-auto-validator">[MnesOS-260507-10] Builder Tools – YARE Translator &amp; Auto-Validator<a class="headerlink" href="#mnesos-260507-10-builder-tools-yare-translator-auto-validator" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Backlog</strong></li>
-<li><strong>Objective:</strong> Enable deterministic logic generation with auto-correction.</li>
-<li><strong>Description:</strong><ul>
-<li>Build the <code>yare_translate</code> tool: English -&gt; (YAML Block + Logic Explanation).</li>
-<li>Build the <code>cartridge_validate</code> tool: Wraps the existing <code>CartridgeLoader</code> to provide agents with immediate feedback for auto-correction loops.</li>
-</ul>
-</li>
-</ul>
-<h3 id="mnesos-260507-11-builder-persistence-versioned-drafts-zip-export">[MnesOS-260507-11] Builder Persistence – Versioned Drafts &amp; ZIP Export<a class="headerlink" href="#mnesos-260507-11-builder-persistence-versioned-drafts-zip-export" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Status:</strong> <strong>Backlog</strong></li>
-<li><strong>Objective:</strong> Ensure user work is safe and portable.</li>
-<li><strong>Description:</strong><ul>
-<li>Implement the <code>cartridge_drafts</code> table with <strong>Auto-save</strong> and <strong>Version History</strong> (Retention: k=3).</li>
-<li>Implement a one-click <strong>ZIP Export</strong> feature that packages the 4 draft files into a standard MnesOS cartridge structure.</li>
-</ul>
-</li>
+<li><strong>Traces</strong>: Every tool execution emits a <code>ToolMessage</code> into <code>agent_messages</code> containing the interpreter notes.</li>
+<li><strong>Unit Testing</strong>: Cartridge authors can include unit test fixtures (inputs and expected states) alongside <code>yare.yaml</code>, which are run during the compilation pipeline.</li>
 </ul>
 
 
@@ -1078,10 +1006,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>
