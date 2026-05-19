@@ -1,7 +1,7 @@
 import pytest
 
 from MnesOS.exceptions import InteractionRoutingError
-from MnesOS.graph.nodes.input_router import input_router_node
+from MnesOS.graph.nodes.minigame_input import minigame_input_node
 
 from ..shared import make_config, make_state
 
@@ -23,7 +23,7 @@ _YARE_WITH_RESOLVER = {
 }
 
 
-class TestInputRouterNode:
+class TestMinigameInputNode:
     def test_minigame_routes_to_resolver_and_clears_pending(self):
         state = make_state()
         state["bot_memory"]["_pending_interaction"] = {
@@ -41,7 +41,7 @@ class TestInputRouterNode:
         }
 
         config = make_config(yare_config=_YARE_WITH_RESOLVER)
-        result = input_router_node(state, config)
+        result = minigame_input_node(state, config)
 
         new_memory = result["bot_memory"]
         assert new_memory["last_minigame_status"] == "completed"
@@ -69,7 +69,7 @@ class TestInputRouterNode:
         config = make_config(yare_config=_YARE_WITH_RESOLVER)
 
         with pytest.raises(InteractionRoutingError):
-            input_router_node(state, config)
+            minigame_input_node(state, config)
 
     def test_no_pending_interaction_raises(self):
         state = make_state(incoming_interaction={
@@ -82,12 +82,11 @@ class TestInputRouterNode:
         config = make_config(yare_config=_YARE_WITH_RESOLVER)
 
         with pytest.raises(InteractionRoutingError):
-            input_router_node(state, config)
+            minigame_input_node(state, config)
 
     def test_non_minigame_interaction_is_cleared(self):
         state = make_state(incoming_interaction={"interaction_type": "dialog"})
         config = make_config(yare_config=_YARE_WITH_RESOLVER)
 
-        result = input_router_node(state, config)
+        result = minigame_input_node(state, config)
         assert result["incoming_interaction"] is None
-

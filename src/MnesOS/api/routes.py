@@ -100,7 +100,11 @@ def process_turn(
     interaction = body.interaction.model_dump() if body.interaction is not None else None
     input_text = body.user_input
     if interaction is not None:
-        input_text = f"[minigame:{interaction.get('minigame_id')} status={interaction.get('status')}]"
+        metrics_parts = [f"{k}={v}" for k, v in (interaction.get("metrics") or {}).items()]
+        metrics_str = " ".join(metrics_parts)
+        triggered_hooks = interaction.get("triggered_hooks") or []
+        hook_text_section = "\n" + "\n".join(f'"{txt}"' for txt in triggered_hooks) if triggered_hooks else ""
+        input_text = f"[minigame:{interaction.get('minigame_id')} status={interaction.get('status')}{f' {metrics_str}' if metrics_str else ''}]{hook_text_section}"
 
     try:
         result = orch.process_turn(

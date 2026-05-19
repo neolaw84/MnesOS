@@ -17,5 +17,6 @@ export interface MinigameInteractionPayload {
   status: MinigameStatus;
   metrics: Record<string, string | number | boolean>;
   minigame_specific_data: Record<string, unknown>;
+  triggered_hooks?: string[];
 }
 

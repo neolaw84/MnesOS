@@ -152,9 +152,16 @@ export function useGameSession(): GameSession {
       setError(null);
 
       // Record the minigame interaction in the chat history
+      const hookTextSection = payload.triggered_hooks && payload.triggered_hooks.length > 0
+        ? "\n" + payload.triggered_hooks.map((txt) => `"${txt}"`).join("\n")
+        : "";
+
+      const metricsStr = Object.entries(payload.metrics || {})
+        .map(([k, v]) => `${k}=${v}`)
+        .join(", ");
       const interactionMsg: DisplayMessage = {
         role: "user",
-        content: `[minigame:${payload.minigame_id} status=${payload.status}]`,
+        content: `[minigame:${payload.minigame_id} status=${payload.status}${metricsStr ? " " + metricsStr : ""}]${hookTextSection}`,
       };
       setMessages((prev) => [...prev, interactionMsg]);
 

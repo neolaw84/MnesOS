@@ -11,6 +11,7 @@ export type MinigameComponentProps = {
     status: "completed" | "failed" | "aborted";
     metrics: Record<string, string | number | boolean>;
     minigame_specific_data: Record<string, unknown>;
+    triggered_hooks?: string[];
   }) => void;
 };
 

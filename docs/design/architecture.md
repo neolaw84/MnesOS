@@ -8,7 +8,7 @@ This document defines the strategic architecture for MnesOS, a stateless, event-
 
 - **Deterministic Logic**: The YARE Agentic Rules Engine (YARE) provides a safe, bounded environment for mechanics resolution.
 
-- **Agentic Orchestration**: A specialized two-node graph (Director/Narrator) manages intent and prose generation, supported by tool-based NPC intent and RAG lore retrieval.
+- **Agentic Orchestration**: A specialized graph (Director, Narrator, MinigameInput, MinigameOutput) manages intent, minigame interactive components, and prose generation, supported by tool-based NPC intent and RAG lore retrieval.
 
 - **Stateless & Branchable**: A tree-based state model and the Registry Pattern ensure consistent, environment-agnostic execution and timeline manipulation.
 
@@ -29,7 +29,7 @@ MnesOS targets three primary, product-level problems that undermine RPG play whe
     *   *Solution*: **On-Demand RAG Tool (`multi_lore_lookup`)**. Bind a dedicated lore-retrieval tool to the graph so the Director can issue focused, batched lore queries at the moment they are needed. This surfaces concise, relevant snippets from the knowledge base instead of relying on the model to remember everything from prompt history alone.
 
 *   **The Immersion Gap (The "Out-of-Context Numbers")**: When a single LLM resolves mechanics and writes the story simultaneously, it tends to leak raw spreadsheet data into the prose ("You have 14 HP").
-    *   *Solution*: **Air-gapped Two-Node Graph**. The **Director** LLM handles the mechanics and reads the raw "system notes". The **Narrator** LLM is isolated, receiving only the updated `public_state` and scene directives, forcing it to write pure prose.
+    *   *Solution*: **Air-gapped Graph**. The **Director** LLM handles the mechanics and reads the raw "system notes". The **Narrator** LLM is isolated, receiving only the updated `public_state` and scene directives, forcing it to write pure prose. Additional routing nodes (**MinigameInput**, **MinigameOutput**) ensure that structured inputs from interactive components are deterministically processed.
 
 The sections below capture the implementation, design, and operational considerations MnesOS uses to solve these product problems.
 
@@ -79,34 +79,41 @@ YARE solves the **narrative/mechanical decoupling** problem (defined in [Section
 - The filtered `public_state` and the Director's finalized **Scene Directives** are routed to an independent **Narrator** LLM node, which acts as the "renderer", converting deterministic outcomes into high-quality prose without exposing literal dice rolls or internal system logs.
 
 ### Agentic Graph Analysis
-The engine leverages a LangGraph state machine structured across two primary LLM decision nodes: `Director` and `Narrator`. The third logical role, to have independent NPC tactics, is implemented as the **`query_npc_intent` tool** called by the Director.
+The engine leverages a LangGraph state machine structured across two primary LLM decision nodes (`Director`, `Narrator`) and two minor yet important minigame routing nodes (`MinigameInput`, `MinigameOutput`). The third logical role, to have independent NPC tactics, is implemented as the **`query_npc_intent` tool** called by the Director.
 
 ```mermaid
 graph TD
     Client[Client] --> Reset[Reset Agent Messages]
     Reset --> Cycle[Cycle Tick]
-    Cycle --> Director[Director Node]
+    Cycle --> MinigameInput[MinigameInput Node]
+    MinigameInput --> Director[Director Node]
     Director -->|Tool Call| PreTools[PreTools Node]
     Director -->|Final Summary| Narrator[Narrator Node]
     PreTools --> Tools[ToolNode]
     Tools --> PostTools[PostTools Node]
-    PostTools --> Director
+    PostTools -->|Return to Director| Director
+    PostTools -->|Pending Minigame| MinigameOutput[MinigameOutput Node]
+    MinigameOutput --> Narrator
     Narrator --> Cleanup[Cleanup Agent Messages]
     Cleanup --> Client
 ```
 
 The architecture mimics a classic Turn-Based RPG:
-1. **Director Node**: The Orchestrator. Maps player intent, resolves mechanics via tools, and queries NPCs.
+1. **MinigameInput Node**: Deterministically handles structured incoming minigame interaction payloads.
 
-2. **NPC Intent Tool (`query_npc_intent`)**: The Actor. Provides autonomous character dialogue/intent without the overhead of a separate graph node.
+2. **Director Node**: The Orchestrator. Maps player intent, resolves mechanics via tools, and queries NPCs.
 
-3. **Lore Tool (`multi_lore_lookup`)**: The Librarian. Allows the Director to actively retrieve world lore for multiple queries in a single batch call.
+3. **MinigameOutput Node**: A tool-less router node that sets up scene directives immediately after a minigame is requested.
 
-4. **YARE Tools (built by `build_yare_event_tools`)**: The Rules Engine Bridge. Compiles cartridge events into typed, sandboxed LangGraph tools the `Director` can call; tools return deterministic `yare_delta`s, `system_notes`, and execution traces.
+4. **Narrator Node**: The Storyteller. Renders finalized outcomes into prose.
 
-5. **Narrator Node**: The Storyteller. Renders finalized outcomes into prose.
+5. **NPC Intent Tool (`query_npc_intent`)**: The Actor. Provides autonomous character dialogue/intent without the overhead of a separate graph node.
 
-The **two-node architecture with specialized tools** provides the optimal balance of isolation and performance, preventing "prompt bleed" and reducing latency compared to assigning a full graph node to NPCs.
+6. **Lore Tool (`multi_lore_lookup`)**: The Librarian. Allows the Director to actively retrieve world lore for multiple queries in a single batch call.
+
+7. **YARE Tools (built by `build_yare_event_tools`)**: The Rules Engine Bridge. Compiles cartridge events into typed, sandboxed LangGraph tools the `Director` can call; tools return deterministic `yare_delta`s, `system_notes`, and execution traces.
+
+The **architecture with specialized tools and routing nodes** provides the optimal balance of isolation and performance, preventing "prompt bleed" and reducing latency compared to assigning a full graph node to NPCs, while ensuring seamless minigame interactivity.
 
 ### State and Turn Flow
 The agent is **stateless across invocations**. The client owns persistence.

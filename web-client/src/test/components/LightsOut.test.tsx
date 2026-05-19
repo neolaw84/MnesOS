@@ -96,22 +96,21 @@ describe('LightsOut', () => {
         .getAllByRole('button')
         .filter((b) => b.getAttribute('aria-label')?.startsWith('Cell '))
 
-    // If puzzle isn't already solved, exhaust moves
-    // We need to keep clicking until onComplete is called with 'failed' or 'completed'
-    // To avoid an infinite loop, click 2 cells
-    for (let i = 0; i < 2 && !onComplete.mock.calls.length; i++) {
+    // Exhaust moves
+    for (let i = 0; i < 2; i++) {
       const btns = cellButtons()
       if (btns.length === 0) break
-      // Pick a cell that is currently ON (if any) to avoid a trivial solve
       const litCell = btns.find((b) => b.classList.contains('lights-out-cell--on')) ?? btns[0]
       await user.click(litCell)
     }
 
-    // After max_moves, if not solved, should be failed
-    if (onComplete.mock.calls.length) {
-      const status = onComplete.mock.calls[0][0].status
-      expect(['completed', 'failed']).toContain(status)
-    }
+    // Click the Close button which should now be displayed
+    const closeBtn = await screen.findByRole('button', { name: /Close/i })
+    await user.click(closeBtn)
+
+    expect(onComplete).toHaveBeenCalledOnce()
+    const status = onComplete.mock.calls[0][0].status
+    expect(['completed', 'failed']).toContain(status)
   })
 
   it('shows on_failure narrative hook text when moves are exhausted', async () => {

@@ -11,9 +11,9 @@ This document serves as the standalone registry for all major architectural and 
 *   **Rationale**: LLMs are probabilistic and unreliable for math, inventory management, and deterministic logic. YARE ensures that state mutation is safe, predictable, and bounded (preventing infinite loops), while the LLM acts only as a high-level trigger for these rules.
 *   **Status**: Active / Implemented.
 
-### 1.2. Air-Gapped Two-Node Graph (Director/Narrator)
-*   **Decision**: Split narrative orchestration into two distinct LLM nodes: the **Director** (mechanics/intent) and the **Narrator** (prose/rendering).
-*   **Rationale**: Prevents "The Immersion Gap" where raw system data (e.g., "You have 14 HP") leaks into the story. The Narrator is "air-gapped" and only receives immersive scene directives from the Director, forcing it to write pure prose.
+### 1.2. Air-Gapped Graph (Director/Minigame Routers/Narrator)
+*   **Decision**: Split narrative orchestration into distinct nodes: the **Director** (mechanics/intent), the **Narrator** (prose/rendering), and two minor but important routing nodes: **MinigameInput** and **MinigameOutput**.
+*   **Rationale**: Prevents "The Immersion Gap" where raw system data leaks into the story. The Narrator is "air-gapped" and only receives immersive scene directives. The minigame nodes handle structured entry and exit from interactive minigame components without causing the Director to get stuck or misroute the narrative.
 *   **Status**: Active / Implemented.
 
 ### 1.3. Stateless Event Sourcing (Tree-based State)
@@ -106,9 +106,9 @@ This document serves as the standalone registry for all major architectural and 
 *   **Status**: Backlog.
 
 ### 5.2. Stateless Interactive Routing (`_pending_interaction`)
-*   **Decision**: Handle UI constraints (forms, mini-games) by tracking a `_pending_interaction` flag in the YARE database state, resolving it via a new "Input Router Node" that bypasses the Director LLM.
-*   **Rationale**: Avoids the "Interrupt Trap" (LangGraph checkpointers pausing mid-tool). It keeps the backend purely RESTful and stateless. It guarantees that players cannot bypass narrative constraints by typing free-text, as the Input Router enforces structured JSON submission.
-*   **Status**: Backlog.
+*   **Decision**: Handle UI constraints (forms, mini-games) by tracking a `_pending_interaction` flag in the YARE database state, resolving it via a deterministic "Minigame Input Node" that bypasses the Director LLM.
+*   **Rationale**: Avoids the "Interrupt Trap" (LangGraph checkpointers pausing mid-tool). It keeps the backend purely RESTful and stateless. It guarantees that players cannot bypass narrative constraints by typing free-text, as the Minigame Input Node enforces structured JSON submission.
+*   **Status**: Active / Implemented.
 
 ### 5.3. High-Level Language Authoring (yare.py / yare.js)
 *   **Decision**: Provide cartridge developers with the ability to author the YARE specification using conventional programming languages, beginning with Python and JavaScript.

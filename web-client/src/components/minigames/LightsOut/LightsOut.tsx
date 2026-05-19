@@ -94,6 +94,7 @@ export default function LightsOut({ config, onComplete }: MinigameComponentProps
   const [grid, setGrid] = useState<boolean[]>(() => generatePuzzle(gridSize, scrambleDepth));
   const [movesMade, setMovesMade] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [triggeredHooks, setTriggeredHooks] = useState<string[]>([]);
 
   // Stable ref to onComplete so the effect below does not re-run on every render
   const onCompleteRef = useRef(onComplete);
@@ -116,36 +117,50 @@ export default function LightsOut({ config, onComplete }: MinigameComponentProps
     currentHookText = narrativeHooks["on_near_miss"];
   }
 
-  // Check win/lose after each move
+  // Record triggered hooks during intermediate gameplay
+  useEffect(() => {
+    if (movesMade === 0) return;
+    const triggered: string[] = [];
+    if (movesLeft === 1 && narrativeHooks["on_near_miss"]) {
+      triggered.push(narrativeHooks["on_near_miss"]);
+    } else if (litCount > 0 && litCount <= 2 && narrativeHooks["on_near_miss"]) {
+      triggered.push(narrativeHooks["on_near_miss"]);
+    }
+    if (triggered.length > 0) {
+      setTriggeredHooks((prev) => {
+        const next = [...prev];
+        for (const hook of triggered) {
+          if (!next.includes(hook)) {
+            next.push(hook);
+          }
+        }
+        return next;
+      });
+    }
+  }, [movesLeft, litCount, movesMade, narrativeHooks]);
+
+  // Check win/lose after each move and append final hooks
   useEffect(() => {
     if (finished) return;
 
     if (solved) {
       setFinished(true);
-      onCompleteRef.current({
-        status: "completed",
-        metrics: {
-          moves_made: movesMade,
-          moves_left: movesLeft,
-          grid_remaining: 0,
-          perfect_run: movesMade <= Math.ceil(scrambleDepth / 2),
-        },
-        minigame_specific_data: { moves_made: movesMade, grid_remaining: 0 },
-      });
+      if (narrativeHooks["on_success"]) {
+        setTriggeredHooks((prev) => {
+          const hook = narrativeHooks["on_success"];
+          return prev.includes(hook) ? prev : [...prev, hook];
+        });
+      }
     } else if (movesLeft <= 0 && movesMade > 0) {
       setFinished(true);
-      onCompleteRef.current({
-        status: "failed",
-        metrics: {
-          moves_made: movesMade,
-          moves_left: 0,
-          grid_remaining: litCount,
-          perfect_run: false,
-        },
-        minigame_specific_data: { moves_made: movesMade, grid_remaining: litCount },
-      });
+      if (narrativeHooks["on_failure"]) {
+        setTriggeredHooks((prev) => {
+          const hook = narrativeHooks["on_failure"];
+          return prev.includes(hook) ? prev : [...prev, hook];
+        });
+      }
     }
-  }, [solved, movesLeft, movesMade, litCount, finished, scrambleDepth]);
+  }, [solved, movesLeft, movesMade, finished, narrativeHooks]);
 
   const handleCellClick = useCallback(
     (idx: number) => {
@@ -164,8 +179,9 @@ export default function LightsOut({ config, onComplete }: MinigameComponentProps
       status: "aborted",
       metrics: { moves_made: movesMade, moves_left: movesLeft, grid_remaining: litCount, perfect_run: false },
       minigame_specific_data: { moves_made: movesMade, grid_remaining: litCount },
+      triggered_hooks: triggeredHooks,
     });
-  }, [finished, movesMade, movesLeft, litCount]);
+  }, [finished, movesMade, movesLeft, litCount, triggeredHooks]);
 
   return (
     <div className="lights-out-wrapper">
@@ -214,6 +230,29 @@ export default function LightsOut({ config, onComplete }: MinigameComponentProps
       )}
       {finished && !solved && movesMade > 0 && movesLeft <= 0 && (
         <p className="lights-out-result lights-out-result--failure">❌ Out of moves!</p>
+      )}
+
+      {finished && (solved || (movesMade > 0 && movesLeft <= 0)) && (
+        <div className="lights-out-footer" style={{ marginTop: '1rem' }}>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              onComplete({
+                status: solved ? "completed" : "failed",
+                metrics: {
+                  moves_made: movesMade,
+                  moves_left: movesLeft,
+                  grid_remaining: litCount,
+                  perfect_run: solved && movesMade <= Math.ceil(scrambleDepth / 2),
+                },
+                minigame_specific_data: { moves_made: movesMade, grid_remaining: litCount },
+                triggered_hooks: triggeredHooks,
+              });
+            }}
+          >
+            Close
+          </button>
+        </div>
       )}
     </div>
   );

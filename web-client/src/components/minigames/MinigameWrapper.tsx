@@ -75,6 +75,7 @@ export default function MinigameWrapper({
             status: result.status,
             metrics: result.metrics,
             minigame_specific_data: result.minigame_specific_data,
+            triggered_hooks: result.triggered_hooks,
           });
         }}
       />

@@ -92,6 +92,10 @@ class MinigameInteractionPayload(BaseModel):
         default_factory=dict,
         description="Deeply nested game-specific payload.",
     )
+    triggered_hooks: List[str] = Field(
+        default_factory=list,
+        description="Narrative hook texts triggered in sequence.",
+    )
 
 
 class TurnRequest(BaseModel):
