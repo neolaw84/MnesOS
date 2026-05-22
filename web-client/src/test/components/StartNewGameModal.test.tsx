@@ -10,7 +10,6 @@ vi.mock('../../api/client', () => ({
   listCartridgeVersions: vi.fn(),
   listPersonas: vi.fn(),
   createGameInstance: vi.fn(),
-  setInstanceId: vi.fn(),
 }))
 
 const mockCartridges: Cartridge[] = [
@@ -30,7 +29,7 @@ describe('StartNewGameModal', () => {
 
   it('renders nothing when closed', () => {
     const { container } = render(
-      <StartNewGameModal open={false} onClose={vi.fn()} onStart={vi.fn()} />
+      <StartNewGameModal open={false} onClose={vi.fn()} onPlayInstance={vi.fn()} />
     )
     expect(container).toBeEmptyDOMElement()
   })
@@ -38,7 +37,7 @@ describe('StartNewGameModal', () => {
   it('shows loading state while fetching data', () => {
     vi.mocked(client.listCartridges).mockReturnValue(new Promise(() => {}))
     vi.mocked(client.listPersonas).mockReturnValue(new Promise(() => {}))
-    render(<StartNewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
+    render(<StartNewGameModal open={true} onClose={vi.fn()} onPlayInstance={vi.fn()} />)
     expect(screen.getByText('Loading...')).toBeInTheDocument()
   })
 
@@ -46,7 +45,7 @@ describe('StartNewGameModal', () => {
     vi.mocked(client.listCartridges).mockResolvedValue(mockCartridges)
     vi.mocked(client.listPersonas).mockResolvedValue(mockPersonas)
     vi.mocked(client.listCartridgeVersions).mockResolvedValue(mockVersions)
-    render(<StartNewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
+    render(<StartNewGameModal open={true} onClose={vi.fn()} onPlayInstance={vi.fn()} />)
     await waitFor(() => expect(screen.getByText('Dark Fantasy')).toBeInTheDocument())
     expect(screen.getByText('Hero (they/them)')).toBeInTheDocument()
   })
@@ -55,23 +54,24 @@ describe('StartNewGameModal', () => {
     vi.mocked(client.listCartridges).mockResolvedValue([])
     vi.mocked(client.listPersonas).mockResolvedValue(mockPersonas)
     vi.mocked(client.listCartridgeVersions).mockResolvedValue([])
-    render(<StartNewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
+    render(<StartNewGameModal open={true} onClose={vi.fn()} onPlayInstance={vi.fn()} />)
     await waitFor(() => screen.getByRole('button', { name: /start game/i }))
     expect(screen.getByRole('button', { name: /start game/i })).toBeDisabled()
   })
 
-  it('calls createGameInstance and onStart on success', async () => {
+  it('calls createGameInstance and onPlayInstance on success', async () => {
     vi.mocked(client.listCartridges).mockResolvedValue(mockCartridges)
     vi.mocked(client.listPersonas).mockResolvedValue(mockPersonas)
     vi.mocked(client.listCartridgeVersions).mockResolvedValue(mockVersions)
     vi.mocked(client.createGameInstance).mockResolvedValue({ instance_id: 'new-inst', turn_id: 't-1' })
-    const onStart = vi.fn()
+    const onPlayInstance = vi.fn()
     const onClose = vi.fn()
-    render(<StartNewGameModal open={true} onClose={onClose} onStart={onStart} />)
+    render(<StartNewGameModal open={true} onClose={onClose} onPlayInstance={onPlayInstance} />)
     await waitFor(() => screen.getByRole('button', { name: /start/i }))
     await userEvent.click(screen.getByRole('button', { name: /start/i }))
-    await waitFor(() => expect(onStart).toHaveBeenCalledWith('t-1'))
-    expect(client.setInstanceId).toHaveBeenCalledWith('new-inst')
+    await waitFor(() =>
+      expect(onPlayInstance).toHaveBeenCalledWith({ instance_id: 'new-inst', turn_id: 't-1' })
+    )
     expect(onClose).toHaveBeenCalled()
   })
 
@@ -80,7 +80,7 @@ describe('StartNewGameModal', () => {
     vi.mocked(client.listPersonas).mockResolvedValue(mockPersonas)
     vi.mocked(client.listCartridgeVersions).mockResolvedValue(mockVersions)
     vi.mocked(client.createGameInstance).mockRejectedValue(new Error('Server error'))
-    render(<StartNewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
+    render(<StartNewGameModal open={true} onClose={vi.fn()} onPlayInstance={vi.fn()} />)
     await waitFor(() => screen.getByRole('button', { name: /start/i }))
     await userEvent.click(screen.getByRole('button', { name: /start/i }))
     await waitFor(() => expect(screen.getByText('Server error')).toBeInTheDocument())
@@ -91,7 +91,7 @@ describe('StartNewGameModal', () => {
     vi.mocked(client.listPersonas).mockResolvedValue([])
     vi.mocked(client.listCartridgeVersions).mockResolvedValue([])
     const onClose = vi.fn()
-    render(<StartNewGameModal open={true} onClose={onClose} onStart={vi.fn()} />)
+    render(<StartNewGameModal open={true} onClose={onClose} onPlayInstance={vi.fn()} />)
     await waitFor(() => screen.getByRole('button', { name: /cancel/i }))
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(onClose).toHaveBeenCalled()
@@ -101,7 +101,7 @@ describe('StartNewGameModal', () => {
     vi.mocked(client.listCartridges).mockResolvedValue(mockCartridges)
     vi.mocked(client.listPersonas).mockResolvedValue([])
     vi.mocked(client.listCartridgeVersions).mockResolvedValue(mockVersions)
-    render(<StartNewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
+    render(<StartNewGameModal open={true} onClose={vi.fn()} onPlayInstance={vi.fn()} />)
     await waitFor(() => screen.getByRole('button', { name: /start game/i }))
     expect(screen.getByRole('button', { name: /start game/i })).toBeDisabled()
   })

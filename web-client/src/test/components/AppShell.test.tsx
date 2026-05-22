@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AppShell from '../../components/AppShell';
 import { useGameInstance } from '../../contexts/GameInstanceContext';
 import { useGameSession } from '../../hooks/useGameSession';
 import type { GameSession } from '../../hooks/useGameSession';
+import type { PlayInstancePayload } from '../../types';
+import * as client from '../../api/client';
 
 // Mock child components
 vi.mock('../../components/ChatPane', () => ({ default: () => <div data-testid="chat-pane" /> }));
@@ -18,9 +20,9 @@ vi.mock('../../components/CartridgeLibrary', () => ({ default: () => <div data-t
 vi.mock('../../components/PersonaManager', () => ({ default: () => <div data-testid="persona-manager" /> }));
 vi.mock('../../components/PlayHub', () => ({ default: () => <div data-testid="play-hub" /> }));
 vi.mock('../../components/StartNewGameModal', () => ({
-  default: ({ onStart }: { onStart: (turnId: string | null) => void }) => (
+  default: ({ onPlayInstance }: { onPlayInstance: (payload: PlayInstancePayload) => void }) => (
     <div data-testid="start-new-game-modal">
-      <button onClick={() => onStart('turn-1')}>start-game</button>
+      <button onClick={() => onPlayInstance({ instance_id: 'inst-1', turn_id: 'turn-1' })}>start-game</button>
     </div>
   ),
 }));
@@ -37,7 +39,6 @@ vi.mock('../../hooks/useGameSession', () => ({
   useGameSession: vi.fn(),
 }));
 vi.mock('../../api/client', () => ({
-  getInstanceId: vi.fn(() => ''),
   setInstanceId: vi.fn(),
 }));
 
@@ -258,41 +259,26 @@ describe('AppShell', () => {
     });
   });
 
-  describe('mnesos-play-instance event', () => {
-    it('switches to play view when mnesos-play-instance is dispatched', async () => {
+  describe('onPlayInstance callback', () => {
+    it('switches to play view when onPlayInstance is triggered', async () => {
+      const user = userEvent.setup();
       render(<AppShell />);
-      // Starts in library
       expect(screen.getByTestId('cartridge-library')).toBeInTheDocument();
-      act(() => {
-        window.dispatchEvent(
-          new CustomEvent('mnesos-play-instance', { detail: { instance_id: 'inst-1', turn_id: null } })
-        );
-      });
+      await user.click(screen.getByRole('button', { name: 'start-game' }));
       expect(screen.getByTestId('play-hub')).toBeInTheDocument();
     });
 
-    it('calls setActiveInstanceId with the event instance_id', () => {
-      const setActiveInstanceId = vi.fn();
-      vi.mocked(useGameInstance).mockReturnValue(makeInstanceMock({ setActiveInstanceId }));
-      render(<AppShell />);
-      act(() => {
-        window.dispatchEvent(
-          new CustomEvent('mnesos-play-instance', { detail: { instance_id: 'inst-event', turn_id: null } })
-        );
-      });
-      expect(setActiveInstanceId).toHaveBeenCalledWith('inst-event');
-    });
-
-    it('calls session.resetSession when play event fires', () => {
+    it('sets the active instance and resets the session', async () => {
       const resetSession = vi.fn().mockResolvedValue(undefined);
+      const setActiveInstanceId = vi.fn();
       vi.mocked(useGameSession).mockReturnValue(makeSessionMock({ resetSession }));
+      vi.mocked(useGameInstance).mockReturnValue(makeInstanceMock({ setActiveInstanceId }));
+      const user = userEvent.setup();
       render(<AppShell />);
-      act(() => {
-        window.dispatchEvent(
-          new CustomEvent('mnesos-play-instance', { detail: { instance_id: 'inst-1', turn_id: 'turn-99' } })
-        );
-      });
-      expect(resetSession).toHaveBeenCalledWith('turn-99');
+      await user.click(screen.getByRole('button', { name: 'start-game' }));
+      expect(client.setInstanceId).toHaveBeenCalledWith('inst-1');
+      expect(setActiveInstanceId).toHaveBeenCalledWith('inst-1');
+      expect(resetSession).toHaveBeenCalledWith('turn-1');
     });
   });
 });
