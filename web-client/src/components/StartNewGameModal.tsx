@@ -1,20 +1,19 @@
 import { useEffect, useState } from "react";
-import type { Cartridge, CartridgeVersion, Persona } from "../types";
+import type { Cartridge, CartridgeVersion, Persona, PlayInstancePayload } from "../types";
 import {
   listCartridges,
   listCartridgeVersions,
   listPersonas,
   createGameInstance,
-  setInstanceId,
 } from "../api/client";
 
 interface StartNewGameModalProps {
   open: boolean;
   onClose: () => void;
-  onStart: (turnId: string | undefined) => void;
+  onPlayInstance: (payload: PlayInstancePayload) => void;
 }
 
-export default function StartNewGameModal({ open, onClose, onStart }: StartNewGameModalProps) {
+export default function StartNewGameModal({ open, onClose, onPlayInstance }: StartNewGameModalProps) {
   const [cartridges, setCartridges] = useState<Cartridge[]>([]);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
@@ -103,8 +102,7 @@ export default function StartNewGameModal({ open, onClose, onStart }: StartNewGa
         version_id: selectedVersionId,
         persona_id: selectedPersonaId,
       });
-      setInstanceId(resp.instance_id);
-      onStart(resp.turn_id);
+      onPlayInstance({ instance_id: resp.instance_id, turn_id: resp.turn_id ?? null });
       onClose();
     } catch (e: any) {
       setError(e.message || "Failed to start game.");

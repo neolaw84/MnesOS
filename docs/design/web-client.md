@@ -225,10 +225,12 @@ In `useGameSession.applyBotMemory()`, the hook attempts to parse `_pending_inter
 
 **Recommendation:** Import and apply `PendingInteraction` from `MinigameWrapper` (or a shared types file) as the prop type.
 
-### 7.4. `window` Custom Events for Navigation
-`PlayHub` and `StartNewGameModal` trigger navigation by dispatching `CustomEvent("mnesos-play-instance")` on `window`. `App.tsx` listens for this event to change the active view. This is an implicit global bus that bypasses React's component tree and makes the data flow opaque.
+### 7.4. ~~`window` Custom Events for Navigation~~ (Fixed in MNS-260521-05)
+~~`PlayHub` and `StartNewGameModal` trigger navigation by dispatching `CustomEvent("mnesos-play-instance")` on `window`. `App.tsx` listens for this event to change the active view. This is an implicit global bus that bypasses React's component tree and makes the data flow opaque.~~
 
-**Recommendation:** Replace with a React context or a proper router (e.g., React Router) that makes navigation state explicit and traceable.
+~~**Recommendation:** Replace with a React context or a proper router (e.g., React Router) that makes navigation state explicit and traceable.~~
+
+**Resolution:** `AppShell` now passes an explicit `onPlayInstance` callback (typed via `PlayInstancePayload`) into `PlayHub`, `GameInstanceManager`, and `StartNewGameModal`, making play navigation state traceable and type-safe without global events.
 
 ### 7.5. Inline Modal Co-location
 `CartridgeLibrary.tsx` defines `CreateCartridgeModal` in the same file. While convenient for a prototype, this inflates file size and makes the modal untestable in isolation.

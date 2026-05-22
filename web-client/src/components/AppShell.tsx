@@ -4,7 +4,7 @@
  * Responsibilities:
  *   - Renders the header with navigation buttons.
  *   - Manages view state ("play" | "library" | "personas") and settingsOpen / startNewGameOpen.
- *   - Listens for the window "mnesos-play-instance" event to switch to play view.
+ *   - Uses explicit play callbacks to switch to play view.
  *   - Renders the active view (CartridgeLibrary, PersonaManager, PlayHub, or Chat).
  *   - Renders SettingsModal and StartNewGameModal as overlays.
  *
@@ -14,7 +14,7 @@
  *   - useGameSession()   — for session state and actions
  */
 
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import ChatPane from "./ChatPane";
 import ChatInput from "./ChatInput";
 import SettingsModal from "./SettingsModal";
@@ -27,7 +27,8 @@ import StartNewGameModal from "./StartNewGameModal";
 import MinigameWrapper from "./minigames/MinigameWrapper";
 import { useGameSession } from "../hooks/useGameSession";
 import { useGameInstance } from "../contexts/GameInstanceContext";
-import { getInstanceId } from "../api/client";
+import { setInstanceId } from "../api/client";
+import type { PlayInstancePayload } from "../types";
 
 type View = "play" | "library" | "personas";
 
@@ -41,17 +42,12 @@ export default function AppShell() {
   const [startNewGameOpen, setStartNewGameOpen] = useState(false);
   const [debugVisible, setDebugVisible] = useState(false);
 
-  useEffect(() => {
-    const handlePlay = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const instanceId = customEvent.detail?.instance_id || getInstanceId();
-      setActiveInstanceId(instanceId || null);
-      session.resetSession(customEvent.detail?.turn_id);
-      setView("play");
-    };
-    window.addEventListener("mnesos-play-instance", handlePlay);
-    return () => window.removeEventListener("mnesos-play-instance", handlePlay);
-  }, [session, setActiveInstanceId]);
+  const handlePlayInstance = useCallback((payload: PlayInstancePayload) => {
+    setInstanceId(payload.instance_id);
+    setActiveInstanceId(payload.instance_id);
+    session.resetSession(payload.turn_id ?? undefined);
+    setView("play");
+  }, [session, setActiveInstanceId, setView]);
 
   return (
     <div className="app-root">
@@ -163,7 +159,10 @@ export default function AppShell() {
       ) : (
         // Play hub — no active instance
         <div className="app-body play-hub">
-          <PlayHub onStartNewGame={() => setStartNewGameOpen(true)} />
+          <PlayHub
+            onStartNewGame={() => setStartNewGameOpen(true)}
+            onPlayInstance={handlePlayInstance}
+          />
         </div>
       )}
 
@@ -177,11 +176,7 @@ export default function AppShell() {
       <StartNewGameModal
         open={startNewGameOpen}
         onClose={() => setStartNewGameOpen(false)}
-        onStart={(turnId) => {
-          window.dispatchEvent(
-            new CustomEvent("mnesos-play-instance", { detail: { turn_id: turnId } })
-          );
-        }}
+        onPlayInstance={handlePlayInstance}
       />
     </div>
   );
