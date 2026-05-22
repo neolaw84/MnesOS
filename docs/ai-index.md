@@ -15,9 +15,11 @@ If you need to locate where components live, or run tests/builds:
 If you are implementing engine features, graph nodes, state routing, or interpreter logic:
 * **AI Engineering Philosophy & Core Principles**: Read `design/philosophy.md`
 * **Comprehensive Engine Architecture & Contracts**: Read `design/architecture.md`
+* **Web Client & Frontend Architecture**: Read `design/web-client.md` (Note: Frontend GUI lives in `web-client` directory, Backend in `src`)
 * **Architecture Decision Records (ADR) & Rationale**: Read `design/decisions.md`
 * **YARE Language Specification**: Read `yare-specification.md`
 * **YARE-to-Tool Bridge Specification**: Read `design/yare-bridge.md`
+* **Mini-Games Design (Skill-based resolution)**: Read `design/mini-games.md` (Note: Mini-games are distinct from Game Cartridge/yare.yaml loop; they handle skill-based outcome resolution)
 
 ## 3. Cartridge & User Guides
 If you are crafting game content, writing YARE rules, or guiding player interactions:
