@@ -11,7 +11,7 @@ import type {
   TurnResponse,
   HydratedStateResponse,
 } from "../types";
-import type { MinigameInteractionPayload } from "../types/minigames";
+import type { MinigameInteractionPayload, PendingInteraction } from "../types/minigames";
 import {
   processTurn,
   sendInteraction as apiSendInteraction,
@@ -23,14 +23,17 @@ import {
 } from "../api/client";
 import type { GameSave } from "../types";
 
-export interface GameSession {
+export interface GameSessionState {
   messages: DisplayMessage[];
   botMemory: Record<string, unknown>;
-  pendingInteraction: Record<string, unknown> | null;
+  pendingInteraction: PendingInteraction | null;
   currentTurnId: string | null;
   loading: boolean;
   error: string | null;
   saves: GameSave[];
+}
+
+export interface GameSessionActions {
   sendTurn: (input: string) => Promise<void>;
   sendInteraction: (payload: MinigameInteractionPayload) => Promise<void>;
   retryLast: () => Promise<void>;
@@ -42,10 +45,12 @@ export interface GameSession {
   resetSession: (initialTurnId?: string) => Promise<void>;
 }
 
+export type GameSession = GameSessionState & GameSessionActions;
+
 export function useGameSession(): GameSession {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [botMemory, setBotMemory] = useState<Record<string, unknown>>({});
-  const [pendingInteraction, setPendingInteraction] = useState<Record<string, unknown> | null>(null);
+  const [pendingInteraction, setPendingInteraction] = useState<PendingInteraction | null>(null);
   const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,15 +69,12 @@ export function useGameSession(): GameSession {
     
     const pending = memory["_pending_interaction"];
 
-    let parsedPending = null;
-    if (typeof pending === "string" && pending.trim() !== "") {
-      try {
-        parsedPending = JSON.parse(pending.replace(/'/g, '"'));
-      } catch (e) {
-        console.error("Failed to parse pending interaction string:", e);
-      }
-    } else if (pending && typeof pending === "object" && Object.keys(pending).length > 0) {
-      parsedPending = pending;
+    let parsedPending: PendingInteraction | null = null;
+    const isPlainObject = pending && typeof pending === "object" && !Array.isArray(pending);
+    if (isPlainObject && Object.keys(pending as Record<string, unknown>).length > 0) {
+      parsedPending = pending as PendingInteraction;
+    } else if (pending !== undefined && pending !== null && !isPlainObject) {
+      console.warn("Unexpected _pending_interaction payload type:", pending);
     }
 
     console.log("Final parsedPending for state:", parsedPending);
@@ -403,4 +405,3 @@ export function useGameSession(): GameSession {
     resetSession,
   };
 }
-

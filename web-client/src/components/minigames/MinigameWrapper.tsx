@@ -6,19 +6,8 @@
  * with the full `MinigameInteractionPayload` so the parent can post it to the API.
  */
 
-import type { MinigameInteractionPayload } from "../../types/minigames";
+import type { MinigameInteractionPayload, PendingInteraction } from "../../types/minigames";
 import { minigameRegistry } from "./registry";
-
-interface PendingInteraction {
-  interaction_type: string;
-  minigame_id: string;
-  resolver_event?: string;
-  config?: {
-    difficulty?: Record<string, unknown>;
-    assets?: Record<string, unknown>;
-    narrative_hooks?: Record<string, unknown>;
-  };
-}
 
 interface MinigameWrapperProps {
   pendingInteraction: PendingInteraction;

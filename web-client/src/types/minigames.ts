@@ -20,3 +20,13 @@ export interface MinigameInteractionPayload {
   triggered_hooks?: string[];
 }
 
+export interface PendingInteraction {
+  interaction_type: "minigame";
+  minigame_id: string;
+  resolver_event?: string;
+  config?: {
+    difficulty?: Record<string, unknown>;
+    assets?: Record<string, unknown>;
+    narrative_hooks?: Record<string, unknown>;
+  };
+}

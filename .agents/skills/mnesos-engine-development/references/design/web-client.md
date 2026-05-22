@@ -192,9 +192,9 @@ All mini-game components implement the `MinigameComponentProps` interface define
 
 | Unit | Assessment |
 |------|-----------|
-| `GameSession` interface | **Violation.** `useGameSession` exposes a single fat `GameSession` interface containing messaging, saving, error handling, mini-game interaction, and session reset. Consumers that only need read-only display (e.g., `ChatPane`) are forced to depend on the full surface. Consider splitting into `GameSessionActions` and `GameSessionState`. |
+| `GameSession` interface | ~~**Violation.** `useGameSession` exposes a single fat `GameSession` interface containing messaging, saving, error handling, mini-game interaction, and session reset. Consumers that only need read-only display (e.g., `ChatPane`) are forced to depend on the full surface. Consider splitting into `GameSessionActions` and `GameSessionState`.~~ **Fixed (MNS-260521-07).** `useGameSession` now exports `GameSessionState` and `GameSessionActions`, and display-only components depend on the state-only surface. |
 | `SaveManagerProps` | **Good.** Props are narrowly scoped to save/load operations. |
-| `ChatPaneProps` | **Mostly Good.** The `pendingInteraction` prop is typed as `any`, which bypasses type safety. Should use the `PendingInteraction` interface from `MinigameWrapper`. |
+| `ChatPaneProps` | ~~**Mostly Good.** The `pendingInteraction` prop is typed as `any`, which bypasses type safety. Should use the `PendingInteraction` interface from `MinigameWrapper`.~~ **Fixed (MNS-260521-07).** `pendingInteraction` now uses the shared `PendingInteraction` type from `types/minigames.ts`. |
 
 ### 6.5. Dependency Inversion Principle (DIP)
 
@@ -215,15 +215,15 @@ All mini-game components implement the `MinigameComponentProps` interface define
 
 **Resolution:** `App.tsx` is now a thin composition root rendering `<AuthProvider><GameInstanceProvider><AppShell /></GameInstanceProvider></AuthProvider>`. Auth state and PKCE callback logic live in `contexts/AuthContext.tsx` (exposed via `useAuth()`). Active instance and minigame modal state live in `contexts/GameInstanceContext.tsx` (exposed via `useGameInstance()`). All header, navigation, view routing, and layout rendering live in `components/AppShell.tsx`.
 
-### 7.2. Stringly-Typed Interaction Parsing
-In `useGameSession.applyBotMemory()`, the hook attempts to parse `_pending_interaction` from a JSON string using a fragile regex replacement (`replace(/'/g, '"')`). This couples the client to a backend serialization quirk and will silently fail on edge cases.
+### 7.2. ~~Stringly-Typed Interaction Parsing~~ (Fixed in MNS-260521-03)
+~~In `useGameSession.applyBotMemory()`, the hook attempts to parse `_pending_interaction` from a JSON string using a fragile regex replacement (`replace(/'/g, '"')`). This couples the client to a backend serialization quirk and will silently fail on edge cases.~~
 
-**Recommendation:** Ensure the backend always serializes `_pending_interaction` as a JSON object (not a Python `repr` string). Remove the client-side string-coercion path.
+**Resolution:** `_pending_interaction` is now persisted as a structured object, and the client no longer tries to coerce string payloads (it warns on regressions instead).
 
-### 7.3. `any` Typed Props
-`ChatPane` uses `pendingInteraction?: any`, discarding type information at the component boundary and propagating unsafety downstream.
+### 7.3. ~~`any` Typed Props~~ (Fixed in MNS-260521-07)
+~~`ChatPane` uses `pendingInteraction?: any`, discarding type information at the component boundary and propagating unsafety downstream.~~
 
-**Recommendation:** Import and apply `PendingInteraction` from `MinigameWrapper` (or a shared types file) as the prop type.
+**Resolution:** `pendingInteraction` is now typed via the shared `PendingInteraction` interface in `types/minigames.ts`.
 
 ### 7.4. ~~`window` Custom Events for Navigation~~ (Fixed in MNS-260521-05)
 ~~`PlayHub` and `StartNewGameModal` trigger navigation by dispatching `CustomEvent("mnesos-play-instance")` on `window`. `App.tsx` listens for this event to change the active view. This is an implicit global bus that bypasses React's component tree and makes the data flow opaque.~~

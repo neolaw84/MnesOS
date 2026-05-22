@@ -7,11 +7,12 @@
 
 import { useState, useEffect } from "react";
 import type { GameSave } from "../types";
+import type { GameSessionState } from "../hooks/useGameSession";
 
 interface SaveManagerProps {
-  saves: GameSave[];
-  currentTurnId: string | null;
-  loading: boolean;
+  saves: GameSessionState["saves"];
+  currentTurnId: GameSessionState["currentTurnId"];
+  loading: GameSessionState["loading"];
   onSave: (label: string) => Promise<void>;
   onLoad: (save: GameSave) => Promise<void>;
   onRetry: () => Promise<void>;

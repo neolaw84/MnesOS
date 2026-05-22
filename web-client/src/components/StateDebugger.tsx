@@ -5,8 +5,10 @@
  * Provides a quick at-a-glance view of live stats.
  */
 
+import type { GameSessionState } from "../hooks/useGameSession";
+
 interface StateDebuggerProps {
-  botMemory: Record<string, unknown>;
+  botMemory: GameSessionState["botMemory"];
   visible: boolean;
   onToggle: () => void;
 }

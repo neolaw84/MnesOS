@@ -147,7 +147,7 @@ export default function AppShell() {
           {session.pendingInteraction && minigameOpen && (
             <div className="modal-overlay minigame-modal-overlay">
               <MinigameWrapper
-                pendingInteraction={session.pendingInteraction as any}
+                pendingInteraction={session.pendingInteraction}
                 onInteractionComplete={(payload) => {
                   setMinigameOpen(false);
                   session.sendInteraction(payload);
