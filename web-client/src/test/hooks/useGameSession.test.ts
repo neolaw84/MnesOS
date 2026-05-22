@@ -329,6 +329,58 @@ describe('useGameSession', () => {
     expect(result.current.pendingInteraction).toEqual(pendingInteraction)
   })
 
+  it('sendTurn preserves apostrophes inside pending interaction payloads', async () => {
+    const pendingInteraction = {
+      interaction_type: 'minigame',
+      minigame_id: 'lights_out',
+      resolver_event: 'resolve_hack',
+      config: {
+        difficulty: { grid_size: 4 },
+        assets: {},
+        narrative_hooks: { on_combo: "It's a trap" },
+      },
+    }
+    vi.mocked(client.processTurn).mockResolvedValue({
+      turn_id: 't-1',
+      narrator_response: 'Puzzle starts.',
+      yare_delta: {},
+    })
+    vi.mocked(client.getGameState).mockResolvedValue({
+      bot_memory: { _pending_interaction: pendingInteraction },
+      client_messages: [],
+    })
+    const { result } = renderHook(() => useGameSession())
+    await act(async () => {
+      await result.current.sendTurn('hack the terminal')
+    })
+    expect(result.current.pendingInteraction).toEqual(pendingInteraction)
+  })
+
+  it('warns when _pending_interaction is a string payload', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const pendingString = (
+      "{'interaction_type': 'minigame', 'minigame_id': 'lights_out', "
+      + "'resolver_event': 'resolve_hack', "
+      + "'config': {'narrative_hooks': {'on_combo': \"It\\'s a trap\"}}}"
+    )
+    vi.mocked(client.processTurn).mockResolvedValue({
+      turn_id: 't-1',
+      narrator_response: 'Puzzle starts.',
+      yare_delta: {},
+    })
+    vi.mocked(client.getGameState).mockResolvedValue({
+      bot_memory: { _pending_interaction: pendingString },
+      client_messages: [],
+    })
+    const { result } = renderHook(() => useGameSession())
+    await act(async () => {
+      await result.current.sendTurn('hack the terminal')
+    })
+    expect(result.current.pendingInteraction).toBeNull()
+    expect(warnSpy).toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
+
   it('sendInteraction calls apiSendInteraction and clears pendingInteraction', async () => {
     // Set up pending interaction via sendTurn
     const pendingInteraction = {

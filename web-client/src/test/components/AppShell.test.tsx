@@ -234,7 +234,7 @@ describe('AppShell', () => {
   describe('minigame modal', () => {
     it('renders MinigameWrapper when pendingInteraction is set and minigameOpen is true', async () => {
       vi.mocked(useGameSession).mockReturnValue(
-        makeSessionMock({ pendingInteraction: { minigame_id: 'LightsOut' } })
+        makeSessionMock({ pendingInteraction: { interaction_type: 'minigame', minigame_id: 'lights_out' } })
       );
       vi.mocked(useGameInstance).mockReturnValue(
         makeInstanceMock({ activeInstanceId: 'inst-123', minigameOpen: true })
@@ -247,7 +247,7 @@ describe('AppShell', () => {
 
     it('does not render MinigameWrapper when minigameOpen is false', async () => {
       vi.mocked(useGameSession).mockReturnValue(
-        makeSessionMock({ pendingInteraction: { minigame_id: 'LightsOut' } })
+        makeSessionMock({ pendingInteraction: { interaction_type: 'minigame', minigame_id: 'lights_out' } })
       );
       vi.mocked(useGameInstance).mockReturnValue(
         makeInstanceMock({ activeInstanceId: 'inst-123', minigameOpen: false })
