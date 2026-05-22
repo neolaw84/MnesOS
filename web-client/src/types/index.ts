@@ -68,6 +68,11 @@ export interface GameInstanceResponse {
   last_played_at?: string;
 }
 
+export interface PlayInstancePayload {
+  instance_id: string;
+  turn_id: string | null;
+}
+
 export interface CreateSaveRequest {
   turn_log_id: string;
   label: string;
