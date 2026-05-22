@@ -237,7 +237,9 @@ All mini-game components implement the `MinigameComponentProps` interface define
 
 **Recommendation:** Extract `CreateCartridgeModal` to `components/CreateCartridgeModal.tsx`.
 
-### 7.6. Side Effects in `useEffect` with Stale Closure Risk
-In `App.tsx`, the `mnesos-play-instance` event listener captures `session` from the enclosing scope. Since `session` is a new object on every render, the dependency array `[session]` causes the listener to be re-registered on every session state change, which can cause missed events during rapid state transitions.
+### 7.6. ~~Side Effects in `useEffect` with Stale Closure Risk~~ (Obsoleted by MNS-260521-05)
+~~In `App.tsx`, the `mnesos-play-instance` event listener captures `session` from the enclosing scope. Since `session` is a new object on every render, the dependency array `[session]` causes the listener to be re-registered on every session state change, which can cause missed events during rapid state transitions.~~
 
-**Recommendation:** Stabilize the `session.resetSession` reference with `useCallback` in `useGameSession`, or extract only the stable callback reference into the event listener dependency array.
+~~**Recommendation:** Stabilize the `session.resetSession` reference with `useCallback` in `useGameSession`, or extract only the stable callback reference into the event listener dependency array.~~
+
+**Resolution:** This issue is obsoleted by MNS-260521-05 (the global `window` custom event bus was removed and replaced with explicit callbacks/context). No additional changes are required unless the legacy event bus is reintroduced.
