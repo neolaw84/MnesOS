@@ -47,7 +47,7 @@ export default function AppShell() {
     setActiveInstanceId(payload.instance_id);
     session.resetSession(payload.turn_id ?? undefined);
     setView("play");
-  }, [session, setActiveInstanceId]);
+  }, [session, setActiveInstanceId, setView]);
 
   return (
     <div className="app-root">
