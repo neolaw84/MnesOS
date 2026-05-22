@@ -109,6 +109,20 @@ class TestPostToolsNode:
         assert "bot_memory" not in result
         assert result["bot_memory_staging"] is None
 
+    def test_post_tools_normalizes_pending_interaction_string(self):
+        pending_repr = (
+            "{'interaction_type': 'minigame', 'minigame_id': 'lights_out', "
+            "'resolver_event': 'resolve_hack', "
+            "'config': {'narrative_hooks': {'on_combo': \"It's a trap\"}}}"
+        )
+        state = make_state(
+            bot_memory_staging=[{"_pending_interaction": pending_repr}],
+        )
+        result = post_tools_node(state)
+        pending = result["bot_memory"]["_pending_interaction"]
+        assert isinstance(pending, dict)
+        assert pending["config"]["narrative_hooks"]["on_combo"] == "It's a trap"
+
 class TestRouterLogic:
     def test_route_director_to_pretools_if_calls(self):
         from langchain_core.messages import AIMessage
