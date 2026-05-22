@@ -174,7 +174,7 @@ Credentials (OpenRouter API key, user ID, active instance ID) are stored in `loc
 |------|-----------|
 | `api/client.ts` | **Good.** Strictly handles HTTP transport and credential I/O. No rendering logic. |
 | `useGameSession` | **Mostly Good.** Manages the gameplay loop (messages, turn progression, saves). However, it also parses `_pending_interaction` strings from `bot_memory`, which is a backend-format concern leaking into the session hook. |
-| `App.tsx` | **Violation.** `App.tsx` handles PKCE OAuth callback logic, navigation view routing, active instance state, mini-game open/close state, auth loading overlay, and global error banners — all in a single component. This should be split across a router, an auth context, and a layout component. |
+| `App.tsx` | ~~**Violation.** `App.tsx` handles PKCE OAuth callback logic, navigation view routing, active instance state, mini-game open/close state, auth loading overlay, and global error banners — all in a single component. This should be split across a router, an auth context, and a layout component.~~ **Fixed (MNS-260521-04).** `App.tsx` is now a thin composition root. PKCE/auth state lives in `AuthProvider` (`contexts/AuthContext.tsx`), instance + minigame state lives in `GameInstanceProvider` (`contexts/GameInstanceContext.tsx`), and all layout + routing lives in `AppShell` (`components/AppShell.tsx`). |
 | `CartridgeLibrary.tsx` | **Violation.** Defines both the library list view *and* the `CreateCartridgeModal` sub-component inline in the same file. The modal is non-trivial and belongs in its own file. |
 
 ### 6.2. Open/Closed Principle (OCP)
@@ -208,10 +208,12 @@ All mini-game components implement the `MinigameComponentProps` interface define
 
 ## 7. Anti-Patterns Identified
 
-### 7.1. God Component — `App.tsx`
-`App.tsx` accumulates too many responsibilities: OAuth callback handling, view routing, active instance lifecycle, mini-game modal state, and auth error display. This makes the root component fragile and difficult to test in isolation.
+### 7.1. ~~God Component — `App.tsx`~~ (Fixed in MNS-260521-04)
+~~`App.tsx` accumulates too many responsibilities: OAuth callback handling, view routing, active instance lifecycle, mini-game modal state, and auth error display. This makes the root component fragile and difficult to test in isolation.~~
 
-**Recommendation:** Extract an `AuthProvider` context for PKCE state, a `<Router>` component for view switching, and a `<GameInstanceProvider>` for active instance tracking.
+~~**Recommendation:** Extract an `AuthProvider` context for PKCE state, a `<Router>` component for view switching, and a `<GameInstanceProvider>` for active instance tracking.~~
+
+**Resolution:** `App.tsx` is now a thin composition root rendering `<AuthProvider><GameInstanceProvider><AppShell /></GameInstanceProvider></AuthProvider>`. Auth state and PKCE callback logic live in `contexts/AuthContext.tsx` (exposed via `useAuth()`). Active instance and minigame modal state live in `contexts/GameInstanceContext.tsx` (exposed via `useGameInstance()`). All header, navigation, view routing, and layout rendering live in `components/AppShell.tsx`.
 
 ### 7.2. Stringly-Typed Interaction Parsing
 In `useGameSession.applyBotMemory()`, the hook attempts to parse `_pending_interaction` from a JSON string using a fragile regex replacement (`replace(/'/g, '"')`). This couples the client to a backend serialization quirk and will silently fail on edge cases.
