@@ -70,10 +70,10 @@ export function useGameSession(): GameSession {
     const pending = memory["_pending_interaction"];
 
     let parsedPending: PendingInteraction | null = null;
-    const isPlainObject = pending && typeof pending === "object" && !Array.isArray(pending);
-    if (isPlainObject && Object.keys(pending as Record<string, unknown>).length > 0) {
+    const isPendingObject = pending && typeof pending === "object" && !Array.isArray(pending);
+    if (isPendingObject && Object.keys(pending as Record<string, unknown>).length > 0) {
       parsedPending = pending as PendingInteraction;
-    } else if (pending !== undefined && pending !== null && !isPlainObject) {
+    } else if (pending !== undefined && pending !== null && !isPendingObject) {
       console.warn("Unexpected _pending_interaction payload type:", pending);
     }
 

@@ -31,6 +31,7 @@ def _normalize_pending_interaction(bot_memory: Dict[str, Any]) -> Dict[str, Any]
     pending = bot_memory.get("_pending_interaction")
     if pending is None or isinstance(pending, dict):
         return bot_memory
+    normalized: Dict[str, Any] | None = None
     if isinstance(pending, str):
         pending_str = pending.strip()
         if pending_str:
@@ -39,11 +40,10 @@ def _normalize_pending_interaction(bot_memory: Dict[str, Any]) -> Dict[str, Any]
             except (ValueError, SyntaxError):
                 parsed = None
             if isinstance(parsed, dict):
-                bot_memory["_pending_interaction"] = parsed
-                return bot_memory
-        bot_memory["_pending_interaction"] = {}
-        return bot_memory
-    bot_memory["_pending_interaction"] = {}
+                normalized = parsed
+    if normalized is None:
+        normalized = {}
+    bot_memory["_pending_interaction"] = normalized
     return bot_memory
 
 def post_tools_node(state: GameState) -> dict:
