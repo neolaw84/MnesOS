@@ -8,11 +8,12 @@ export interface MinigameManifest {
   output_schema: JsonSchema;
 }
 
+export type InteractionType = "minigame";
 export type MinigameStatus = "completed" | "failed" | "aborted";
 
 /** Universal payload wrapper posted back to the backend turn endpoint. */
 export interface MinigameInteractionPayload {
-  interaction_type: "minigame";
+  interaction_type: InteractionType;
   minigame_id: string;
   status: MinigameStatus;
   metrics: Record<string, string | number | boolean>;
@@ -21,7 +22,7 @@ export interface MinigameInteractionPayload {
 }
 
 export interface PendingInteraction {
-  interaction_type: "minigame";
+  interaction_type: InteractionType;
   minigame_id: string;
   resolver_event?: string;
   config?: {

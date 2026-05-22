@@ -1,6 +1,6 @@
 import ast
 from datetime import timedelta
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from langgraph.graph.message import REMOVE_ALL_MESSAGES
 from langchain_core.messages import RemoveMessage
 from langchain_core.runnables import RunnableConfig
@@ -31,7 +31,7 @@ def _normalize_pending_interaction(bot_memory: Dict[str, Any]) -> Dict[str, Any]
     pending = bot_memory.get("_pending_interaction")
     if pending is None or isinstance(pending, dict):
         return bot_memory
-    normalized: Dict[str, Any] | None = None
+    normalized: Optional[Dict[str, Any]] = None
     if isinstance(pending, str):
         pending_str = pending.strip()
         if pending_str:
