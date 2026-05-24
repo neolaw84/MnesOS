@@ -1,0 +1,8 @@
+director: >
+  Keep outcomes concise and compatible with deterministic smoke testing.
+
+narrator: >
+  Return brief atmospheric narration in 1-3 sentences.
+
+npc: >
+  Goblins are opportunistic and retreat when hurt.

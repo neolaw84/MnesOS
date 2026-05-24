@@ -1,0 +1,37 @@
+version: "1.0"
+bot_name: "e2e-smoke-rpg"
+
+state_schema:
+  player:
+    hp: { type: int, default: 100, min: 0 }
+    mana: { type: int, default: 50, min: 0 }
+    level: { type: int, default: 1 }
+  npc:
+    name: { type: string, default: "Goblin" }
+    hp: { type: int, default: 20, min: 0 }
+  current_location: { type: string, default: "Crossroads" }
+
+events:
+  combat_strike:
+    inputs:
+      attacker: { type: string, default: "player", enum: ["player", "npc"] }
+      defender: { type: string, default: "npc", enum: ["player", "npc"] }
+      power: { type: int, default: 0 }
+    steps:
+      - action: set
+        var: temp.roll
+        value: "@ roll(1d20) + inputs.power"
+      - action: branch
+        conditions:
+          - if: "@ temp.roll >= 10"
+            steps:
+              - action: mutate
+                var: "@ 'state.' + inputs.defender + '.hp'"
+                op: sub
+                value: 8
+              - action: note
+                message: "{inputs.attacker} strikes {inputs.defender} for 8 damage."
+          - else:
+            steps:
+              - action: note
+                message: "{inputs.attacker} misses {inputs.defender}."
