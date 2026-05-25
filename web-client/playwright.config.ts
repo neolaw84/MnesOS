@@ -26,7 +26,7 @@ export default defineConfig({
     ? [['github'], ['html', { open: 'never' }]]
     : 'list',
   use: {
-    baseURL: 'http://localhost:8000',
+    baseURL: 'http://127.0.0.1:8000',
     trace: 'on-first-retry',
     headless: true,
   },
@@ -49,7 +49,7 @@ export default defineConfig({
     {
       // FastAPI backend serving staged frontend assets (unified mode)
       command: `MNESOS_DB_PATH=${E2E_DB_PATH} MNESOS_STATIC_DIR=${STATIC_DIR} OPENROUTER_BASE_URL=http://127.0.0.1:8899/api/v1 ${PYTHON_BIN} -m uvicorn MnesOS.api.app:app --host 0.0.0.0 --port 8000`,
-      url: 'http://localhost:8000/api/health',
+      url: 'http://127.0.0.1:8000/api/health',
       reuseExistingServer: !process.env.CI,
       timeout: 30000,
       stdout: 'ignore',

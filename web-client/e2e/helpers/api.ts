@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 
 import { expect, request } from "@playwright/test";
 
-const BASE_API = "http://localhost:8000/api";
+const BASE_API = "http://127.0.0.1:8000/api";
 
 export interface SeededSmokeState {
   apiKey: string;
