@@ -202,15 +202,16 @@ jobs:
           cache: "npm"
           cache-dependency-path: web-client/package-lock.json
 
-      - name: Build and stage web-client
+      - name: Build web-client
+        working-directory: web-client
         run: |
-          cd web-client && npm ci && npm run build
-          rm -rf src/MnesOS/static
-          mkdir -p src/MnesOS/static
-          cp -r web-client/dist/. src/MnesOS/static/
+          npm ci
+          npm run build
 
-      - name: Run Smoke tests
-        run: pytest tests/integration/test_unified_smoke.py
+      - name: Stage and Smoke
+        run: |
+          make stage
+          pytest tests/integration/test_unified_smoke.py
 
 # ── Job 4: Gatekeeper ─────────────────────────────────────────────────────────
   ci-success:
