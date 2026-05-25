@@ -3,8 +3,7 @@
  *
  * Responsibilities:
  *   - Renders the header with navigation buttons.
- *   - Manages view state ("play" | "library" | "personas") and settingsOpen / startNewGameOpen.
- *   - Uses explicit play callbacks to switch to play view.
+ *   - Manages view state ("play" | "library" | "personas") and settingsOpen / startNewGameOpen. *   - Uses explicit play callbacks to switch to play view.
  *   - Renders the active view (CartridgeLibrary, PersonaManager, PlayHub, or Chat).
  *   - Renders SettingsModal and StartNewGameModal as overlays.
  *
@@ -21,7 +20,6 @@ import SettingsModal from "./SettingsModal";
 import StateDebugger from "./StateDebugger";
 import SaveManager from "./SaveManager";
 import CartridgeLibrary from "./CartridgeLibrary";
-import CartridgeBuilder from "./CartridgeBuilder";
 import PersonaManager from "./PersonaManager";
 import PlayHub from "./PlayHub";
 import StartNewGameModal from "./StartNewGameModal";
@@ -31,7 +29,7 @@ import { useGameInstance } from "../contexts/GameInstanceContext";
 import { setInstanceId } from "../api/client";
 import type { PlayInstancePayload } from "../types";
 
-type View = "play" | "library" | "personas" | "builder";
+type View = "play" | "library" | "personas";
 
 export default function AppShell() {
   const session = useGameSession();
@@ -76,12 +74,6 @@ export default function AppShell() {
             🎭 Personas
           </button>
           <button
-            className={`btn btn-small ${view === "builder" ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => setView("builder")}
-          >
-            🛠️ Builder
-          </button>
-          <button
             className="btn btn-small btn-secondary"
             onClick={() => setSettingsOpen(true)}
           >
@@ -108,10 +100,6 @@ export default function AppShell() {
       ) : view === "personas" ? (
         <div className="app-body" style={{ padding: "1rem", overflowY: "auto" }}>
           <PersonaManager />
-        </div>
-      ) : view === "builder" ? (
-        <div className="app-body" style={{ padding: "1rem", overflowY: "auto" }}>
-          <CartridgeBuilder cartridgeId="default" />
         </div>
       ) : activeInstanceId ? (
         // Play view with active instance — show chat

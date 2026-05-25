@@ -13,6 +13,14 @@ vi.mock('../../api/client', () => ({
   uploadCartridgeVersion: vi.fn(),
 }))
 
+vi.mock('../../components/CartridgeBuilder', () => ({
+  default: ({ cartridgeId, initialPanes }: { cartridgeId: string; initialPanes?: unknown }) => (
+    <div data-testid="cartridge-builder" data-cartridge-id={cartridgeId}>
+      {initialPanes ? <span data-testid="builder-initial-panes">panes-loaded</span> : null}
+    </div>
+  ),
+}))
+
 const mockCartridges: Cartridge[] = [
   {
     id: 'c-1',
@@ -97,5 +105,83 @@ describe('CartridgeLibrary', () => {
       firstMessageFile: file,
       directivesFile,
     }))
+  })
+
+  describe('Edit in Builder flow', () => {
+    it('shows an "Edit in Builder" button for each version', async () => {
+      vi.mocked(client.listCartridges).mockResolvedValue(mockCartridges)
+      vi.mocked(client.listCartridgeVersions).mockResolvedValue([mockVersion])
+      const user = userEvent.setup()
+
+      render(<CartridgeLibrary />)
+      await waitFor(() => screen.getByText('Test Cartridge'))
+      await user.click(screen.getByText('Test Cartridge'))
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: /edit version 1\.0\.0 in builder/i }),
+        ).toBeInTheDocument(),
+      )
+    })
+
+    it('opens CartridgeBuilder with correct cartridgeId when "Edit in Builder" is clicked', async () => {
+      vi.mocked(client.listCartridges).mockResolvedValue(mockCartridges)
+      vi.mocked(client.listCartridgeVersions).mockResolvedValue([mockVersion])
+      const user = userEvent.setup()
+
+      render(<CartridgeLibrary />)
+      await waitFor(() => screen.getByText('Test Cartridge'))
+      await user.click(screen.getByText('Test Cartridge'))
+
+      await waitFor(() =>
+        screen.getByRole('button', { name: /edit version 1\.0\.0 in builder/i }),
+      )
+      await user.click(screen.getByRole('button', { name: /edit version 1\.0\.0 in builder/i }))
+
+      const builder = screen.getByTestId('cartridge-builder')
+      expect(builder).toBeInTheDocument()
+      expect(builder).toHaveAttribute('data-cartridge-id', 'c-1')
+    })
+
+    it('populates the builder with initial panes from the selected version', async () => {
+      vi.mocked(client.listCartridges).mockResolvedValue(mockCartridges)
+      vi.mocked(client.listCartridgeVersions).mockResolvedValue([mockVersion])
+      const user = userEvent.setup()
+
+      render(<CartridgeLibrary />)
+      await waitFor(() => screen.getByText('Test Cartridge'))
+      await user.click(screen.getByText('Test Cartridge'))
+
+      await waitFor(() =>
+        screen.getByRole('button', { name: /edit version 1\.0\.0 in builder/i }),
+      )
+      await user.click(screen.getByRole('button', { name: /edit version 1\.0\.0 in builder/i }))
+
+      expect(screen.getByTestId('builder-initial-panes')).toBeInTheDocument()
+    })
+
+    it('shows a back button inside the builder that returns to the cartridge detail', async () => {
+      vi.mocked(client.listCartridges).mockResolvedValue(mockCartridges)
+      vi.mocked(client.listCartridgeVersions).mockResolvedValue([mockVersion])
+      const user = userEvent.setup()
+
+      render(<CartridgeLibrary />)
+      await waitFor(() => screen.getByText('Test Cartridge'))
+      await user.click(screen.getByText('Test Cartridge'))
+
+      await waitFor(() =>
+        screen.getByRole('button', { name: /edit version 1\.0\.0 in builder/i }),
+      )
+      await user.click(screen.getByRole('button', { name: /edit version 1\.0\.0 in builder/i }))
+
+      expect(screen.getByTestId('cartridge-builder')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: /back to test cartridge/i }))
+
+      expect(screen.queryByTestId('cartridge-builder')).not.toBeInTheDocument()
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /edit version 1\.0\.0 in builder/i })).toBeInTheDocument(),
+      )
+    })
   })
 })
