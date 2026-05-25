@@ -1,0 +1,54 @@
+{
+  "minigame_id": "articulation_scramble",
+  "difficulty_schema": {
+    "type": "object",
+    "properties": {
+      "prompt": {
+        "type": "string",
+        "description": "The narrative prompt or instruction shown to the player."
+      },
+      "prefix": {
+        "type": "string",
+        "description": "Optional text prefix displayed before the selected word sequence."
+      },
+      "correct_sequence": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "The correct sequence of words the player must select in order."
+      },
+      "confuse_words": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Distractor words mixed in with the correct ones."
+      },
+      "max_time_seconds": {
+        "type": "number",
+        "description": "Optional countdown timer in seconds. Auto-submits when time expires."
+      }
+    },
+    "required": ["prompt", "correct_sequence", "confuse_words"]
+  },
+  "assets_schema": {
+    "type": "object",
+    "properties": {}
+  },
+  "events_schema": ["on_success", "on_failure", "on_timeout"],
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean",
+        "description": "Whether the player selected the correct sequence."
+      },
+      "selected_sequence": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "The sequence of words the player selected."
+      },
+      "time_spent_seconds": {
+        "type": "number",
+        "description": "Time the player spent before submitting."
+      }
+    }
+  }
+}

@@ -159,6 +159,31 @@ class TestProcessTurn:
         )
         assert resp.status_code == 404
 
+    def test_free_text_while_pending_interaction_returns_409(self, client, instance_id, storage):
+        """[MnesOS-260516-10] Free-text input while a minigame is pending must return 409 Conflict."""
+        # Inject a _pending_interaction into bot_memory via a SYSTEM turn
+        r_inject = client.post(
+            f"/api/instances/{instance_id}/inject",
+            json={
+                "yare_delta": {
+                    "_pending_interaction": {
+                        "interaction_type": "minigame",
+                        "minigame_id": "lights_out",
+                        "resolver_event": "hack_terminal_resolve",
+                        "config": {},
+                    }
+                }
+            },
+        )
+        parent_id = r_inject.json()["turn_id"]
+
+        # Attempt free-text while interaction is pending → 409
+        resp = client.post(
+            f"/api/instances/{instance_id}/turn",
+            json={"parent_turn_id": parent_id, "user_input": "I try to run away"},
+        )
+        assert resp.status_code == 409
+
 
 # ---------------------------------------------------------------------------
 # §1.2  POST /api/instances/{instance_id}/inject

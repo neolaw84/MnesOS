@@ -116,7 +116,7 @@ def process_turn(
             request_overrides=body.request_overrides or {},
         )
     except InteractionRoutingError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     # 2. Persist TurnLog (API route responsibility per 0005 §3.2)
     lineage = (

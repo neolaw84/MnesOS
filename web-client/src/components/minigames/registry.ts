@@ -1,5 +1,7 @@
 import type { ComponentType } from "react";
 import LightsOut from "./LightsOut";
+import ArticulationScramble from "./ArticulationScramble";
+import ReflexDial from "./ReflexDial";
 
 export type MinigameComponentProps = {
   config: {
@@ -17,5 +19,7 @@ export type MinigameComponentProps = {
 
 export const minigameRegistry: Record<string, ComponentType<MinigameComponentProps>> = {
   lights_out: LightsOut,
+  articulation_scramble: ArticulationScramble,
+  reflex_dial: ReflexDial,
 };
 

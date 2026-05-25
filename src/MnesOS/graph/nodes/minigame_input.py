@@ -16,12 +16,32 @@ def minigame_input_node(state: GameState, config: RunnableConfig) -> dict:
     Currently supports:
     - ``interaction_type == "minigame"``: resolves a pending minigame by invoking the
       trusted ``resolver_event`` stored in ``bot_memory["_pending_interaction"]``.
+
+    Blocking behaviour:
+    - If ``_pending_interaction`` exists and no structured interaction is provided
+      (i.e. a free-text turn), raise ``InteractionRoutingError`` to reject the input.
     """
     interaction = state.get("incoming_interaction")
+    bot_memory: Dict[str, Any] = dict(state.get("bot_memory") or {})
+    pending = bot_memory.get("_pending_interaction")
+
+    # Block free-text input when a pending interaction is active
     if not interaction:
+        if isinstance(pending, dict) and pending:
+            raise InteractionRoutingError(
+                "Cannot process free-text input while an interaction is pending. "
+                "Please complete or abort the active minigame first."
+            )
         return {}
 
     if interaction.get("interaction_type") != "minigame":
+        # Validate that the interaction type matches what's pending
+        if isinstance(pending, dict) and pending.get("interaction_type") != interaction.get("interaction_type"):
+            raise InteractionRoutingError(
+                f"Interaction type mismatch: pending expects "
+                f"'{pending.get('interaction_type')}' but received "
+                f"'{interaction.get('interaction_type')}'."
+            )
         return {"incoming_interaction": None}
 
     bot_memory: Dict[str, Any] = dict(state.get("bot_memory") or {})
