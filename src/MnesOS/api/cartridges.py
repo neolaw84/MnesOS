@@ -23,8 +23,9 @@ import logging
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import List
+from typing import Any, List
 
+import yaml
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from ..cartridge import CartridgeLoader
@@ -35,6 +36,7 @@ from .schemas import (
     CartridgeResponse,
     CartridgeVersionResponse,
     CreateCartridgeRequest,
+    PublishVersionRequest,
     UpdateCartridgeRequest,
 )
 
@@ -82,6 +84,14 @@ def _compute_checksum(*contents: bytes) -> str:
     for data in contents:
         h.update(data)
     return h.hexdigest()
+
+
+def _yaml_dict_or_empty(raw_text: str) -> dict[str, Any]:
+    try:
+        parsed = yaml.safe_load(raw_text) or {}
+    except yaml.YAMLError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 def _load_and_validate(
@@ -248,6 +258,72 @@ def delete_cartridge(
 # ---------------------------------------------------------------------------
 # CartridgeVersion CRUD
 # ---------------------------------------------------------------------------
+
+
+@cartridges_router.post(
+    "/{cartridge_id}/versions/publish",
+    response_model=CartridgeVersionResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Publish a cartridge version from the builder UI",
+)
+def publish_cartridge_version(
+    cartridge_id: str,
+    body: PublishVersionRequest,
+    user_id: str = Depends(get_current_user),
+    storage: AbstractStorageComponent = Depends(get_storage),
+) -> CartridgeVersionResponse:
+    cartridge = storage.get_cartridge(cartridge_id)
+    if cartridge is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Cartridge {cartridge_id!r} not found.",
+        )
+    if cartridge.creator_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not own this cartridge.",
+        )
+
+    if body.yare_type == "yaml":
+        try:
+            loaded_yare_spec = yaml.safe_load(body.yare_rules) or {}
+        except yaml.YAMLError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid yare_rules YAML: {exc}",
+            )
+        if not isinstance(loaded_yare_spec, dict):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="yare_rules YAML must deserialize to an object.",
+            )
+        yare_spec = loaded_yare_spec
+        yare_js_src = None
+    else:
+        yare_spec = {}
+        yare_js_src = body.yare_rules
+
+    prompt_directives = _yaml_dict_or_empty(body.prompt_directives)
+    checksum = _compute_checksum(
+        body.yare_rules.encode("utf-8"),
+        body.prompt_directives.encode("utf-8"),
+        body.bot_lore.encode("utf-8"),
+        body.first_message.encode("utf-8"),
+    )
+
+    version = storage.create_cartridge_version(
+        CartridgeVersion(
+            cartridge_id=cartridge_id,
+            version_tag=body.version_tag,
+            yare_spec=yare_spec,
+            prompt_directives=prompt_directives,
+            bot_lore=body.bot_lore,
+            first_message=body.first_message,
+            checksum=checksum,
+            yare_js_src=yare_js_src,
+        )
+    )
+    return _version_to_response(version)
 
 
 @cartridges_router.post(

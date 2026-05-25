@@ -278,6 +278,65 @@ export async function getCartridgeVersion(
   );
 }
 
+/** Save a cartridge version from builder panes (publish endpoint). */
+export async function saveCartridgeVersion(
+  cartridgeId: string,
+  versionTag: string,
+  panes: {
+    first_message: string;
+    prompt_directives: string;
+    yare_rules: string;
+    yare_type: "yaml" | "js";
+    bot_lore: string;
+  },
+): Promise<CartridgeVersion> {
+  return apiFetch<CartridgeVersion>(
+    `/api/cartridges/${cartridgeId}/versions/publish`,
+    {
+      method: "POST",
+      body: JSON.stringify({ version_tag: versionTag, ...panes }),
+    },
+  );
+}
+
+/** Load the latest draft for a cartridge. */
+export async function loadDraft(
+  cartridgeId: string,
+): Promise<{
+  cartridge_id: string;
+  first_message: string;
+  prompt_directives: string;
+  yare_rules: string;
+  yare_type: "yaml" | "js";
+  bot_lore: string;
+}> {
+  return apiFetch(`/api/cartridges/${cartridgeId}/drafts/latest`, { method: "GET" });
+}
+
+/** Save/update the current draft. */
+export async function saveDraft(
+  cartridgeId: string,
+  panes: {
+    first_message: string;
+    prompt_directives: string;
+    yare_rules: string;
+    yare_type: "yaml" | "js";
+    bot_lore: string;
+  },
+): Promise<{
+  cartridge_id: string;
+  first_message: string;
+  prompt_directives: string;
+  yare_rules: string;
+  yare_type: "yaml" | "js";
+  bot_lore: string;
+}> {
+  return apiFetch(`/api/cartridges/${cartridgeId}/drafts`, {
+    method: "PUT",
+    body: JSON.stringify(panes),
+  });
+}
+
 /**
  * Upload a new cartridge version.
  * Accepts either a ZIP file or individual yare/lore/directives files.

@@ -17,6 +17,7 @@ vi.mock('../../components/SettingsModal', () => ({
 vi.mock('../../components/StateDebugger', () => ({ default: () => <div data-testid="state-debugger" /> }));
 vi.mock('../../components/SaveManager', () => ({ default: () => <div data-testid="save-manager" /> }));
 vi.mock('../../components/CartridgeLibrary', () => ({ default: () => <div data-testid="cartridge-library" /> }));
+vi.mock('../../components/CartridgeBuilder', () => ({ default: () => <div data-testid="cartridge-builder" /> }));
 vi.mock('../../components/PersonaManager', () => ({ default: () => <div data-testid="persona-manager" /> }));
 vi.mock('../../components/PlayHub', () => ({ default: () => <div data-testid="play-hub" /> }));
 vi.mock('../../components/StartNewGameModal', () => ({
@@ -136,6 +137,14 @@ describe('AppShell', () => {
       await user.click(screen.getByRole('button', { name: '🎮 Play' }));
       await user.click(screen.getByRole('button', { name: '📚 Library' }));
       expect(screen.getByTestId('cartridge-library')).toBeInTheDocument();
+    });
+
+    it('switches to Builder view on click', async () => {
+      const user = userEvent.setup();
+      render(<AppShell />);
+      await user.click(screen.getByRole('button', { name: '🛠️ Builder' }));
+      expect(screen.getByTestId('cartridge-builder')).toBeInTheDocument();
+      expect(screen.queryByTestId('cartridge-library')).not.toBeInTheDocument();
     });
   });
 
