@@ -88,32 +88,35 @@ export default function CartridgeBuilder({
   return (
     <div className="cartridge-builder">
       <div className="builder-toolbar">
-        <button
-          className="btn btn-small btn-secondary"
-          onClick={() => setVersionDialogOpen(true)}
-        >
-          Save Version
-        </button>
-        <button className="btn btn-small btn-secondary" onClick={handleDownloadZip}>
-          Download ZIP
-        </button>
-      </div>
+        <div className="builder-format-toggle" aria-label="YARE format toggle">
+          <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginRight: "6px" }}>Format:</span>
+          <button
+            className={`btn btn-small ${yareType === "yaml" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setYareType("yaml")}
+            type="button"
+          >
+            YAML
+          </button>
+          <button
+            className={`btn btn-small ${yareType === "js" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setYareType("js")}
+            type="button"
+          >
+            JS
+          </button>
+        </div>
 
-      <div className="builder-format-toggle" aria-label="YARE format toggle">
-        <button
-          className={`btn btn-small ${yareType === "yaml" ? "btn-primary" : "btn-secondary"}`}
-          onClick={() => setYareType("yaml")}
-          type="button"
-        >
-          YAML
-        </button>
-        <button
-          className={`btn btn-small ${yareType === "js" ? "btn-primary" : "btn-secondary"}`}
-          onClick={() => setYareType("js")}
-          type="button"
-        >
-          JS
-        </button>
+        <div className="builder-toolbar-actions">
+          <button
+            className="btn btn-small btn-secondary"
+            onClick={() => setVersionDialogOpen(true)}
+          >
+            Save Version
+          </button>
+          <button className="btn btn-small btn-secondary" onClick={handleDownloadZip}>
+            Download ZIP
+          </button>
+        </div>
       </div>
 
       <div className="builder-grid">

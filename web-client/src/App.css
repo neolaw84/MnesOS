@@ -701,3 +701,182 @@
 .lights-out-result--failure {
   color: var(--color-error, #e05c5c);
 }
+
+/* ===================================================================
+   Cartridge Builder (IDE)
+   =================================================================== */
+
+.cartridge-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: calc(100vh - 140px); /* Adjust to leave header and navigation space */
+  padding: 16px;
+  background: var(--bg-primary);
+}
+
+.builder-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  padding: 10px 16px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.builder-toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.builder-format-toggle {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.builder-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 16px;
+  flex: 1;
+  min-height: 0; /* Important for grid item nesting & scrolling */
+}
+
+.builder-pane {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.builder-pane:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 4px 16px rgba(88, 166, 255, 0.15);
+}
+
+.builder-pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+}
+
+.builder-pane-header h3 {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.builder-editor {
+  flex: 1;
+  resize: none;
+  border: none;
+  outline: none;
+  padding: 14px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: "Cascadia Code", "Fira Code", "Courier New", monospace;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  tab-size: 2;
+  overflow-y: auto;
+  transition: background 0.15s ease;
+}
+
+.builder-editor:focus {
+  background: color-mix(in srgb, var(--accent) 2%, var(--bg-primary));
+}
+
+/* Custom styles for the dialog element used by the builder */
+.cartridge-builder dialog {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  width: 400px;
+  max-width: 90vw;
+  color: var(--text-primary);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+}
+
+.cartridge-builder dialog::backdrop {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.cartridge-builder dialog label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+}
+
+.cartridge-builder dialog input {
+  width: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.cartridge-builder dialog input:focus {
+  border-color: var(--accent);
+}
+
+.cartridge-builder dialog div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cartridge-builder dialog button {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.cartridge-builder dialog button:hover {
+  border-color: var(--accent);
+}
+
+.cartridge-builder dialog button[type="submit"] {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.cartridge-builder dialog button[type="submit"]:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
