@@ -26,23 +26,20 @@ Because FastAPI statically serves the React application bundle, JS assets must b
 2. **Stage**: `make stage` copies compiled assets into `src/MnesOS/static/`.
 > **Mandatory Flow**: Both commands must run sequentially to reflect UI updates when serving from the Python backend.
 
-### 4. End-to-End (E2E) Browser Testing
-Playwright launches the FastAPI server via `uvicorn` using a dedicated OpenRouter mock proxy. 
-> [!WARNING]
-> Bare calls to `make e2e` or `make run-e2e` will fail if the global system Python runtime differs from the virtual environment. A common error reads: `Error: Process from config.webServer was not able to start. Exit code: 1`.
+### 4. Integration Smoke Testing
+MnesOS utilizes a lightweight Python-based smoke test to verify the "Unified" application behavior (FastAPI serving the React SPA) without the overhead of heavy browser binaries.
 
-- **CRITICAL WORKAROUND**: Always prefix E2E execution with the absolute path to the virtual environment binary:
-  ```bash
-  PYTHON_BIN=$(pwd)/venv/bin/python make e2e
-  ```
+- **Command**: `make smoke`
+- **Details**: First triggers `make build` and `make stage`, then runs `pytest tests/integration/test_unified_smoke.py`.
+- **Scope**: Verifies API health, routing connectivity, and that static assets are correctly served from the backend.
 
 ### 5. Full Pre-Flight CI Checks
 To perfectly emulate remote GitHub Actions checks locally before pushing code:
-- **Command**: `PYTHON_BIN=$(pwd)/venv/bin/python make full-ci`
-- **Sequence**: Executes `make python-test`, `make web-test`, sandbox-isolated E2E tests, and wheel packaging tests across `MnesOS.egg-info`.
+- **Command**: `make full-ci`
+- **Sequence**: Executes `make python-test`, `make web-test`, `make smoke`, and wheel packaging tests.
 
 ### 6. Local Dev Servers
 Execute components individually during active feature iteration:
 - **Frontend SPA Client Only**: `make run-web` starts the Vite dev server proxy.
 - **Backend API REST Only**: `make run-python` starts the FastAPI process.
-- **Full Sandbox Play Loop**: `PYTHON_BIN=$(pwd)/venv/bin/python make run-e2e` runs the fully compiled stack with local OpenRouter mock proxying. Ensure `make build` and `make stage` are run first.
+- **Full Sandbox Play Loop**: `make run-e2e` runs the fully compiled stack with local OpenRouter mock proxying. Ensure `make build` and `make stage` are run first.
