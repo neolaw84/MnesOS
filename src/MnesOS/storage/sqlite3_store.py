@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS cartridge_versions (
     bot_lore          TEXT NOT NULL DEFAULT '',
     first_message     TEXT NOT NULL DEFAULT '',
     checksum          TEXT NOT NULL,
+    yare_js_src       TEXT DEFAULT NULL,
     published_at      TEXT NOT NULL
 );
 
@@ -584,8 +585,8 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                 """
                 INSERT INTO cartridge_versions
                     (id, cartridge_id, version_tag, yare_spec, prompt_directives,
-                     bot_lore, first_message, checksum, published_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     bot_lore, first_message, checksum, yare_js_src, published_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     version.id,
@@ -596,6 +597,7 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                     version.bot_lore,
                     version.first_message,
                     version.checksum,
+                    version.yare_js_src,
                     _ts_to_str(version.published_at),
                 ),
             )
@@ -618,6 +620,7 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
             bot_lore=row["bot_lore"],
             first_message=row["first_message"],
             checksum=row["checksum"],
+            yare_js_src=row["yare_js_src"],
             published_at=_str_to_ts(row["published_at"]),
         )
 
@@ -636,6 +639,7 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                 bot_lore=row["bot_lore"],
                 first_message=row["first_message"],
                 checksum=row["checksum"],
+                yare_js_src=row["yare_js_src"],
                 published_at=_str_to_ts(row["published_at"]),
             )
             for row in rows]

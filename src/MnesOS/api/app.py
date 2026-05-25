@@ -23,6 +23,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 from .cartridges import cartridges_router
+from .minigames import minigames_router
 from .routes import router
 from .users import users_router
 from .personas import personas_router
@@ -41,6 +42,7 @@ app = FastAPI(
 
 app.include_router(router, prefix="/api")
 app.include_router(cartridges_router, prefix="/api")
+app.include_router(minigames_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(personas_router, prefix="/api")
 app.include_router(instances_router, prefix="/api")

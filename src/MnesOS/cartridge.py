@@ -83,6 +83,7 @@ class LoadedCartridge:
     first_message: str = ""
     persona_context: Dict[str, str] = field(default_factory=dict)
     initial_state: Dict[str, Any] = field(default_factory=dict)
+    yare_js_src: Optional[str] = None  # original JS source if compiled from JS
 
 
 # ---------------------------------------------------------------------------
@@ -453,15 +454,31 @@ class CartridgeLoader:
     def load(self, cartridge_dir: str, persona: Optional[Any] = None) -> LoadedCartridge:
         base = Path(cartridge_dir)
         persona_tokens = _extract_persona_tokens(persona)
+        yare_js_src: Optional[str] = None
 
-        # ── yare.yaml ─────────────────────────────────────────────────────
+        # ── yare.yaml or yare.js ──────────────────────────────────────────
         yare_path = base / "yare.yaml"
-        if not yare_path.exists():
+        js_path = base / "yare.js"
+
+        if yare_path.exists():
+            # YAML takes precedence
+            with yare_path.open() as f:
+                yare_config: Dict[str, Any] = yaml.safe_load(f) or {}
+            _validate_yare(yare_config)
+            logger.info("yare.yaml validated for cartridge %r", cartridge_dir)
+        elif js_path.exists():
+            # Compile JS to YAML representation
+            from .yare_js_compiler import compile_js_to_yare, YareJSCompilationError
+            js_source = js_path.read_text(encoding="utf-8")
+            try:
+                yare_config = compile_js_to_yare(js_source)
+            except YareJSCompilationError as e:
+                raise ValueError(f"JS YARE compilation error: {e}")
+            _validate_yare(yare_config)
+            yare_js_src = js_source
+            logger.info("yare.js compiled and validated for cartridge %r", cartridge_dir)
+        else:
             raise FileNotFoundError(f"yare.yaml not found in {cartridge_dir!r}")
-        with yare_path.open() as f:
-            yare_config: Dict[str, Any] = yaml.safe_load(f) or {}
-        _validate_yare(yare_config)
-        logger.info("yare.yaml validated for cartridge %r", cartridge_dir)
 
         # ── prompt_directives.yaml (optional) ─────────────────────────────
         directives_path = base / "prompt_directives.yaml"
@@ -517,6 +534,7 @@ class CartridgeLoader:
                 "personality": persona_tokens.get("personality", ""),
             },
             initial_state=initial_state,
+            yare_js_src=yare_js_src,
         )
 
     def load_from_version(self, version: Any, persona: Optional[Any] = None) -> LoadedCartridge:

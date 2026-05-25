@@ -297,4 +297,5 @@ class CartridgeVersionResponse(BaseModel):
     bot_lore: str
     first_message: str
     checksum: str
+    yare_js_src: Optional[str] = None
     published_at: Optional[datetime]
