@@ -71,6 +71,7 @@ def _version_to_response(v: CartridgeVersion) -> CartridgeVersionResponse:
         bot_lore=v.bot_lore,
         first_message=v.first_message,
         checksum=v.checksum,
+        yare_js_src=v.yare_js_src,
         published_at=v.published_at,
     )
 

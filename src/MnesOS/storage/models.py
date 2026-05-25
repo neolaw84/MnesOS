@@ -128,6 +128,7 @@ class CartridgeVersion:
     bot_lore: str
     first_message: str
     checksum: str
+    yare_js_src: Optional[str] = None  # plain-text JS source (nullable)
     id: Optional[str] = None
     published_at: Optional[datetime] = None
 
