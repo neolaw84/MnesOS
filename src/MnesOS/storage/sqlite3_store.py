@@ -277,6 +277,26 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                 if column not in columns:
                     conn.execute(ddl)
 
+    def _get_cartridge_versions_column_names(self) -> Set[str]:
+        conn = self._get_conn()
+        rows = conn.execute("PRAGMA table_info(cartridge_versions)").fetchall()
+        return {row["name"] for row in rows}
+
+    def _migrate_cartridge_versions_table(self) -> None:
+        """
+        Apply additive migrations for the ``cartridge_versions`` table to support
+        storing YARE JavaScript source code (``yare_js_src``).
+        """
+        conn = self._get_conn()
+        columns = self._get_cartridge_versions_column_names()
+        missing_column_ddls = {
+            "yare_js_src": "ALTER TABLE cartridge_versions ADD COLUMN yare_js_src TEXT DEFAULT NULL",
+        }
+        with conn:
+            for column, ddl in missing_column_ddls.items():
+                if column not in columns:
+                    conn.execute(ddl)
+
     @staticmethod
     def _new_id() -> str:
         return str(uuid.uuid4())
@@ -300,6 +320,7 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
         conn.executescript(_INDEXES)
         self._migrate_personas_table()
         self._migrate_turn_logs_table()
+        self._migrate_cartridge_versions_table()
         # Ensure default local-user exists to satisfy foreign key constraints
         with conn:
             conn.execute(
@@ -620,7 +641,7 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
             bot_lore=row["bot_lore"],
             first_message=row["first_message"],
             checksum=row["checksum"],
-            yare_js_src=row["yare_js_src"],
+            yare_js_src=row["yare_js_src"] if "yare_js_src" in row.keys() else None,
             published_at=_str_to_ts(row["published_at"]),
         )
 
@@ -639,7 +660,7 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                 bot_lore=row["bot_lore"],
                 first_message=row["first_message"],
                 checksum=row["checksum"],
-                yare_js_src=row["yare_js_src"],
+                yare_js_src=row["yare_js_src"] if "yare_js_src" in row.keys() else None,
                 published_at=_str_to_ts(row["published_at"]),
             )
             for row in rows]
