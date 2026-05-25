@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "type": "command",
+        "command": "python3 scripts/validate_gitignore_hook.py",
+        "description": "Enforce .gitignore access policy: deny direct read/write/CLI, ask for permission when used as Python parameters."
+      }
+    ]
+  }
+}

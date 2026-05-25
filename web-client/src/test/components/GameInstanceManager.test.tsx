@@ -8,7 +8,6 @@ import type { GameInstanceResponse } from '../../types'
 vi.mock('../../api/client', () => ({
   listInstances: vi.fn(),
   deleteInstance: vi.fn(),
-  setInstanceId: vi.fn(),
 }))
 
 const mockInstances: GameInstanceResponse[] = [
@@ -30,42 +29,41 @@ describe('GameInstanceManager', () => {
 
   it('shows loading state initially', () => {
     vi.mocked(client.listInstances).mockReturnValue(new Promise(() => {}))
-    render(<GameInstanceManager />)
+    render(<GameInstanceManager onPlayInstance={vi.fn()} />)
     expect(screen.getByText('Loading active games...')).toBeInTheDocument()
   })
 
   it('shows empty state when no instances', async () => {
     vi.mocked(client.listInstances).mockResolvedValue([])
-    render(<GameInstanceManager />)
+    render(<GameInstanceManager onPlayInstance={vi.fn()} />)
     await waitFor(() => expect(screen.getByText(/No active games/i)).toBeInTheDocument())
   })
 
   it('renders instance cards when instances are loaded', async () => {
     vi.mocked(client.listInstances).mockResolvedValue(mockInstances)
-    render(<GameInstanceManager />)
+    render(<GameInstanceManager onPlayInstance={vi.fn()} />)
     await waitFor(() => expect(screen.getByText('Game Instance')).toBeInTheDocument())
     expect(screen.getByText('active')).toBeInTheDocument()
   })
 
   it('shows error message when listInstances fails', async () => {
     vi.mocked(client.listInstances).mockRejectedValue(new Error('Network error'))
-    render(<GameInstanceManager />)
+    render(<GameInstanceManager onPlayInstance={vi.fn()} />)
     await waitFor(() => expect(screen.getByText('Network error')).toBeInTheDocument())
   })
 
-  it('calls setInstanceId and dispatches event on Resume', async () => {
+  it('calls onPlayInstance with instance details on Resume', async () => {
     vi.mocked(client.listInstances).mockResolvedValue(mockInstances)
-    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
-    render(<GameInstanceManager />)
+    const onPlayInstance = vi.fn()
+    render(<GameInstanceManager onPlayInstance={onPlayInstance} />)
     await waitFor(() => screen.getByRole('button', { name: /resume/i }))
     await userEvent.click(screen.getByRole('button', { name: /resume/i }))
-    expect(client.setInstanceId).toHaveBeenCalledWith('inst-1')
-    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'mnesos-play-instance' }))
+    expect(onPlayInstance).toHaveBeenCalledWith({ instance_id: 'inst-1', turn_id: null })
   })
 
   it('refreshes on Refresh button click', async () => {
     vi.mocked(client.listInstances).mockResolvedValue([])
-    render(<GameInstanceManager />)
+    render(<GameInstanceManager onPlayInstance={vi.fn()} />)
     await waitFor(() => screen.getByRole('button', { name: /refresh/i }))
     await userEvent.click(screen.getByRole('button', { name: /refresh/i }))
     expect(client.listInstances).toHaveBeenCalledTimes(2)
@@ -73,7 +71,7 @@ describe('GameInstanceManager', () => {
 
   it('dismisses error banner on X click', async () => {
     vi.mocked(client.listInstances).mockRejectedValue(new Error('Oops'))
-    render(<GameInstanceManager />)
+    render(<GameInstanceManager onPlayInstance={vi.fn()} />)
     await waitFor(() => screen.getByText('Oops'))
     await userEvent.click(screen.getByRole('button', { name: '✕' }))
     expect(screen.queryByText('Oops')).not.toBeInTheDocument()

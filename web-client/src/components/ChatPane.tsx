@@ -6,12 +6,13 @@
  */
 
 import { useEffect, useRef } from "react";
-import type { DisplayMessage } from "../types";
+import type { GameSessionState } from "../hooks/useGameSession";
+import type { PendingInteraction } from "../types/minigames";
 
 interface ChatPaneProps {
-  messages: DisplayMessage[];
-  loading: boolean;
-  pendingInteraction?: any;
+  messages: GameSessionState["messages"];
+  loading: GameSessionState["loading"];
+  pendingInteraction?: PendingInteraction | null;
   onOpenMinigame?: () => void;
 }
 

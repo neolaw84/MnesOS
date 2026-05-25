@@ -30,7 +30,7 @@ PIP=$(call P,$(VENV)/$(VENV_BIN)/pip)
 NPM=npm
 PLAYWRIGHT=npx playwright
 
-.PHONY: help setup python-test web-test build stage playwright-install e2e package full-ci clean sync-refs
+.PHONY: help setup python-test web-test build stage smoke package full-ci clean sync-refs
 
 help:
 	@echo "Usage: make <target>"
@@ -40,17 +40,16 @@ help:
 	@echo "  web-test      Run web unit tests (Vitest + coverage)"
 	@echo "  build         Build web-client (tsc + vite)"
 	@echo "  stage         Stage built web-client into src/MnesOS/static"
-	@echo "  playwright-install  Install Playwright Chromium browser binaries"
-	@echo "  e2e           Run Playwright E2E (unified mode)"
+	@echo "  smoke         Run lightweight integration smoke tests"
 	@echo "  run-web       Start frontend dev server (foreground)"
 	@echo "  run-python    Start backend dev server (uvicorn, foreground)"
-	@echo "  run-e2e       Start backend for manual E2E (no Playwright; uses real OpenRouter)"
+	@echo "  run-e2e       Start backend for manual E2E (uses real OpenRouter)"
 	@echo "  sync-refs     Synchronize docs/ to standalone agent skill references/ directories"
 	@echo "  package       Build Python wheel and sdist"
-	@echo "  full-ci       Run python-test, web-test, build+stage, e2e, package"
+	@echo "  full-ci       Run python-test, web-test, build+stage, smoke, package"
 	@echo "  clean         Clean build artifacts"
 
-setup: playwright-install
+setup:
 	python -m venv $(VENV)
 	$(PY) -m pip install --upgrade pip
 	$(PIP) install -e ".[dev]"
@@ -70,17 +69,9 @@ stage:
 	$(MKDIR) $(call FIXPATH,src/MnesOS/static)
 	$(CP) $(call FIXPATH,web-client/dist/.) $(call FIXPATH,src/MnesOS/static/)
 
-playwright-install:
-	@if [ ! -d web-client/node_modules ]; then \
-			echo "Installing web-client dependencies (npm ci) for Playwright check..."; \
-			cd web-client && $(NPM) ci; \
-		fi
-	@(cd web-client && node -e "const fs=require('fs'); const p=require('playwright'); process.exit(fs.existsSync(p.chromium.executablePath()) ? 0 : 1)") \
-		&& echo "Playwright Chromium already installed; skipping." \
-		|| (echo "Installing Playwright Chromium..." && cd web-client && $(PLAYWRIGHT) install --with-deps chromium)
-
-e2e: build stage playwright-install
-	cd web-client && CI=true PYTHON_BIN=$(abspath $(PY)) $(PLAYWRIGHT) test --project chromium
+smoke: build stage
+	@echo "Running integration smoke tests..."
+	$(PY) -m pytest tests/integration/test_unified_smoke.py
 
 run-web:
 	@echo "Starting web dev server in web-client (foreground)"
@@ -97,6 +88,7 @@ run-e2e: build stage
 	$(call SET_ENV,PYTHONPATH=src) $(call SET_ENV,MNESOS_DB_PATH=artifacts/mnesos.db) $(call SET_ENV,MNESOS_STATIC_DIR=src/MnesOS/static) $(call SET_ENV,OPENROUTER_BASE_URL=$(OPENROUTER_BASE_URL)) $(PY) -m uvicorn MnesOS.api.app:app --host 0.0.0.0 --port 8000
 
 sync-refs:
+	@echo "Synchronizing docs/ to standalone agent skill references/ directories"
 	@echo "Synchronizing docs/ to standalone agent skill references/ directories"
 	$(PY) scripts/sync_skill_references.py
 

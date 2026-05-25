@@ -145,3 +145,12 @@ This document serves as the standalone registry for all major architectural and 
 ### 6.5. Per-Turn Lore Pre-Node Injection
 *   **Abandoned In Favor Of**: Batch RAG Tooling.
 *   **Rationale**: Injecting lore at the start of every turn results in context inflation and wasted tokens for trivial actions. Active retrieval by the Director is more precise and efficient as it only requests information after the player's intent is known.
+
+### 6.6. LangGraph Native Checkpointers & Interrupts
+*   **Abandoned In Favor Of**: Stateless Routing Nodes & Memento-in-Memory Pattern (`_director_context`).
+*   **Rationale**: 
+    *   **Architectural Mismatch (Event-Sourcing vs. State Snapshots)**: MnesOS is architected around Event Sourcing, where the SQL `TurnLog` table (carrying `yare_delta` changes) is the single source of truth. Using LangGraph's checkpointer would introduce a parallel, stateful database containing serialized execution states. This makes timeline branching, save/load, and rollbacks extremely fragile and complex to synchronize.
+    *   **Cartridge Developer Experience (DX)**: Cartridge developers write linear rules in YAML and English prompts. Forcing native interrupts would require them to reason about asynchronous execution yielding, complicating the YARE spec. By using stateless routing, developers trigger minigames via a standard `type: TriggerMinigame` action, and the engine handles the execution pause transparently.
+    *   **Pre-Game Narrative Staging**: Minigames must not suddenly appear without storytelling context. The engine must generate pre-game narrative (e.g., *"You approach the console..."*) before the client launches the game. The stateless turn-splitting architecture naturally runs the `Narrator` at the end of the setup turn (Turn 1) and executes the resolution in the next turn (Turn 2). Implementing this with checkpointer interrupts would require complex, circular graph looping to run the Narrator, pause immediately after, and resume without repeating the pre-game text.
+    *   **API Decoupling**: Checkpointers leak internal graph execution states (e.g., whether a thread is currently sleeping on an interrupt) to the HTTP layer, forcing the API route to alternate between `.invoke()` and `Command(resume=...)`. Keeping the graph stateless preserves a clean, uniform gateway.
+

@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
-import type { GameInstanceResponse } from "../types";
-import { listInstances, deleteInstance, setInstanceId } from "../api/client";
+import type { GameInstanceResponse, PlayInstancePayload } from "../types";
+import { listInstances, deleteInstance } from "../api/client";
 
-export default function GameInstanceManager() {
+interface GameInstanceManagerProps {
+  onPlayInstance: (payload: PlayInstancePayload) => void;
+}
+
+export default function GameInstanceManager({ onPlayInstance }: GameInstanceManagerProps) {
   const [instances, setInstances] = useState<GameInstanceResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,10 +39,7 @@ export default function GameInstanceManager() {
   };
 
   const handleResume = (id: string) => {
-    setInstanceId(id);
-    window.dispatchEvent(
-      new CustomEvent("mnesos-play-instance", { detail: { turn_id: null } })
-    );
+    onPlayInstance({ instance_id: id, turn_id: null });
   };
 
   return (

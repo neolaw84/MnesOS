@@ -1,5 +1,6 @@
+import ast
 from datetime import timedelta
-from typing import List
+from typing import Any, Dict, List, Optional
 from langgraph.graph.message import REMOVE_ALL_MESSAGES
 from langchain_core.messages import RemoveMessage
 from langchain_core.runnables import RunnableConfig
@@ -25,6 +26,25 @@ def cleanup_agent_messages_node(state: GameState) -> dict:
 def pre_tools_node(state: GameState) -> dict:
     """Clear the YARE state staging buffer before tool execution."""
     return {"bot_memory_staging": None}
+
+def _normalize_pending_interaction(bot_memory: Dict[str, Any]) -> Dict[str, Any]:
+    pending = bot_memory.get("_pending_interaction")
+    if pending is None or isinstance(pending, dict):
+        return bot_memory
+    normalized: Optional[Dict[str, Any]] = None
+    if isinstance(pending, str):
+        pending_str = pending.strip()
+        if pending_str:
+            try:
+                parsed = ast.literal_eval(pending_str)
+            except (ValueError, SyntaxError):
+                parsed = None
+            if isinstance(parsed, dict):
+                normalized = parsed
+    if normalized is None:
+        normalized = {}
+    bot_memory["_pending_interaction"] = normalized
+    return bot_memory
 
 def post_tools_node(state: GameState) -> dict:
     """Commit the last staged YARE state snapshot into bot_memory, and reconcile time."""
@@ -56,7 +76,7 @@ def post_tools_node(state: GameState) -> dict:
             new_memory["game_time"] = new_dt.isoformat()
 
     if staging or total_delta.total_seconds() > 0:
-        result["bot_memory"] = new_memory
+        result["bot_memory"] = _normalize_pending_interaction(new_memory)
         
     return result
 
@@ -83,7 +103,7 @@ def cycle_tick_node(state: GameState, config: RunnableConfig) -> dict:
         interpreter.run_event(event_name, {})
         new_notes.extend(interpreter.notes[start:])
 
-    result: dict = {"bot_memory": interpreter.state}
+    result: dict = {"bot_memory": _normalize_pending_interaction(interpreter.state)}
     if new_notes:
         result["system_notes"] = new_notes
     return result

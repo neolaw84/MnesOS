@@ -5,8 +5,9 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MinigameWrapper from '../../components/minigames/MinigameWrapper'
+import type { PendingInteraction } from '../../types/minigames'
 
-const lightsOutPending = {
+const lightsOutPending: PendingInteraction = {
   interaction_type: 'minigame',
   minigame_id: 'lights_out',
   resolver_event: 'resolve_hack',
