@@ -3,8 +3,7 @@
  *
  * Responsibilities:
  *   - Renders the header with navigation buttons.
- *   - Manages view state ("play" | "library" | "personas") and settingsOpen / startNewGameOpen.
- *   - Uses explicit play callbacks to switch to play view.
+ *   - Manages view state ("play" | "library" | "personas") and settingsOpen / startNewGameOpen. *   - Uses explicit play callbacks to switch to play view.
  *   - Renders the active view (CartridgeLibrary, PersonaManager, PlayHub, or Chat).
  *   - Renders SettingsModal and StartNewGameModal as overlays.
  *

@@ -17,6 +17,7 @@ import {
   listCartridgeVersions,
   uploadCartridgeVersion,
 } from "../api/client";
+import CartridgeBuilder, { type BuilderPanes } from "./CartridgeBuilder";
 
 async function fetchWithRetry<T>(task: () => Promise<T>, attempts = 3, delayMs = 250): Promise<T> {
   let lastError: unknown;
@@ -357,6 +358,21 @@ function UploadVersionModal({ open, cartridgeId, onClose, onUploaded }: UploadVe
 // CartridgeDetail — single cartridge expanded view
 // ---------------------------------------------------------------------------
 
+/** Convert a persisted CartridgeVersion to the editor's BuilderPanes shape. */
+function versionToPanes(v: CartridgeVersion): BuilderPanes {
+  const yareType: "yaml" | "js" = v.yare_js_src ? "js" : "yaml";
+  const yareRules = v.yare_js_src
+    ? v.yare_js_src
+    : JSON.stringify(v.yare_spec, null, 2);
+  return {
+    first_message: v.first_message ?? "",
+    prompt_directives: JSON.stringify(v.prompt_directives, null, 2),
+    yare_rules: yareRules,
+    yare_type: yareType,
+    bot_lore: v.bot_lore ?? "",
+  };
+}
+
 interface CartridgeDetailProps {
   cartridge: Cartridge;
   onDeleted: (id: string) => void;
@@ -368,6 +384,7 @@ function CartridgeDetail({ cartridge, onDeleted, onBack, onUpdated }: CartridgeD
   const [versions, setVersions] = useState<CartridgeVersion[]>([]);
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [builderVersion, setBuilderVersion] = useState<CartridgeVersion | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -381,6 +398,25 @@ function CartridgeDetail({ cartridge, onDeleted, onBack, onUpdated }: CartridgeD
     };
     fetchVersions();
   }, [cartridge.id]);
+
+  // ── Builder drill-down ──────────────────────────────────────────────────
+  if (builderVersion) {
+    return (
+      <div>
+        <button
+          className="btn btn-secondary"
+          style={{ marginBottom: "1rem" }}
+          onClick={() => setBuilderVersion(null)}
+        >
+          ← Back to {cartridge.title}
+        </button>
+        <CartridgeBuilder
+          cartridgeId={cartridge.id}
+          initialPanes={versionToPanes(builderVersion)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -447,6 +483,7 @@ function CartridgeDetail({ cartridge, onDeleted, onBack, onUpdated }: CartridgeD
               <th style={{ padding: "0.5rem" }}>Tag</th>
               <th style={{ padding: "0.5rem" }}>Published</th>
               <th style={{ padding: "0.5rem" }}>Checksum</th>
+              <th style={{ padding: "0.5rem" }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -460,6 +497,15 @@ function CartridgeDetail({ cartridge, onDeleted, onBack, onUpdated }: CartridgeD
                 </td>
                 <td style={{ padding: "0.5rem" }}>
                   <code style={{ fontSize: "0.7rem" }}>{v.checksum.slice(0, 12)}…</code>
+                </td>
+                <td style={{ padding: "0.5rem" }}>
+                  <button
+                    className="btn btn-small btn-secondary"
+                    onClick={() => setBuilderVersion(v)}
+                    aria-label={`Edit version ${v.version_tag} in builder`}
+                  >
+                    🔨 Edit in Builder
+                  </button>
                 </td>
               </tr>
             ))}

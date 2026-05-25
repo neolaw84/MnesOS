@@ -286,6 +286,17 @@ class CartridgeResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class PublishVersionRequest(BaseModel):
+    """POST /api/cartridges/{id}/versions/publish request body."""
+
+    version_tag: str = Field(..., min_length=1)
+    first_message: str = Field(...)
+    prompt_directives: str = Field(...)
+    yare_rules: str = Field(...)
+    yare_type: Literal["yaml", "js"] = Field(...)
+    bot_lore: str = Field(...)
+
+
 class CartridgeVersionResponse(BaseModel):
     """CartridgeVersion entity response."""
 

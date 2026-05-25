@@ -146,6 +146,7 @@ export interface CartridgeVersion {
   bot_lore: string;
   first_message: string;
   checksum: string;
+  yare_js_src?: string | null;
   published_at: string | null;
 }
 
