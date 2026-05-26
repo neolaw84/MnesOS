@@ -78,6 +78,7 @@ describe('CartridgeBuilder', () => {
       first_message: initialPanes.first_message,
       checksum: 'abc123',
       published_at: '2026-01-01T00:00:00Z',
+      yare_type: 'yaml',
     })
   })
 
@@ -88,28 +89,55 @@ describe('CartridgeBuilder', () => {
   it('renders all 4 pane headers', () => {
     render(<CartridgeBuilder cartridgeId="cartridge-123" initialPanes={initialPanes} />)
 
-    expect(screen.getByText('First Message')).toBeInTheDocument()
-    expect(screen.getByText('Prompt Directives')).toBeInTheDocument()
-    expect(screen.getByText('YARE Rules')).toBeInTheDocument()
-    expect(screen.getByText('Bot Lore')).toBeInTheDocument()
+    // Active pane (Bot Lore by default) renders its content section
+    expect(screen.getByLabelText('Bot Lore pane')).toBeInTheDocument()
+    // All 4 tab buttons are always visible in the toolbar
+    const allButtonText = screen.getAllByRole('button').map(b => b.textContent ?? '')
+    expect(allButtonText.some(t => t.includes('Bot Lore'))).toBe(true)
+    expect(allButtonText.some(t => t.includes('Directives'))).toBe(true)
+    expect(allButtonText.some(t => t.includes('YARE Rules'))).toBe(true)
+    expect(allButtonText.some(t => t.includes('First Message'))).toBe(true)
   })
 
-  it('renders editor areas for all 4 panes', () => {
+  it('renders editor areas for all 4 panes', async () => {
+    const user = userEvent.setup()
     render(<CartridgeBuilder cartridgeId="cartridge-123" initialPanes={initialPanes} />)
 
-    expect(screen.getByLabelText('First Message editor')).toBeInTheDocument()
-    expect(screen.getByLabelText('Prompt Directives editor')).toBeInTheDocument()
-    expect(screen.getByLabelText('YARE Rules editor')).toBeInTheDocument()
+    // Bot Lore is active by default
     expect(screen.getByLabelText('Bot Lore editor')).toBeInTheDocument()
+
+    // Navigate to each tab in sequence (no download button ambiguity before clicking)
+    const dirTab = screen.getAllByRole('button').find(b => b.textContent?.includes('Directives') && !b.textContent?.includes('Download'))!
+    await user.click(dirTab)
+    expect(screen.getByLabelText('Prompt Directives editor')).toBeInTheDocument()
+
+    const rulesTab = screen.getAllByRole('button').find(b => b.textContent?.includes('YARE Rules') && !b.textContent?.includes('Download'))!
+    await user.click(rulesTab)
+    expect(screen.getByLabelText('YARE Rules editor')).toBeInTheDocument()
+
+    const msgTab = screen.getAllByRole('button').find(b => b.textContent?.includes('First Message') && !b.textContent?.includes('Download'))!
+    await user.click(msgTab)
+    expect(screen.getByLabelText('First Message editor')).toBeInTheDocument()
   })
 
-  it('renders download button on each pane header', () => {
+  it('renders download button on each pane header', async () => {
+    const user = userEvent.setup()
     render(<CartridgeBuilder cartridgeId="cartridge-123" initialPanes={initialPanes} />)
 
-    expect(screen.getByRole('button', { name: 'Download First Message' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Download Prompt Directives' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Download YARE Rules' })).toBeInTheDocument()
+    // Bot Lore is active by default
     expect(screen.getByRole('button', { name: 'Download Bot Lore' })).toBeInTheDocument()
+
+    const dirTab = screen.getAllByRole('button').find(b => b.textContent?.includes('Directives') && !b.textContent?.includes('Download'))!
+    await user.click(dirTab)
+    expect(screen.getByRole('button', { name: 'Download Prompt Directives' })).toBeInTheDocument()
+
+    const rulesTab = screen.getAllByRole('button').find(b => b.textContent?.includes('YARE Rules') && !b.textContent?.includes('Download'))!
+    await user.click(rulesTab)
+    expect(screen.getByRole('button', { name: 'Download YARE Rules' })).toBeInTheDocument()
+
+    const msgTab = screen.getAllByRole('button').find(b => b.textContent?.includes('First Message') && !b.textContent?.includes('Download'))!
+    await user.click(msgTab)
+    expect(screen.getByRole('button', { name: 'Download First Message' })).toBeInTheDocument()
   })
 
   it('shows YARE format toggle buttons', () => {
@@ -123,6 +151,10 @@ describe('CartridgeBuilder', () => {
     const user = userEvent.setup()
     render(<CartridgeBuilder cartridgeId="cartridge-123" initialPanes={initialPanes} />)
 
+    // Navigate to YARE Rules tab before checking the pane
+    const rulesTab = screen.getAllByRole('button').find(b => b.textContent?.includes('YARE Rules') && !b.textContent?.includes('Download'))!
+    await user.click(rulesTab)
+
     const yarePane = screen.getByLabelText('YARE Rules pane')
     expect(within(yarePane).getByText('Format: yaml')).toBeInTheDocument()
 
@@ -134,6 +166,10 @@ describe('CartridgeBuilder', () => {
   it('clicking a pane download button triggers file download', async () => {
     const user = userEvent.setup()
     render(<CartridgeBuilder cartridgeId="cartridge-123" initialPanes={initialPanes} />)
+
+    // Navigate to First Message tab before clicking its download button
+    const msgTab = screen.getAllByRole('button').find(b => b.textContent?.includes('First Message') && !b.textContent?.includes('Download'))!
+    await user.click(msgTab)
 
     await user.click(screen.getByRole('button', { name: 'Download First Message' }))
 
@@ -182,12 +218,23 @@ describe('CartridgeBuilder', () => {
     expect(downloadAnchor.click).toHaveBeenCalled()
   })
 
-  it('renders with initial content when provided via props', () => {
+  it('renders with initial content when provided via props', async () => {
+    const user = userEvent.setup()
     render(<CartridgeBuilder cartridgeId="cartridge-123" initialPanes={initialPanes} />)
 
-    expect(screen.getByLabelText('First Message editor')).toHaveTextContent(initialPanes.first_message)
-    expect(screen.getByLabelText('Prompt Directives editor')).toHaveTextContent(initialPanes.prompt_directives)
-    expect(screen.getByLabelText('YARE Rules editor')).toHaveTextContent(initialPanes.yare_rules)
+    // Bot Lore is active by default
     expect(screen.getByLabelText('Bot Lore editor')).toHaveTextContent(initialPanes.bot_lore)
+
+    const dirTab = screen.getAllByRole('button').find(b => b.textContent?.includes('Directives') && !b.textContent?.includes('Download'))!
+    await user.click(dirTab)
+    expect(screen.getByLabelText('Prompt Directives editor')).toHaveTextContent(initialPanes.prompt_directives)
+
+    const rulesTab = screen.getAllByRole('button').find(b => b.textContent?.includes('YARE Rules') && !b.textContent?.includes('Download'))!
+    await user.click(rulesTab)
+    expect(screen.getByLabelText('YARE Rules editor')).toHaveTextContent(initialPanes.yare_rules)
+
+    const msgTab = screen.getAllByRole('button').find(b => b.textContent?.includes('First Message') && !b.textContent?.includes('Download'))!
+    await user.click(msgTab)
+    expect(screen.getByLabelText('First Message editor')).toHaveTextContent(initialPanes.first_message)
   })
 })

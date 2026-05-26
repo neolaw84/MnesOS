@@ -1,8 +1,8 @@
 """
-Unit tests for CartridgeVersion schema update to support yare_js_src.
+Unit tests for CartridgeVersion schema — yare_type and yare_spec_raw fields.
 
-TDD: Tests written FIRST — verifies that CartridgeVersion model,
-storage layer, and API schemas correctly handle the new yare_js_src field.
+Verifies that CartridgeVersion model, storage layer, and API schemas correctly
+handle yare source tracking (replaces the former yare_js_src field).
 """
 
 import pytest
@@ -11,10 +11,10 @@ from MnesOS.storage.models import CartridgeVersion
 
 
 class TestCartridgeVersionModel:
-    """Test CartridgeVersion dataclass includes yare_js_src."""
+    """Test CartridgeVersion dataclass includes yare_type and yare_spec_raw."""
 
-    def test_yare_js_src_field_exists(self):
-        """CartridgeVersion has yare_js_src attribute (nullable)."""
+    def test_yare_spec_raw_field_exists(self):
+        """CartridgeVersion has yare_spec_raw attribute (nullable) and yare_type defaults to 'yaml'."""
         cv = CartridgeVersion(
             cartridge_id="c1",
             version_tag="1.0.0",
@@ -24,10 +24,11 @@ class TestCartridgeVersionModel:
             first_message="hello",
             checksum="abc123",
         )
-        assert cv.yare_js_src is None
+        assert cv.yare_spec_raw is None
+        assert cv.yare_type == "yaml"
 
-    def test_yare_js_src_set(self):
-        """CartridgeVersion can store JS source."""
+    def test_yare_spec_raw_set(self):
+        """CartridgeVersion can store JS source in yare_spec_raw with yare_type='js'."""
         js_src = 'export const version = "1.0";'
         cv = CartridgeVersion(
             cartridge_id="c1",
@@ -37,13 +38,15 @@ class TestCartridgeVersionModel:
             bot_lore="lore",
             first_message="hello",
             checksum="abc123",
-            yare_js_src=js_src,
+            yare_type="js",
+            yare_spec_raw=js_src,
         )
-        assert cv.yare_js_src == js_src
+        assert cv.yare_spec_raw == js_src
+        assert cv.yare_type == "js"
 
 
 class TestSQLiteStoreYareJsSrc:
-    """Test SQLite store persists and retrieves yare_js_src."""
+    """Test SQLite store persists and retrieves yare_type and yare_spec_raw."""
 
     @pytest.fixture
     def store(self, tmp_path):
@@ -77,7 +80,7 @@ class TestSQLiteStoreYareJsSrc:
         return cart
 
     def test_create_version_with_js_src(self, store, sample_cartridge):
-        """Creating a version with yare_js_src persists it."""
+        """Creating a JS version persists yare_type='js' and yare_spec_raw."""
         js_src = 'export const version = "1.0"; export const events = {};'
         version = store.create_cartridge_version(CartridgeVersion(
             cartridge_id=sample_cartridge.id,
@@ -87,17 +90,19 @@ class TestSQLiteStoreYareJsSrc:
             bot_lore="lore text",
             first_message="hello world",
             checksum="deadbeef",
-            yare_js_src=js_src,
+            yare_type="js",
+            yare_spec_raw=js_src,
         ))
         assert version.id is not None
 
         # Retrieve and verify
         fetched = store.get_cartridge_version(version.id)
         assert fetched is not None
-        assert fetched.yare_js_src == js_src
+        assert fetched.yare_spec_raw == js_src
+        assert fetched.yare_type == "js"
 
     def test_create_version_without_js_src(self, store, sample_cartridge):
-        """Creating a version without yare_js_src stores None."""
+        """Creating a YAML version stores yare_type='yaml' and yare_spec_raw=None."""
         version = store.create_cartridge_version(CartridgeVersion(
             cartridge_id=sample_cartridge.id,
             version_tag="1.0.0",
@@ -108,11 +113,14 @@ class TestSQLiteStoreYareJsSrc:
             checksum="deadbeef",
         ))
         fetched = store.get_cartridge_version(version.id)
-        assert fetched.yare_js_src is None
+        assert fetched.yare_spec_raw is None
+        assert fetched.yare_type == "yaml"
 
     def test_version_response_includes_js_src(self, store, sample_cartridge):
-        """API response schema includes yare_js_src."""
+        """API response schema includes yare_type and yare_spec_raw."""
         from MnesOS.api.schemas import CartridgeVersionResponse
-        # Verify the schema field exists
+        # Verify the schema fields exist
         fields = CartridgeVersionResponse.model_fields
-        assert "yare_js_src" in fields
+        assert "yare_type" in fields
+        assert "yare_spec_raw" in fields
+

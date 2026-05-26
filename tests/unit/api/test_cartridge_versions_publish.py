@@ -48,8 +48,8 @@ def test_publish_version_success(client, storage, cartridge):
     payload = {
         "version_tag": "1.0.0",
         "first_message": "# Welcome to the builder",
-        "prompt_directives": "director:\n  tone: noir",
-        "yare_rules": "state_schema: {}",
+        "prompt_directives": "director: Maintain a noir tone throughout.",
+        "yare_rules": "state_schema: {}\nevents: {}\nmacros: {}",
         "yare_type": "yaml",
         "bot_lore": "Ancient ruins whisper beneath the city.",
     }

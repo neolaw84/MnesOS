@@ -952,6 +952,11 @@ class TestGetTurnLineage:
 
 
 class TestSchemaWithNewTables:
+    def _get_columns(self, store, table_name):
+        conn = store._get_conn()
+        rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+        return {row["name"] for row in rows}
+
     def test_game_saves_table_exists(self):
         s = SQLite3PhysicalComponent(":memory:")
         s.initialize()
@@ -960,13 +965,13 @@ class TestSchemaWithNewTables:
     def test_turn_logs_has_parent_id_column(self):
         s = SQLite3PhysicalComponent(":memory:")
         s.initialize()
-        columns = s._get_turn_logs_column_names()
+        columns = self._get_columns(s, "turn_logs")
         assert "parent_id" in columns
 
     def test_turn_logs_has_narrator_text_column(self):
         s = SQLite3PhysicalComponent(":memory:")
         s.initialize()
-        columns = s._get_turn_logs_column_names()
+        columns = self._get_columns(s, "turn_logs")
         assert "narrator_text" in columns
 
     def test_initialize_twice_is_idempotent(self):

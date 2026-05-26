@@ -83,7 +83,8 @@ class LoadedCartridge:
     first_message: str = ""
     persona_context: Dict[str, str] = field(default_factory=dict)
     initial_state: Dict[str, Any] = field(default_factory=dict)
-    yare_js_src: Optional[str] = None  # original JS source if compiled from JS
+    yare_type: str = "yaml"              # 'yaml' | 'js'
+    yare_spec_raw: Optional[str] = None  # original source if compiled from non-YAML
 
 
 # ---------------------------------------------------------------------------
@@ -342,11 +343,18 @@ def _validate_steps(
     declared_events: Set[str],
 ) -> None:
     """Recursively validate action steps within an event."""
+    allowed_actions = {
+        "note", "call", "set", "mutate", "list_push", "list_remove",
+        "dict_set", "dict_delete", "branch", "table_roll", "foreach", "minigame"
+    }
     for i, step in enumerate(steps):
         if not isinstance(step, dict):
             continue
         loc = f"events.{event_name}.steps[{i}]"
         action = step.get("action")
+
+        if action not in allowed_actions:
+            raise ValueError(f"{loc}: unknown action {action!r}. Allowed: {sorted(allowed_actions)}")
 
         if action == "note":
             _validate_note_step(step, loc)
@@ -365,6 +373,8 @@ def _validate_steps(
         elif action == "branch":
             for cond in step.get("conditions", []):
                 _validate_steps(cond.get("steps", []), event_name, declared_events)
+        elif action == "foreach":
+            _validate_steps(step.get("steps", []), event_name, declared_events)
 
 
 def _validate_events(events: Dict[str, Any]) -> None:
@@ -454,7 +464,8 @@ class CartridgeLoader:
     def load(self, cartridge_dir: str, persona: Optional[Any] = None) -> LoadedCartridge:
         base = Path(cartridge_dir)
         persona_tokens = _extract_persona_tokens(persona)
-        yare_js_src: Optional[str] = None
+        yare_type = "yaml"
+        yare_spec_raw: Optional[str] = None
 
         # ── yare.yaml or yare.js ──────────────────────────────────────────
         yare_path = base / "yare.yaml"
@@ -475,7 +486,8 @@ class CartridgeLoader:
             except YareJSCompilationError as e:
                 raise ValueError(f"JS YARE compilation error: {e}")
             _validate_yare(yare_config)
-            yare_js_src = js_source
+            yare_type = "js"
+            yare_spec_raw = js_source
             logger.info("yare.js compiled and validated for cartridge %r", cartridge_dir)
         else:
             raise FileNotFoundError(f"yare.yaml not found in {cartridge_dir!r}")
@@ -534,7 +546,8 @@ class CartridgeLoader:
                 "personality": persona_tokens.get("personality", ""),
             },
             initial_state=initial_state,
-            yare_js_src=yare_js_src,
+            yare_type=yare_type,
+            yare_spec_raw=yare_spec_raw,
         )
 
     def load_from_version(self, version: Any, persona: Optional[Any] = None) -> LoadedCartridge:
@@ -577,5 +590,7 @@ class CartridgeLoader:
                 "personality": persona_tokens.get("personality", ""),
             },
             initial_state=initial_state,
+            yare_type=getattr(version, "yare_type", "yaml"),
+            yare_spec_raw=getattr(version, "yare_spec_raw", None),
         )
 

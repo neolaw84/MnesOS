@@ -111,7 +111,8 @@ CREATE TABLE IF NOT EXISTS cartridge_versions (
     bot_lore          TEXT NOT NULL DEFAULT '',
     first_message     TEXT NOT NULL DEFAULT '',
     checksum          TEXT NOT NULL,
-    yare_js_src       TEXT DEFAULT NULL,
+    yare_type         TEXT NOT NULL DEFAULT 'yaml',
+    yare_spec_raw     TEXT DEFAULT NULL,
     published_at      TEXT NOT NULL
 );
 
@@ -232,71 +233,6 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
         ).fetchall()
         return {row["name"] for row in rows}
 
-    def _get_personas_column_names(self) -> Set[str]:
-        conn = self._get_conn()
-        rows = conn.execute("PRAGMA table_info(personas)").fetchall()
-        return {row["name"] for row in rows}
-
-    def _migrate_personas_table(self) -> None:
-        """
-        Apply additive, backward-compatible migrations for legacy ``personas`` schema.
-
-        Older databases may still have the prior ``lore``-centric table definition.
-        We preserve existing data and add newly required columns if missing.
-        """
-        conn = self._get_conn()
-        columns = self._get_personas_column_names()
-        missing_column_ddls = {
-            "appearance": "ALTER TABLE personas ADD COLUMN appearance TEXT NOT NULL DEFAULT ''",
-            "background": "ALTER TABLE personas ADD COLUMN background TEXT NOT NULL DEFAULT ''",
-            "personality": "ALTER TABLE personas ADD COLUMN personality TEXT NOT NULL DEFAULT ''",
-        }
-        with conn:
-            for column, ddl in missing_column_ddls.items():
-                if column not in columns:
-                    conn.execute(ddl)
-
-    def _get_turn_logs_column_names(self) -> Set[str]:
-        conn = self._get_conn()
-        rows = conn.execute("PRAGMA table_info(turn_logs)").fetchall()
-        return {row["name"] for row in rows}
-
-    def _migrate_turn_logs_table(self) -> None:
-        """
-        Apply additive migrations for the ``turn_logs`` table to support
-        tree-based event sourcing (``parent_id``, ``narrator_text``).
-        """
-        conn = self._get_conn()
-        columns = self._get_turn_logs_column_names()
-        missing_column_ddls = {
-            "parent_id": "ALTER TABLE turn_logs ADD COLUMN parent_id TEXT REFERENCES turn_logs(id)",
-            "narrator_text": "ALTER TABLE turn_logs ADD COLUMN narrator_text TEXT NOT NULL DEFAULT ''",
-        }
-        with conn:
-            for column, ddl in missing_column_ddls.items():
-                if column not in columns:
-                    conn.execute(ddl)
-
-    def _get_cartridge_versions_column_names(self) -> Set[str]:
-        conn = self._get_conn()
-        rows = conn.execute("PRAGMA table_info(cartridge_versions)").fetchall()
-        return {row["name"] for row in rows}
-
-    def _migrate_cartridge_versions_table(self) -> None:
-        """
-        Apply additive migrations for the ``cartridge_versions`` table to support
-        storing YARE JavaScript source code (``yare_js_src``).
-        """
-        conn = self._get_conn()
-        columns = self._get_cartridge_versions_column_names()
-        missing_column_ddls = {
-            "yare_js_src": "ALTER TABLE cartridge_versions ADD COLUMN yare_js_src TEXT DEFAULT NULL",
-        }
-        with conn:
-            for column, ddl in missing_column_ddls.items():
-                if column not in columns:
-                    conn.execute(ddl)
-
     @staticmethod
     def _new_id() -> str:
         return str(uuid.uuid4())
@@ -318,9 +254,6 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
         conn = self._get_conn()
         conn.executescript(_DDL)
         conn.executescript(_INDEXES)
-        self._migrate_personas_table()
-        self._migrate_turn_logs_table()
-        self._migrate_cartridge_versions_table()
         # Ensure default local-user exists to satisfy foreign key constraints
         with conn:
             conn.execute(
@@ -606,8 +539,9 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                 """
                 INSERT INTO cartridge_versions
                     (id, cartridge_id, version_tag, yare_spec, prompt_directives,
-                     bot_lore, first_message, checksum, yare_js_src, published_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     bot_lore, first_message, checksum, yare_type, yare_spec_raw,
+                     published_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     version.id,
@@ -618,7 +552,8 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                     version.bot_lore,
                     version.first_message,
                     version.checksum,
-                    version.yare_js_src,
+                    version.yare_type,
+                    version.yare_spec_raw,
                     _ts_to_str(version.published_at),
                 ),
             )
@@ -641,7 +576,8 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
             bot_lore=row["bot_lore"],
             first_message=row["first_message"],
             checksum=row["checksum"],
-            yare_js_src=row["yare_js_src"] if "yare_js_src" in row.keys() else None,
+            yare_type=row["yare_type"] if "yare_type" in row.keys() else "yaml",
+            yare_spec_raw=row["yare_spec_raw"] if "yare_spec_raw" in row.keys() else None,
             published_at=_str_to_ts(row["published_at"]),
         )
 
@@ -660,7 +596,8 @@ class SQLite3PhysicalComponent(AbstractStorageComponent):
                 bot_lore=row["bot_lore"],
                 first_message=row["first_message"],
                 checksum=row["checksum"],
-                yare_js_src=row["yare_js_src"] if "yare_js_src" in row.keys() else None,
+                yare_type=row["yare_type"] if "yare_type" in row.keys() else "yaml",
+                yare_spec_raw=row["yare_spec_raw"] if "yare_spec_raw" in row.keys() else None,
                 published_at=_str_to_ts(row["published_at"]),
             )
             for row in rows]

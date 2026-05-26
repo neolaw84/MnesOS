@@ -42,6 +42,7 @@ const mockVersion: CartridgeVersion = {
   first_message: 'Hello there',
   checksum: 'abc123',
   published_at: '2026-01-01T00:00:00Z',
+  yare_type: 'yaml',
 }
 
 describe('CartridgeLibrary', () => {

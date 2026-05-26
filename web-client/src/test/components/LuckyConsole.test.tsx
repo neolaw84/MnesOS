@@ -17,24 +17,24 @@ describe('LuckyConsole', () => {
   })
 
   it('renders the requirements text area', () => {
-    render(<LuckyConsole />)
+    render(<LuckyConsole onGenerated={vi.fn()} />)
     expect(screen.getByRole('textbox', { name: /requirements/i })).toBeInTheDocument()
   })
 
   it('renders the generate button', () => {
-    render(<LuckyConsole />)
+    render(<LuckyConsole onGenerated={vi.fn()} />)
     expect(screen.getByRole('button', { name: /generate|i'm feeling lucky/i })).toBeInTheDocument()
   })
 
   it('disables generate button when requirements is empty', () => {
-    render(<LuckyConsole />)
+    render(<LuckyConsole onGenerated={vi.fn()} />)
     const btn = screen.getByRole('button', { name: /generate|i'm feeling lucky/i })
     expect(btn).toBeDisabled()
   })
 
   it('enables generate button when requirements are entered', async () => {
     const user = userEvent.setup()
-    render(<LuckyConsole />)
+    render(<LuckyConsole onGenerated={vi.fn()} />)
 
     const textarea = screen.getByRole('textbox', { name: /requirements/i })
     await user.type(textarea, 'Create a dungeon crawler game')
@@ -53,7 +53,8 @@ describe('LuckyConsole', () => {
     })
 
     const user = userEvent.setup()
-    render(<LuckyConsole />)
+    const onGenerated = vi.fn()
+    render(<LuckyConsole onGenerated={onGenerated} />)
 
     const textarea = screen.getByRole('textbox', { name: /requirements/i })
     await user.type(textarea, 'Create a dungeon crawler game')
@@ -65,28 +66,9 @@ describe('LuckyConsole', () => {
       expect(mockGenerate).toHaveBeenCalledWith(
         expect.objectContaining({ requirements: 'Create a dungeon crawler game' }),
       )
-    })
-  })
-
-  it('displays generated results', async () => {
-    const mockGenerate = vi.mocked(cartridgeBuilder.generateCartridge)
-    mockGenerate.mockResolvedValue({
-      bot_lore: '# The Dark Dungeon',
-      first_message: 'You enter the dungeon...',
-      prompt_directives: 'director: Be dramatic',
-      yare_spec: 'state_schema:\n  player:\n    hp: 100',
-    })
-
-    const user = userEvent.setup()
-    render(<LuckyConsole />)
-
-    const textarea = screen.getByRole('textbox', { name: /requirements/i })
-    await user.type(textarea, 'Dungeon game')
-
-    await user.click(screen.getByRole('button', { name: /generate|i'm feeling lucky/i }))
-
-    await waitFor(() => {
-      expect(screen.getByText(/The Dark Dungeon/)).toBeInTheDocument()
+      expect(onGenerated).toHaveBeenCalledWith(expect.objectContaining({
+        bot_lore: '# World',
+      }))
     })
   })
 
@@ -96,7 +78,7 @@ describe('LuckyConsole', () => {
     mockGenerate.mockReturnValue(new Promise(() => {}))
 
     const user = userEvent.setup()
-    render(<LuckyConsole />)
+    render(<LuckyConsole onGenerated={vi.fn()} />)
 
     const textarea = screen.getByRole('textbox', { name: /requirements/i })
     await user.type(textarea, 'Any game')
@@ -111,7 +93,7 @@ describe('LuckyConsole', () => {
     mockGenerate.mockRejectedValue(new Error('Network error'))
 
     const user = userEvent.setup()
-    render(<LuckyConsole />)
+    render(<LuckyConsole onGenerated={vi.fn()} />)
 
     const textarea = screen.getByRole('textbox', { name: /requirements/i })
     await user.type(textarea, 'Any game')

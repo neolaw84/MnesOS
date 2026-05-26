@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import yaml from "js-yaml";
 import type { Cartridge, CartridgeVersion, CreateCartridgeRequest } from "../types";
 import {
   createCartridge,
@@ -283,7 +284,7 @@ function UploadVersionModal({ open, cartridgeId, onClose, onUploaded }: UploadVe
 
         {uploadMode === "zip" ? (
           <label className="modal-label">
-            ZIP file (yare.yaml + bot_lore.md [+ prompt_directives.yaml])
+            ZIP file (yare.yaml or yare.js + bot_lore.md [+ prompt_directives.yaml])
             <input
               ref={zipRef}
               type="file"
@@ -295,11 +296,11 @@ function UploadVersionModal({ open, cartridgeId, onClose, onUploaded }: UploadVe
         ) : (
           <>
             <label className="modal-label">
-              yare.yaml *
+              yare.yaml or yare.js *
               <input
                 ref={yareRef}
                 type="file"
-                accept=".yaml,.yml"
+                accept=".yaml,.yml,.js"
                 className="modal-input"
                 onChange={(e) => setYareFile(e.target.files?.[0] ?? null)}
               />
@@ -360,13 +361,13 @@ function UploadVersionModal({ open, cartridgeId, onClose, onUploaded }: UploadVe
 
 /** Convert a persisted CartridgeVersion to the editor's BuilderPanes shape. */
 function versionToPanes(v: CartridgeVersion): BuilderPanes {
-  const yareType: "yaml" | "js" = v.yare_js_src ? "js" : "yaml";
-  const yareRules = v.yare_js_src
-    ? v.yare_js_src
-    : JSON.stringify(v.yare_spec, null, 2);
+  const yareType: "yaml" | "js" = v.yare_type === "js" ? "js" : "yaml";
+  const yareRules = yareType === "js" && v.yare_spec_raw
+    ? v.yare_spec_raw
+    : yaml.dump(v.yare_spec);
   return {
     first_message: v.first_message ?? "",
-    prompt_directives: JSON.stringify(v.prompt_directives, null, 2),
+    prompt_directives: yaml.dump(v.prompt_directives),
     yare_rules: yareRules,
     yare_type: yareType,
     bot_lore: v.bot_lore ?? "",
@@ -385,6 +386,7 @@ function CartridgeDetail({ cartridge, onDeleted, onBack, onUpdated }: CartridgeD
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [builderVersion, setBuilderVersion] = useState<CartridgeVersion | null>(null);
+  const [newVersionOpen, setNewVersionOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -400,6 +402,21 @@ function CartridgeDetail({ cartridge, onDeleted, onBack, onUpdated }: CartridgeD
   }, [cartridge.id]);
 
   // ── Builder drill-down ──────────────────────────────────────────────────
+  if (newVersionOpen) {
+    return (
+      <div>
+        <button
+          className="btn btn-secondary"
+          style={{ marginBottom: "1rem" }}
+          onClick={() => setNewVersionOpen(false)}
+        >
+          ← Back to {cartridge.title}
+        </button>
+        <CartridgeBuilder cartridgeId={cartridge.id} />
+      </div>
+    );
+  }
+
   if (builderVersion) {
     return (
       <div>
@@ -455,6 +472,9 @@ function CartridgeDetail({ cartridge, onDeleted, onBack, onUpdated }: CartridgeD
         <button className="btn btn-primary" onClick={() => setEditing(true)}>
           ✏️ Edit Cartridge
         </button>
+        <button className="btn btn-primary" onClick={() => setNewVersionOpen(true)}>
+          🆕 Create New Version
+        </button>
         <button className="btn btn-primary" onClick={() => setUploading(true)}>
           ⬆️ Upload Version
         </button>
@@ -475,7 +495,7 @@ function CartridgeDetail({ cartridge, onDeleted, onBack, onUpdated }: CartridgeD
 
       <h3>Versions ({versions.length})</h3>
       {versions.length === 0 ? (
-        <p style={{ color: "#aaa" }}>No versions yet. Upload one above.</p>
+        <p style={{ color: "#aaa" }}>No versions yet. Create one using the builder above or upload files.</p>
       ) : (
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>

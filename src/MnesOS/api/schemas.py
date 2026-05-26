@@ -308,5 +308,6 @@ class CartridgeVersionResponse(BaseModel):
     bot_lore: str
     first_message: str
     checksum: str
-    yare_js_src: Optional[str] = None
+    yare_type: str = "yaml"
+    yare_spec_raw: Optional[str] = None
     published_at: Optional[datetime]

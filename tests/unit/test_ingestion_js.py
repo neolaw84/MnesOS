@@ -50,7 +50,8 @@ export const events = {
         loaded = CartridgeLoader().load(cart_dir)
         assert loaded.yare_config["version"] == "1.0"
         assert "heal" in loaded.yare_config["events"]
-        assert loaded.yare_js_src == js_src
+        assert loaded.yare_type == "js"
+        assert loaded.yare_spec_raw == js_src
 
     def test_load_js_cartridge_invalid_syntax(self, tmp_path):
         """CartridgeLoader rejects JS with syntax errors."""
@@ -83,11 +84,12 @@ export const events = {};
         (d / "first-message.md").write_text("hi")
 
         loaded = CartridgeLoader().load(str(d))
-        # YAML takes precedence, so yare_js_src should be None
-        assert loaded.yare_js_src is None
+        # YAML takes precedence, so yare_spec_raw should be None
+        assert loaded.yare_type == "yaml"
+        assert loaded.yare_spec_raw is None
 
     def test_loaded_cartridge_has_js_src_attribute(self, tmp_path):
-        """LoadedCartridge dataclass has yare_js_src field."""
+        """LoadedCartridge dataclass has yare_spec_raw field."""
         from MnesOS.cartridge import LoadedCartridge
         lc = LoadedCartridge(
             yare_config={},
@@ -95,5 +97,5 @@ export const events = {};
             lore_path="",
             lore_content="",
         )
-        assert hasattr(lc, "yare_js_src")
-        assert lc.yare_js_src is None
+        assert hasattr(lc, "yare_spec_raw")
+        assert lc.yare_spec_raw is None

@@ -60,6 +60,9 @@ docs = [
 mnesos-ingest-cartridges = "MnesOS.utils.ingest_cartridges:main"
 mnesos-create-creator = "MnesOS.utils.create_creator:main"
 
+[tool.setuptools]
+package-dir = {"" = "src", "MnesOS.docs" = "docs"}
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
@@ -67,6 +70,7 @@ where = ["src"]
 # The staging step in release.yml copies web-client/dist → src/MnesOS/static/.
 [tool.setuptools.package-data]
 "MnesOS" = ["static/**/*", "static/*"]
+"MnesOS.docs" = ["*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -29,6 +29,7 @@ import yaml
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from ..cartridge import CartridgeLoader
+from ..yare_js_compiler import YareJSCompilationError, compile_js_to_yare
 from ..storage import AbstractStorageComponent
 from ..storage.models import Cartridge, CartridgeVersion, Visibility
 from .deps import get_current_user, get_storage
@@ -73,7 +74,8 @@ def _version_to_response(v: CartridgeVersion) -> CartridgeVersionResponse:
         bot_lore=v.bot_lore,
         first_message=v.first_message,
         checksum=v.checksum,
-        yare_js_src=v.yare_js_src,
+        yare_type=v.yare_type,
+        yare_spec_raw=v.yare_spec_raw,
         published_at=v.published_at,
     )
 
@@ -86,34 +88,43 @@ def _compute_checksum(*contents: bytes) -> str:
     return h.hexdigest()
 
 
-def _yaml_dict_or_empty(raw_text: str) -> dict[str, Any]:
-    try:
-        parsed = yaml.safe_load(raw_text) or {}
-    except yaml.YAMLError:
-        return {}
-    return parsed if isinstance(parsed, dict) else {}
+def _compile_and_validate(
+    yare_text: str,
+    yare_type: str,
+    lore_text: str,
+    directives_text: str,
+    first_message_text: str,
+) -> tuple:
+    """Compile (if needed) and validate via CartridgeLoader.
 
-
-def _load_and_validate(
-    yare_bytes: bytes,
-    lore_bytes: bytes,
-    directives_bytes: bytes,
-    first_message_bytes: bytes,
-) -> CartridgeLoader:
-    """Write uploaded bytes to a temp directory, run CartridgeLoader validation.
-
-    Returns the ``LoadedCartridge`` from ``CartridgeLoader.load()``.
-    Raises ``ValueError`` on any validation failure.
+    Returns ``(loaded_cartridge, yare_spec_raw)`` where ``yare_spec_raw``
+    is the raw authored source for non-YAML types, or ``None`` for YAML.
+    Raises ``ValueError`` on compilation or validation failure.
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
-        (tmp / "yare.yaml").write_bytes(yare_bytes)
-        (tmp / "bot_lore.md").write_bytes(lore_bytes)
-        if directives_bytes:
-            (tmp / "prompt_directives.yaml").write_bytes(directives_bytes)
-        if first_message_bytes:
-            (tmp / "first-message.md").write_bytes(first_message_bytes)
-        return CartridgeLoader().load(str(tmp))
+        if yare_type == "js":
+            try:
+                compiled_dict = compile_js_to_yare(yare_text or "")
+            except YareJSCompilationError as exc:
+                raise ValueError(f"YARE JS compilation failed: {exc}") from exc
+            (tmp / "yare.yaml").write_text(
+                yaml.dump(compiled_dict, default_flow_style=False), encoding="utf-8"
+            )
+            yare_spec_raw: Any = yare_text
+        else:
+            (tmp / "yare.yaml").write_text(yare_text or "", encoding="utf-8")
+            yare_spec_raw = None
+
+        (tmp / "bot_lore.md").write_text(lore_text or "", encoding="utf-8")
+        if directives_text:
+            (tmp / "prompt_directives.yaml").write_text(directives_text, encoding="utf-8")
+        if first_message_text:
+            (tmp / "first-message.md").write_text(first_message_text, encoding="utf-8")
+
+        loaded = CartridgeLoader().load(str(tmp))
+
+    return loaded, yare_spec_raw
 
 
 # ---------------------------------------------------------------------------
@@ -284,26 +295,28 @@ def publish_cartridge_version(
             detail="You do not own this cartridge.",
         )
 
-    if body.yare_type == "yaml":
-        try:
-            loaded_yare_spec = yaml.safe_load(body.yare_rules) or {}
-        except yaml.YAMLError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Invalid yare_rules YAML: {exc}",
-            )
-        if not isinstance(loaded_yare_spec, dict):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="yare_rules YAML must deserialize to an object.",
-            )
-        yare_spec = loaded_yare_spec
-        yare_js_src = None
-    else:
-        yare_spec = {}
-        yare_js_src = body.yare_rules
+    # Reject duplicate version_tag
+    existing_versions = storage.list_cartridge_versions(cartridge_id)
+    if any(v.version_tag == body.version_tag for v in existing_versions):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Version tag {body.version_tag!r} already exists for this cartridge.",
+        )
 
-    prompt_directives = _yaml_dict_or_empty(body.prompt_directives)
+    try:
+        loaded, yare_spec_raw = _compile_and_validate(
+            yare_text=body.yare_rules,
+            yare_type=body.yare_type,
+            lore_text=body.bot_lore,
+            directives_text=body.prompt_directives,
+            first_message_text=body.first_message,
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Cartridge validation failed: {exc}",
+        )
+
     checksum = _compute_checksum(
         body.yare_rules.encode("utf-8"),
         body.prompt_directives.encode("utf-8"),
@@ -315,12 +328,13 @@ def publish_cartridge_version(
         CartridgeVersion(
             cartridge_id=cartridge_id,
             version_tag=body.version_tag,
-            yare_spec=yare_spec,
-            prompt_directives=prompt_directives,
-            bot_lore=body.bot_lore,
-            first_message=body.first_message,
+            yare_spec=loaded.yare_config,
+            prompt_directives=loaded.prompt_directives,
+            bot_lore=loaded.lore_content,
+            first_message=loaded.first_message,
             checksum=checksum,
-            yare_js_src=yare_js_src,
+            yare_type=body.yare_type,
+            yare_spec_raw=yare_spec_raw,
         )
     )
     return _version_to_response(version)
@@ -361,6 +375,7 @@ async def create_cartridge_version(
     lore_bytes = b""
     directives_bytes = b""
     first_message_bytes = b""
+    yare_type = "yaml"
 
     if zip_file is not None:
         # Extract from ZIP
@@ -369,22 +384,28 @@ async def create_cartridge_version(
             with zipfile.ZipFile(io.BytesIO(raw_zip)) as zf:
                 names = zf.namelist()
                 # Strip leading directory prefix if present
-                yare_candidates = [n for n in names if n.endswith("yare.yaml")]
+                yare_yaml_candidates = [n for n in names if n.endswith("yare.yaml")]
+                yare_js_candidates = [n for n in names if n.endswith("yare.js")]
                 lore_candidates = [n for n in names if n.endswith("bot_lore.md")]
                 dir_candidates = [n for n in names if n.endswith("prompt_directives.yaml")]
                 first_message_candidates = [n for n in names if n.endswith("first-message.md")]
 
-                if not yare_candidates:
+                if yare_yaml_candidates:
+                    yare_bytes = zf.read(yare_yaml_candidates[0])
+                    yare_type = "yaml"
+                elif yare_js_candidates:
+                    yare_bytes = zf.read(yare_js_candidates[0])
+                    yare_type = "js"
+                else:
                     raise HTTPException(
                         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail="ZIP archive must contain yare.yaml.",
+                        detail="ZIP archive must contain yare.yaml or yare.js.",
                     )
                 if not lore_candidates:
                     raise HTTPException(
                         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail="ZIP archive must contain bot_lore.md.",
                     )
-                yare_bytes = zf.read(yare_candidates[0])
                 lore_bytes = zf.read(lore_candidates[0])
                 if dir_candidates:
                     directives_bytes = zf.read(dir_candidates[0])
@@ -403,18 +424,30 @@ async def create_cartridge_version(
             )
         yare_bytes = await yare_file.read()
         lore_bytes = await lore_file.read()
+        # Detect YARE type from filename
+        if yare_file.filename and yare_file.filename.endswith(".js"):
+            yare_type = "js"
         if directives_file is not None:
             directives_bytes = await directives_file.read()
         if first_message_file is not None:
             first_message_bytes = await first_message_file.read()
 
+    # ── Duplicate version_tag check ───────────────────────────────────────
+    existing_versions = storage.list_cartridge_versions(cartridge_id)
+    if any(v.version_tag == version_tag for v in existing_versions):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Version tag {version_tag!r} already exists for this cartridge.",
+        )
+
     # ── Validation boundary ───────────────────────────────────────────────
     try:
-        loaded = _load_and_validate(
-            yare_bytes,
-            lore_bytes,
-            directives_bytes,
-            first_message_bytes,
+        loaded, yare_spec_raw = _compile_and_validate(
+            yare_text=yare_bytes.decode("utf-8"),
+            yare_type=yare_type,
+            lore_text=lore_bytes.decode("utf-8"),
+            directives_text=directives_bytes.decode("utf-8") if directives_bytes else "",
+            first_message_text=first_message_bytes.decode("utf-8") if first_message_bytes else "",
         )
     except (ValueError, FileNotFoundError) as exc:
         raise HTTPException(
@@ -433,6 +466,8 @@ async def create_cartridge_version(
             bot_lore=loaded.lore_content,
             first_message=loaded.first_message,
             checksum=checksum,
+            yare_type=yare_type,
+            yare_spec_raw=yare_spec_raw,
         )
     )
     return _version_to_response(version)

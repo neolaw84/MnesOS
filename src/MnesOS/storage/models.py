@@ -128,7 +128,8 @@ class CartridgeVersion:
     bot_lore: str
     first_message: str
     checksum: str
-    yare_js_src: Optional[str] = None  # plain-text JS source (nullable)
+    yare_type: str = "yaml"              # 'yaml' | 'js'
+    yare_spec_raw: Optional[str] = None  # raw source for non-YAML; NULL for YAML
     id: Optional[str] = None
     published_at: Optional[datetime] = None
 

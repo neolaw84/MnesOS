@@ -12,6 +12,8 @@ from MnesOS.builder.agents import (
     BuilderRequest,
     BuilderResult,
     SpecialistRole,
+    BuilderState,
+    build_builder_graph,
 )
 
 
@@ -105,3 +107,86 @@ class TestBuilderOrchestrator:
 
         result = orch.generate(request)
         assert isinstance(result, BuilderResult)
+
+
+class TestBuilderGraphTDD:
+    """TDD tests for the new LangGraph-based builder."""
+
+    def test_graph_compilation(self):
+        """Verify the builder graph can be built and compiled correctly."""
+        mock_llm = MagicMock()
+        graph = build_builder_graph(mock_llm)
+        assert graph is not None
+        # Verify it has the expected nodes
+        node_names = [n for n in graph.nodes]
+        assert "architect" in node_names
+        assert "lore_master" in node_names
+        assert "mechanic" in node_names
+        assert "prompter" in node_names
+        assert "validator" in node_names
+
+    def test_prompt_directive_compliance(self):
+        """Verify final prompt_directives use bot_memory and NOT state."""
+        mock_llm = MagicMock()
+        orch = BuilderOrchestrator(llm=mock_llm)
+        request = BuilderRequest(requirements="Cyberpunk detective")
+        
+        # We'll mock llm.invoke to return content that includes bot_memory
+        mock_llm.invoke = MagicMock(return_value=MagicMock(content="director: use bot_memory[hp]\n---SPLIT---\nHello"))
+        
+        result = orch.generate(request)
+        assert "bot_memory" in result.prompt_directives
+        assert "state." not in result.prompt_directives
+
+    def test_yare_dice_compliance(self):
+        """Verify yare_spec uses @ roll(1d20) without quotes."""
+        mock_llm = MagicMock()
+        mock_llm.invoke = MagicMock(return_value=MagicMock(content="@ roll(1d20)"))
+        orch = BuilderOrchestrator(llm=mock_llm)
+        request = BuilderRequest(requirements="Combat with dice")
+        
+        result = orch.generate(request)
+        assert "@ roll(" in result.yare_spec
+        assert "@ roll('" not in result.yare_spec
+        assert "@ roll(\"" not in result.yare_spec
+
+    def test_yare_compiler_validation_retry(self):
+        """Verify retry logic works when CartridgeLoader fails."""
+        mock_llm = MagicMock()
+        
+        # 'roll' is not a valid action name, it's a function inside expressions.
+        # This will fail the _validate_steps action check.
+        invalid_yare = "events:\n  attack:\n    steps:\n      - action: roll\n        var: state.damage\n        value: 10"
+        
+        # This is valid: uses 'set' action and correct "@ roll(1d6)" syntax (quoted).
+        valid_yare = "events:\n  attack:\n    steps:\n      - action: set\n        var: state.damage\n        value: \"@ roll(1d6)\""
+        
+        # Mock responses for the graph execution
+        call_count = 0
+        def side_effect(prompt):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1: return MagicMock(content="Architect R1")
+            if call_count == 2: return MagicMock(content="# Lore R1")
+            if call_count == 3: return MagicMock(content=invalid_yare)
+            if call_count == 4: return MagicMock(content="director: x1\n---SPLIT---\ny1")
+            if call_count == 5: return MagicMock(content="Architect R2")
+            if call_count == 6: return MagicMock(content="# Lore R2")
+            if call_count == 7: return MagicMock(content=valid_yare)
+            if call_count == 8: return MagicMock(content="director: x2\n---SPLIT---\ny2")
+            return MagicMock(content=f"Extra Call {call_count}")
+
+        mock_llm.invoke.side_effect = side_effect
+        
+        orch = BuilderOrchestrator(llm=mock_llm)
+        request = BuilderRequest(requirements="Test retry")
+        
+        result = orch.generate(request)
+        
+        # Verify both final output AND transition signals
+        assert "@ roll(1d6)" in result.yare_spec
+        assert "x2" in result.prompt_directives
+        assert "y2" in result.first_message
+        
+        # Check call count: 4 nodes * 2 iterations = 8 calls
+        assert call_count >= 8
