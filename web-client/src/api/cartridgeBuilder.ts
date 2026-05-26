@@ -4,7 +4,7 @@
  * [MnesOS-260525-08] Cartridge generation from text requirements.
  */
 
-import { apiFetch } from "./client";
+import { getOpenRouterKey, getUserId } from "./client";
 
 export interface GenerateCartridgeRequest {
   requirements: string;
@@ -26,9 +26,30 @@ export interface GenerateCartridgeResponse {
 export async function generateCartridge(
   body: GenerateCartridgeRequest,
 ): Promise<GenerateCartridgeResponse> {
-  const resp = await apiFetch("/api/builder/generate", {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  const apiKey = getOpenRouterKey();
+  if (apiKey) {
+    headers["X-OpenRouter-Key"] = apiKey;
+  }
+
+  const userId = getUserId();
+  if (userId) {
+    headers["X-User-Id"] = userId;
+  }
+
+  const response = await fetch("/api/builder/generate", {
     method: "POST",
+    headers,
     body: JSON.stringify(body),
   });
-  return resp.json();
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`API ${response.status}: ${text}`);
+  }
+
+  return response.json() as Promise<GenerateCartridgeResponse>;
 }

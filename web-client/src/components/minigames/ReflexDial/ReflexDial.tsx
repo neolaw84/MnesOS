@@ -51,7 +51,6 @@ export default function ReflexDial({ config, onComplete }: MinigameComponentProp
   const lastZoneEntryRef = useRef<number | null>(null);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
-  const startTimeRef = useRef(Date.now());
 
   // Rotation animation
   useEffect(() => {

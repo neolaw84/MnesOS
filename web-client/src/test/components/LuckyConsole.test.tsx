@@ -103,7 +103,7 @@ describe('LuckyConsole', () => {
 
     await user.click(screen.getByRole('button', { name: /generate|i'm feeling lucky/i }))
 
-    expect(screen.getByText(/generating/i)).toBeInTheDocument()
+    expect(screen.getByText(/generating your cartridge/i)).toBeInTheDocument()
   })
 
   it('shows error state on API failure', async () => {

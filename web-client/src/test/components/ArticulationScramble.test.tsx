@@ -1,7 +1,7 @@
 /**
  * Unit tests for [MnesOS-260525-10] Articulation Scramble mini-game.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ArticulationScramble from '../../components/minigames/ArticulationScramble/ArticulationScramble'
